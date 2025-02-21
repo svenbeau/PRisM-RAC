@@ -1,0 +1,14 @@
+PRiSM-RAC/
+├─ main.py
+├─ ui/
+│  ├─ main_window.py        <-- Hauptfenster mit Hotfolder-Übersicht (Start/Stop)
+│  ├─ hotfolder_config.py   <-- Dialog zur Konfiguration eines einzelnen Hotfolders
+├─ config/
+│  └─ config_manager.py
+├─ dynamic_jsx_generator.py <-- Generiert JSX mit debug_print
+├─ hotfolder_monitor.py     <-- Enthält pro Hotfolder einen Observer (Start/Stop)
+├─ assets/
+│  ├─ logo.png
+│  └─ spinner.gif           <-- 30x30 px Spinner (Beispiel-GIF)
+├─ requirements.txt
+└─ ...

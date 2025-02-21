@@ -1,37 +1,35 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 """
 Hotfolder Monitor – Überwacht einen definierten Ordner und führt bei Dateiänderungen folgende Schritte aus:
 1. Überprüft, ob die Datei vollständig (stabile Dateigröße) kopiert wurde.
-2. Öffnet die Datei in Adobe Photoshop (mittels Terminal-Befehl).
-3. Führt ein ausgewähltes JSX-Skript in Photoshop aus.
-4. Ein UI (mit Tkinter) ermöglicht das Festlegen des Hotfolder-Pfads, das Auswählen eines JSX-Skripts
-   (über einen Finder-Dialog) sowie das Aktivieren/Deaktivieren der Überwachung.
-
-Die Debug-Ausgabe wird global über die Variable DEBUG_OUTPUT gesteuert.
+2. Öffnet die Datei in Adobe Photoshop.
+3. Führt das dynamisch generierte Contentcheck-JSX aus (und ggf. ein zusätzliches JSX).
+4. Wertet das Ergebnis (Logfile) aus.
+5. Verschiebt die Datei in Success oder Fault und erstellt ggf. ein Fail-Log.
 """
+
+__all__ = ["HotfolderMonitor", "debug_print"]
 
 import os
 import time
+import shutil
+import json
 import subprocess
 import threading
-import tkinter as tk
-from tkinter import filedialog, messagebox
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-# Globaler Debug-Schalter
+from dynamic_jsx_generator import generate_jsx_script, debug_print
+
 DEBUG_OUTPUT = True
-
-
 def debug_print(message):
     if DEBUG_OUTPUT:
         print("[DEBUG]", message)
 
-
 def open_in_photoshop(file_path: str) -> bool:
-    """
-    Öffnet die angegebene Datei in Adobe Photoshop mittels des Terminal-Befehls.
-    """
     cmd_open = ["open", "-b", "com.adobe.Photoshop", file_path]
     debug_print("Opening file in Photoshop: " + str(cmd_open))
     try:
@@ -41,36 +39,21 @@ def open_in_photoshop(file_path: str) -> bool:
         debug_print("Error opening file in Photoshop: " + str(e))
         return False
 
-
 def run_jsx_in_photoshop(jsx_script_path: str) -> bool:
-    """
-    Führt ein JSX-Skript in Photoshop aus (basierend auf dem funktionierenden Beispiel).
-    """
     try:
         cmd_jsx = f'tell application id "com.adobe.Photoshop" to do javascript file "{jsx_script_path}"'
-        result = subprocess.run(
-            ["osascript", "-e", cmd_jsx],
-            capture_output=True,
-            text=True
-        )
-
+        result = subprocess.run(["osascript", "-e", cmd_jsx], capture_output=True, text=True)
         debug_print(f"JSX execution result: RC={result.returncode}")
         if result.stdout:
             debug_print(f"JSX stdout: {result.stdout}")
         if result.stderr:
             debug_print(f"JSX stderr: {result.stderr}")
-
-        return result.returncode == 0
-
+        return (result.returncode == 0)
     except Exception as e:
         debug_print(f"Error executing JSX: {e}")
         return False
 
-
 def is_file_stable(file_path: str, interval=1.0, retries=3) -> bool:
-    """
-    Prüft, ob eine Datei stabil ist (d.h. die Dateigröße ändert sich nicht über mehrere Abfragen).
-    """
     if not os.path.exists(file_path):
         return False
     last_size = os.path.getsize(file_path)
@@ -85,167 +68,182 @@ def is_file_stable(file_path: str, interval=1.0, retries=3) -> bool:
         else:
             stable_count = 0
             last_size = current_size
-        debug_print(f"Checking file stability for {file_path}: size {current_size}, stable_count {stable_count}")
+        debug_print(f"Checking file stability for {file_path}: size={current_size}, stable_count={stable_count}")
     return True
 
+def move_file(src_path, dest_dir):
+    try:
+        if not os.path.exists(src_path):
+            debug_print(f"Datei {src_path} existiert nicht mehr. Überspringe Verschiebung.")
+            return
+        if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir)
+        dest_path = os.path.join(dest_dir, os.path.basename(src_path))
+        shutil.move(src_path, dest_path)
+        debug_print(f"Datei verschoben nach: {dest_path}")
+    except Exception as e:
+        debug_print(f"Fehler beim Verschieben der Datei: {e}")
+
+def is_hidden(file_path: str) -> bool:
+    return os.path.basename(file_path).startswith('.')
 
 class HotfolderEventHandler(FileSystemEventHandler):
-    """
-    Event-Handler für Dateiänderungen im Hotfolder.
-    Bei Erzeugung oder Modifikation einer Datei wird geprüft, ob die Datei stabil ist,
-    anschließend in Photoshop geöffnet und das JSX-Skript ausgeführt.
-    """
-
-    def __init__(self, jsx_script_path_getter, hotfolder_path):
+    def __init__(self, monitor_instance):
         super().__init__()
-        self.jsx_script_path_getter = jsx_script_path_getter
-        self.hotfolder_path = hotfolder_path
-
-    def process_file(self, file_path):
-        debug_print("Processing file: " + file_path)
-        # Warte, bis die Datei vollständig kopiert wurde.
-        if is_file_stable(file_path):
-            # Öffne die Datei in Photoshop
-            if open_in_photoshop(file_path):
-                # Führe das ausgewählte JSX-Skript in Photoshop aus.
-                jsx_script = self.jsx_script_path_getter()
-                if jsx_script and os.path.exists(jsx_script):
-                    run_jsx_in_photoshop(jsx_script)
-                else:
-                    debug_print("Kein gültiges JSX-Skript ausgewählt.")
-        else:
-            debug_print("Datei ist nicht stabil: " + file_path)
+        self.monitor = monitor_instance
 
     def on_created(self, event):
-        if not event.is_directory:
-            debug_print("File created: " + event.src_path)
-            self.process_file(event.src_path)
+        if event.is_directory or is_hidden(event.src_path):
+            return
+        debug_print(f"File created: {event.src_path}")
+        threading.Thread(target=self.monitor.process_file, args=(event.src_path,)).start()
 
     def on_modified(self, event):
-        if not event.is_directory:
-            debug_print("File modified: " + event.src_path)
-            self.process_file(event.src_path)
-
+        if event.is_directory or is_hidden(event.src_path):
+            return
+        debug_print(f"File modified: {event.src_path}")
+        threading.Thread(target=self.monitor.process_file, args=(event.src_path,)).start()
 
 class HotfolderMonitor:
-    """
-    Verwaltet die Überwachung eines Hotfolders mithilfe des Watchdog-Observers.
-    Bei Start werden zunächst alle existierenden Dateien verarbeitet.
-    """
+    def __init__(self, hf_config: dict, on_status_update=None, on_file_processing=None):
+        self.hf_config = hf_config
+        self.monitor_dir = hf_config.get("monitor_dir", "")
+        self.observer = None
+        self.active = False
+        self.processed_files = set()  # Verarbeitete Dateien
 
-    def __init__(self, hotfolder_path, jsx_script_path_getter):
-        self.hotfolder_path = hotfolder_path
-        self.jsx_script_path_getter = jsx_script_path_getter
-        self.observer = Observer()
-        self.event_handler = HotfolderEventHandler(jsx_script_path_getter, hotfolder_path)
-        self.monitoring = False
+        self.on_status_update = on_status_update
+        self.on_file_processing = on_file_processing
 
     def start(self):
-        if not os.path.exists(self.hotfolder_path):
-            debug_print("Hotfolder does not exist: " + self.hotfolder_path)
+        if not self.monitor_dir or not os.path.exists(self.monitor_dir):
+            debug_print(f"Hotfolder existiert nicht: {self.monitor_dir}")
             return
-        self.monitoring = True
-        debug_print("Starting hotfolder monitor on: " + self.hotfolder_path)
-        # Alle vorhandenen Dateien im Hotfolder werden initial verarbeitet.
-        for root, dirs, files in os.walk(self.hotfolder_path):
+
+        debug_print(f"Starte HotfolderMonitor für: {self.monitor_dir}")
+        self.observer = Observer()
+        event_handler = HotfolderEventHandler(self)
+        self.observer.schedule(event_handler, self.monitor_dir, recursive=True)
+        self.observer.start()
+        self.active = True
+
+        if self.on_status_update:
+            self.on_status_update("Aktiv", True)
+
+        for root, dirs, files in os.walk(self.monitor_dir):
             for file in files:
                 file_path = os.path.join(root, file)
-                debug_print("Processing existing file: " + file_path)
-                self.event_handler.process_file(file_path)
-        self.observer.schedule(self.event_handler, self.hotfolder_path, recursive=True)
-        self.observer.start()
-        debug_print("Observer started.")
+                debug_print(f"Processing existing file: {file_path}")
+                self.process_file(file_path)
 
     def stop(self):
-        if self.monitoring:
-            debug_print("Stopping hotfolder monitor.")
+        if self.observer and self.active:
+            debug_print(f"Stoppe HotfolderMonitor für: {self.monitor_dir}")
             self.observer.stop()
             self.observer.join()
-            self.monitoring = False
+            self.active = False
+            if self.on_status_update:
+                self.on_status_update("Inaktiv", False)
 
+    def process_file(self, file_path: str):
+        # Falls Datei bereits verarbeitet, überspringen
+        if file_path in self.processed_files:
+            debug_print(f"Datei {file_path} wurde bereits verarbeitet. Überspringe.")
+            return
+        self.processed_files.add(file_path)
 
-class Application(tk.Tk):
-    """
-    Ein einfaches UI, das:
-     - Den Hotfolder-Pfad festlegt.
-     - Über einen Button ein Dropdown ermöglicht, um ein JSX-Skript auszuwählen (Finder-Dialog).
-     - Einen Schalter zur Aktivierung/Deaktivierung der Überwachung bietet.
-    """
+        if self.on_file_processing:
+            self.on_file_processing(os.path.basename(file_path))
 
-    def __init__(self):
-        super().__init__()
-        self.title("Hotfolder Monitor")
-        self.geometry("500x200")
-        # Globale Variablen
-        self.jsx_script_path = None
-        self.hotfolder_path = None
+        debug_print(f"Verarbeite Datei: {file_path}")
 
-        # UI-Elemente
-        self.create_widgets()
+        if not is_file_stable(file_path):
+            debug_print(f"Datei ist nicht stabil (noch im Kopiervorgang?): {file_path}")
+            if self.on_file_processing:
+                self.on_file_processing(None)
+            return
 
-        self.monitor = None
-        self.monitor_thread = None
+        if not open_in_photoshop(file_path):
+            debug_print("Fehler beim Öffnen der Datei in Photoshop.")
+            if self.on_file_processing:
+                self.on_file_processing(None)
+            return
 
-    def create_widgets(self):
-        # Eingabefeld für den Hotfolder-Pfad
-        tk.Label(self, text="Hotfolder Pfad:").pack(pady=5)
-        self.hotfolder_entry = tk.Entry(self, width=50)
-        self.hotfolder_entry.pack(pady=5)
-        # Button, um einen Hotfolder auszuwählen
-        tk.Button(self, text="Hotfolder auswählen", command=self.choose_hotfolder).pack(pady=5)
+        file_name = os.path.basename(file_path)
+        jsx_script_path = generate_jsx_script(self.hf_config, file_name)
+        success = run_jsx_in_photoshop(jsx_script_path)
+        if not success:
+            debug_print("Fehler beim Ausführen des Contentcheck-JSX.")
+            fault_dir = self.hf_config.get("fault_dir", "")
+            move_file(file_path, fault_dir)
+            if self.on_file_processing:
+                self.on_file_processing(None)
+            return
 
-        # Button zur Auswahl eines JSX-Skripts über einen Finder-Dialog
-        self.jsx_button = tk.Button(self, text="JSX-Skript auswählen", command=self.choose_jsx_script)
-        self.jsx_button.pack(pady=5)
+        logfiles_dir = self.hf_config.get("logfiles_dir", "")
+        log_file = os.path.join(logfiles_dir, file_name.rsplit(".", 1)[0] + "_log_contentcheck.json")
+        debug_print("Erwarte Logfile: " + log_file)
 
-        # Checkbox, um die Überwachung zu aktivieren/deaktivieren
-        self.monitor_var = tk.BooleanVar(value=False)
-        self.monitor_check = tk.Checkbutton(self, text="Hotfolder Überwachung aktivieren", variable=self.monitor_var,
-                                            command=self.toggle_monitoring)
-        self.monitor_check.pack(pady=5)
+        timeout = 30
+        elapsed = 0
+        while elapsed < timeout:
+            if os.path.exists(log_file):
+                break
+            time.sleep(1)
+            elapsed += 1
 
-    def choose_hotfolder(self):
-        folder = filedialog.askdirectory(title="Hotfolder auswählen")
-        if folder:
-            self.hotfolder_entry.delete(0, tk.END)
-            self.hotfolder_entry.insert(0, folder)
-            self.hotfolder_path = folder
-            debug_print("Hotfolder ausgewählt: " + folder)
+        if not os.path.exists(log_file):
+            debug_print("Contentcheck-Logfile wurde nicht erzeugt, verschiebe Datei in Fault.")
+            fault_dir = self.hf_config.get("fault_dir", "")
+            move_file(file_path, fault_dir)
+            if self.on_file_processing:
+                self.on_file_processing(None)
+            return
 
-    def choose_jsx_script(self):
-        script = filedialog.askopenfilename(title="JSX-Skript auswählen", filetypes=[("JSX Dateien", "*.jsx")])
-        if script:
-            self.jsx_script_path = script
-            # Button-Beschriftung mit dem Namen des ausgewählten Skripts aktualisieren
-            self.jsx_button.config(text=os.path.basename(script))
-            debug_print("JSX-Skript ausgewählt: " + script)
+        try:
+            with open(log_file, "r", encoding="utf-8") as f:
+                contentcheck = json.load(f)
+        except Exception as e:
+            debug_print("Fehler beim Lesen des Logfiles: " + str(e))
+            fault_dir = self.hf_config.get("fault_dir", "")
+            move_file(file_path, fault_dir)
+            if self.on_file_processing:
+                self.on_file_processing(None)
+            return
 
-    def get_jsx_script_path(self):
-        return self.jsx_script_path
+        # Vergleiche die ausgewählten Metadaten-Felder (required_metadata) mit den Werten im Log
+        var_required = self.hf_config.get("required_metadata", [])
+        var_missing = {}
+        for field in var_required:
+            if "metadata" in contentcheck and field in contentcheck["metadata"]:
+                val = contentcheck["metadata"][field]
+            else:
+                val = "undefined"
+            if val.strip().lower() == "undefined" or val.strip() == "":
+                var_missing[field] = val
 
-    def toggle_monitoring(self):
-        if self.monitor_var.get():
-            # Starten der Überwachung
-            if not self.hotfolder_path:
-                messagebox.showerror("Fehler", "Bitte wählen Sie zuerst einen Hotfolder aus.")
-                self.monitor_var.set(False)
-                return
-            if not self.jsx_script_path:
-                messagebox.showerror("Fehler", "Bitte wählen Sie zuerst ein JSX-Skript aus.")
-                self.monitor_var.set(False)
-                return
-            # Erstelle und starte den Monitor in einem separaten Thread
-            self.monitor = HotfolderMonitor(self.hotfolder_path, self.get_jsx_script_path)
-            self.monitor_thread = threading.Thread(target=self.monitor.start, daemon=True)
-            self.monitor_thread.start()
-            debug_print("Monitoring gestartet.")
+        if len(var_missing) == 0:
+            criteria_met = True
         else:
-            # Stoppen der Überwachung
-            if self.monitor:
-                self.monitor.stop()
-                debug_print("Monitoring gestoppt.")
+            criteria_met = False
 
+        if criteria_met:
+            debug_print("Contentcheck erfolgreich. Führe zusätzliches JSX aus und verschiebe Datei in Success.")
+            additional_jsx = self.hf_config.get("additional_jsx", "").strip()
+            if additional_jsx and os.path.exists(additional_jsx):
+                add_success = run_jsx_in_photoshop(additional_jsx)
+                if not add_success:
+                    debug_print("Zusätzliches JSX-Skript schlug fehl (wird aber ignoriert).")
+            success_dir = self.hf_config.get("success_dir", "")
+            move_file(file_path, success_dir)
+        else:
+            debug_print("Contentcheck fehlgeschlagen. Fehlende Felder: " + json.dumps(var_missing))
+            debug_print("Erzeuge Fail-Log und verschiebe Datei in Fault.")
+            fail_log_file = os.path.join(logfiles_dir, file_name.rsplit(".", 1)[0] + "_01_log_fail.json")
+            with open(fail_log_file, "w", encoding="utf-8") as f:
+                json.dump({"missing": var_missing}, f, indent=4, ensure_ascii=False)
+            fault_dir = self.hf_config.get("fault_dir", "")
+            move_file(file_path, fault_dir)
 
-if __name__ == "__main__":
-    app = Application()
-    app.mainloop()
+        if self.on_file_processing:
+            self.on_file_processing(None)
