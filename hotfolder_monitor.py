@@ -1,165 +1,220 @@
+#!/usr/bin/env python3
+"""
+hotfolder_monitor.py
+Überwacht den Monitor-Ordner und verarbeitet neu hinzugefügte Dateien.
+Versteckte Dateien (z.B. .DS_Store) werden übersprungen.
+Das Script zum Auslesen der Keywords, Metadaten und Ebenen wird nach dem Öffnen
+der Datei in Photoshop gestartet, und anhand des generierten Logs wird der Zielordner gewählt.
+"""
+
 import os
 import time
+import shutil
+import subprocess
 import threading
 import json
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-from dynamic_jsx_generator import generate_jsx_script
+import tempfile
 from utils import debug_print, open_in_photoshop, run_jsx_in_photoshop, move_file, is_file_stable
 
-class HotfolderEventHandler(FileSystemEventHandler):
-    def __init__(self, hf_config, on_status_update=None, on_file_processing=None):
-        super().__init__()
-        self.hf_config = hf_config
-        # Falls vorhanden, Callback-Funktionen speichern
-        self.on_status_update = on_status_update
-        self.on_file_processing = on_file_processing
+def is_hidden(file_path):
+    """Prüft, ob der Dateiname mit einem Punkt beginnt."""
+    return os.path.basename(file_path).startswith(".")
 
-    def process_file(self, file_path: str):
-        # Verhindere Mehrfachverarbeitung einer Datei
-        processed = self.hf_config.setdefault("processed_files", set())
-        if file_path in processed:
-            debug_print(f"Datei {file_path} wurde bereits verarbeitet. Überspringe.")
-            return
-        processed.add(file_path)
+def read_json_file(file_path):
+    """Liest eine JSON-Datei und gibt das Objekt zurück."""
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        debug_print(f"Error reading JSON file {file_path}: {e}")
+        return None
 
-        if self.on_file_processing:
-            self.on_file_processing(os.path.basename(file_path))
+def create_temp_jsx_with_keyword_check(base_jsx_path, keyword_check_enabled, keyword_check_word):
+    """
+    Erzeugt eine temporäre JSX-Datei, in die zu Beginn zwei Zeilen injiziert werden:
+      var keywordCheckEnabled = true/false;
+      var keywordCheckWord = "Rueckseite";
+    Anschließend wird der Inhalt des Basis-JSX-Scripts angehängt.
+    """
+    if not base_jsx_path or not os.path.exists(base_jsx_path):
+        debug_print(f"Error: Base JSX script not found at {base_jsx_path}")
+        return None
+    try:
+        with open(base_jsx_path, "r", encoding="utf-8") as f:
+            base_jsx_code = f.read()
+    except Exception as e:
+        debug_print(f"Error reading base JSX script {base_jsx_path}: {e}")
+        return None
 
-        debug_print(f"Verarbeite Datei: {file_path}")
+    var_line = "var keywordCheckEnabled = " + str(keyword_check_enabled).lower() + ";\n"
+    var_line2 = "var keywordCheckWord = " + json.dumps(keyword_check_word) + ";\n"
+    combined_code = var_line + var_line2 + base_jsx_code
 
-        if not is_file_stable(file_path):
-            debug_print(f"Datei ist nicht stabil (noch im Kopiervorgang?): {file_path}")
-            if self.on_file_processing:
-                self.on_file_processing(None)
-            return
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".jsx", prefix="dynamic_contentcheck_")
+        os.close(tmp_fd)
+        with open(tmp_path, "w", encoding="utf-8") as tmp_f:
+            tmp_f.write(combined_code)
+        debug_print(f"Temporary JSX created: {tmp_path} (keywordCheckEnabled={keyword_check_enabled}, keywordCheckWord={keyword_check_word})")
+        return tmp_path
+    except Exception as e:
+        debug_print(f"Error writing temporary JSX script: {e}")
+        return None
 
-        if not open_in_photoshop(file_path):
-            debug_print("Fehler beim Öffnen der Datei in Photoshop.")
-            if self.on_file_processing:
-                self.on_file_processing(None)
-            return
+def process_file(file_path, config, jsx_script_path, on_status_update=None):
+    """
+    Verarbeitet eine einzelne Datei:
+      - Überspringt versteckte Dateien.
+      - Prüft, ob die Datei stabil ist.
+      - Ruft on_status_update mit "Processing: ..." auf.
+      - Öffnet die Datei in Photoshop.
+      - Erzeugt dynamisch ein temporäres JSX-Script mit den Keyword-Parametern,
+        führt es aus und löscht es anschließend.
+      - Wartet kurz, liest den generierten Contentcheck-Log und entscheidet anhand der Statuswerte,
+        ob die Datei in den Success- oder Fault-Ordner verschoben wird.
+      - Ruft on_status_update mit "Processed: ..." auf.
+    """
+    success_dir = config.get("success_dir")
+    fault_dir = config.get("fault_dir")
+    logfiles_dir = config.get("logfiles_dir")
 
-        file_name = os.path.basename(file_path)
-        jsx_script_path = generate_jsx_script(self.hf_config, file_name)
-        success = run_jsx_in_photoshop(jsx_script_path)
-        if not success:
-            debug_print("Fehler beim Ausführen des Contentcheck-JSX.")
-            fault_dir = self.hf_config.get("fault_dir", "")
-            move_file(file_path, fault_dir)
-            if self.on_file_processing:
-                self.on_file_processing(None)
-            return
+    if is_hidden(file_path):
+        debug_print(f"Skipping hidden file: {file_path}")
+        return
 
-        logfiles_dir = self.hf_config.get("logfiles_dir", "")
-        log_file = os.path.join(logfiles_dir, file_name.rsplit(".", 1)[0] + "_log_contentcheck.json")
-        debug_print("Erwarte Logfile: " + log_file)
+    if not is_file_stable(file_path):
+        debug_print(f"File not stable: {file_path}")
+        return
 
-        timeout = 30
-        elapsed = 0
-        while elapsed < timeout:
-            if os.path.exists(log_file):
-                break
-            time.sleep(1)
-            elapsed += 1
+    if on_status_update:
+        on_status_update(f"Processing: {file_path}", True)
+    debug_print(f"Processing file: {file_path}")
 
-        if not os.path.exists(log_file):
-            debug_print("Contentcheck-Logfile wurde nicht erzeugt, verschiebe Datei in Fault.")
-            fault_dir = self.hf_config.get("fault_dir", "")
-            move_file(file_path, fault_dir)
-            if self.on_file_processing:
-                self.on_file_processing(None)
-            return
+    if open_in_photoshop(file_path):
+        debug_print(f"Opened {file_path} in Photoshop.")
+    else:
+        debug_print(f"Failed to open {file_path} in Photoshop.")
 
-        try:
-            with open(log_file, "r", encoding="utf-8") as f:
-                contentcheck = json.load(f)
-        except Exception as e:
-            debug_print("Fehler beim Lesen des Logfiles: " + str(e))
-            fault_dir = self.hf_config.get("fault_dir", "")
-            move_file(file_path, fault_dir)
-            if self.on_file_processing:
-                self.on_file_processing(None)
-            return
+    keyword_check_enabled = config.get("keyword_check_enabled", False)
+    keyword_check_word = config.get("keyword_check_word", "")
 
-        # Auswertung des Logfiles gemäß neuer JSON-Struktur
-        criteria_met = True
-        var_missing = {}
-        if "layers" in contentcheck:
-            # Falls das Logfile einen "layers"-Key enthält, wird davon ausgegangen, dass bestimmte Ebenen fehlen.
-            criteria_met = False
-            var_missing["layers"] = contentcheck["layers"]
-        elif "metadata" in contentcheck:
-            metadata = contentcheck["metadata"]
-            required_fields = self.hf_config.get("required_metadata", [])
-            for field in required_fields:
-                value = str(metadata.get(field, "")).strip().lower()
-                if value == "undefined" or value == "":
-                    criteria_met = False
-                    var_missing[field] = metadata.get(field, "undefined")
+    tmp_jsx_path = create_temp_jsx_with_keyword_check(jsx_script_path, keyword_check_enabled, keyword_check_word)
+    if not tmp_jsx_path:
+        debug_print("Could not create dynamic JSX. Aborting content check.")
+        dest = os.path.join(fault_dir, os.path.basename(file_path))
+        move_file(file_path, dest)
+        if on_status_update:
+            on_status_update(f"Processed (no script): {file_path}", True)
+        return
+
+    if run_jsx_in_photoshop(tmp_jsx_path):
+        debug_print(f"Executed JSX script: {tmp_jsx_path}")
+    else:
+        debug_print(f"Failed to execute JSX script: {tmp_jsx_path}")
+
+    try:
+        os.remove(tmp_jsx_path)
+    except Exception as e:
+        debug_print(f"Error removing temporary JSX script {tmp_jsx_path}: {e}")
+
+    time.sleep(2)
+
+    baseName = os.path.basename(file_path).rsplit(".", 1)[0]
+    logPath = os.path.join(logfiles_dir, baseName + "_01_log_contentcheck.json")
+    contentCheck = read_json_file(logPath)
+    debug_print(f"ContentCheck Log ({logPath}): {contentCheck}")
+
+    if contentCheck:
+        details = contentCheck.get("details", {})
+        layerStatus = details.get("layerStatus", "FAIL")
+        metaStatus = details.get("metaStatus", "FAIL")
+        if layerStatus == "OK" and metaStatus == "OK":
+            dest_dir = success_dir
+            debug_print("Contentcheck OK: Datei wird in Success verschoben.")
         else:
-            criteria_met = False
-            var_missing["error"] = "Unbekannte JSON-Struktur"
+            dest_dir = fault_dir
+            debug_print("Contentcheck FAIL: Datei wird in Fault verschoben.")
+    else:
+        dest_dir = fault_dir
+        debug_print("Kein Contentcheck Log gefunden: Datei wird in Fault verschoben.")
 
-        if criteria_met:
-            debug_print("Contentcheck erfolgreich. Verschiebe Datei in Success.")
-            additional_jsx = self.hf_config.get("additional_jsx", "").strip()
-            if additional_jsx and os.path.exists(additional_jsx):
-                add_success = run_jsx_in_photoshop(additional_jsx)
-                if not add_success:
-                    debug_print("Zusätzliches JSX-Skript schlug fehl (wird aber ignoriert).")
-            success_dir = self.hf_config.get("success_dir", "")
-            move_file(file_path, success_dir)
-        else:
-            debug_print("Contentcheck fehlgeschlagen. Fehlende Kriterien: " + json.dumps(var_missing))
-            fail_log_file = os.path.join(logfiles_dir, file_name.rsplit(".", 1)[0] + "_log_fail.json")
-            with open(fail_log_file, "w", encoding="utf-8") as f:
-                json.dump(var_missing, f, indent=4, ensure_ascii=False)
-            fault_dir = self.hf_config.get("fault_dir", "")
-            move_file(file_path, fault_dir)
+    dest = os.path.join(dest_dir, os.path.basename(file_path))
+    if move_file(file_path, dest):
+        debug_print(f"Moved file from {file_path} to {dest}")
+    else:
+        debug_print(f"Error moving file from {file_path} to {dest}")
 
-        if self.on_file_processing:
-            self.on_file_processing(None)
-
-    def on_created(self, event):
-        if not event.is_directory:
-            self.process_file(event.src_path)
-
-    def on_modified(self, event):
-        if not event.is_directory:
-            self.process_file(event.src_path)
+    if on_status_update:
+        on_status_update(f"Processed: {file_path}", True)
 
 class HotfolderMonitor:
-    def __init__(self, hf_config: dict, on_status_update=None, on_file_processing=None):
+    """
+    Klasse zur Überwachung eines Hotfolder-Verzeichnisses.
+    Akzeptiert ein hf_config-Dictionary, aus dem die Pfade für monitor_dir, success_dir,
+    fault_dir, logfiles_dir und optional "jsx_script_path" extrahiert werden.
+    Zusätzlich werden Callbacks on_status_update und on_file_processing unterstützt.
+    """
+    def __init__(self, hf_config, parent=None, on_status_update=None, on_file_processing=None):
         self.hf_config = hf_config
-        self.monitor_dir = hf_config.get("monitor_dir", "")
-        self.observer = Observer()
-        self.event_handler = HotfolderEventHandler(
-            hf_config,
-            on_status_update=on_status_update,
-            on_file_processing=on_file_processing
-        )
-        self.active = False
+        self.monitor_dir = hf_config.get("monitor_dir")
+        self.success_dir = hf_config.get("success_dir")
+        self.fault_dir = hf_config.get("fault_dir")
+        self.logfiles_dir = hf_config.get("logfiles_dir")
+        self.jsx_script_path = hf_config.get("jsx_script_path")
+        if not self.jsx_script_path:
+            self.jsx_script_path = os.path.join(os.path.dirname(__file__), "jsx_templates", "contentcheck_template.jsx")
+        self.parent = parent
+        self.on_status_update = on_status_update
+        self.on_file_processing = on_file_processing
+        self._running = False
+        self._thread = None
+
+    @property
+    def active(self):
+        return self._running
+
+    def _monitor_loop(self):
+        processed_files = set()
+        while self._running:
+            try:
+                for filename in os.listdir(self.monitor_dir):
+                    file_path = os.path.join(self.monitor_dir, filename)
+                    if os.path.isfile(file_path) and file_path not in processed_files:
+                        process_file(file_path, self.hf_config, self.jsx_script_path, on_status_update=self.on_status_update)
+                        processed_files.add(file_path)
+                        if self.on_file_processing:
+                            self.on_file_processing(file_path)
+                time.sleep(1)
+            except Exception as e:
+                debug_print(f"Error in HotfolderMonitor: {e}")
+                time.sleep(1)
 
     def start(self):
-        if not os.path.exists(self.monitor_dir):
-            debug_print("Hotfolder does not exist: " + self.monitor_dir)
-            return
-        for root, dirs, files in os.walk(self.monitor_dir):
-            for file in files:
-                file_path = os.path.join(root, file)
-                self.event_handler.process_file(file_path)
-        self.observer.schedule(self.event_handler, self.monitor_dir, recursive=True)
-        self.observer.start()
-        debug_print("Observer started on: " + self.monitor_dir)
-        self.active = True
+        self._running = True
+        debug_print(f"HotfolderMonitor starting for directory: {self.monitor_dir}")
+        self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
+        self._thread.start()
 
     def stop(self):
-        self.observer.stop()
-        self.observer.join()
-        debug_print("Observer stopped.")
-        self.active = False
+        self._running = False
+        if self._thread:
+            self._thread.join()
+        debug_print("HotfolderMonitor stopped.")
 
-    def worker_loop(self):
+if __name__ == "__main__":
+    hf_config = {
+        "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor",
+        "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
+        "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
+        "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
+        "jsx_script_path": "",  # leer -> Standardpfad wird genutzt
+        "keyword_check_enabled": True,
+        "keyword_check_word": "Rueckseite"
+    }
+    monitor = HotfolderMonitor(hf_config)
+    monitor.start()
+    try:
         while True:
             time.sleep(1)
+    except KeyboardInterrupt:
+        monitor.stop()

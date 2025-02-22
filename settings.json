@@ -1,37 +1,7 @@
 {
-    "id": "a3f9c0d4-9e8e-4fbb-9b7a-1f2e3d4c5b6a",
-    "name": "Test",
-    "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
-    "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor",
-    "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
-    "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
-    "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
-    "contentcheck_enabled": true,
-    "required_layers": [
-        "Freisteller",
-        "Messwerte",
-        "Korrektur",
-        "Freisteller_Wand",
-        "Bildausschnitt"
-    ],
-    "required_metadata": [
-        "author",
-        "description",
-        "keywords",
-        "headline"
-    ],
-    "keyword_check_enabled": true,
-    "keyword_check_word": "Rueckseite",
-    "keyword_layers": [],
-    "keyword_metadata": [
-        "author",
-        "description"
-    ],
-    "jsx_folder": "",
-    "additional_jsx": "",
     "hotfolders": [
         {
-            "id": "65b09a27-f8b9-434d-818c-fd886057eb58",
+            "id": "296c65be-923b-465c-9169-2e489fe726a2",
             "name": "Test",
             "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
             "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor",
@@ -42,12 +12,15 @@
             "required_layers": [
                 "Freisteller",
                 "Messwerte",
-                "Korrektur"
+                "Korrektur",
+                "Freisteller_Wand",
+                "Bildausschnitt"
             ],
             "required_metadata": [
                 "author",
                 "description",
-                "keywords"
+                "keywords",
+                "headline"
             ],
             "keyword_check_enabled": true,
             "keyword_check_word": "Rueckseite",
