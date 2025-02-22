@@ -2,15 +2,20 @@
 # -*- coding: utf-8 -*-
 
 """
-Hotfolder Monitor – Überwacht einen definierten Ordner und führt bei Dateiänderungen folgende Schritte aus:
-1. Überprüft, ob die Datei vollständig (stabile Dateigröße) kopiert wurde.
-2. Öffnet die Datei in Adobe Photoshop.
-3. Führt das dynamisch generierte Contentcheck-JSX aus (und ggf. ein zusätzliches JSX).
-4. Wertet das Ergebnis (Logfile) aus.
-5. Verschiebt die Datei in Success oder Fault und erstellt ggf. ein Fail-Log.
-"""
+Hotfolder Monitor – mit Queue (Warteschlange) für sequenzielle Verarbeitung
+und vollständigem Contentcheck (inkl. detailliertem Fail-Log).
 
-__all__ = ["HotfolderMonitor", "debug_print"]
+1) Dateien werden in die Queue gelegt (on_created / on_modified).
+2) Ein Worker-Thread verarbeitet sie nacheinander (process_file).
+3) Der Contentcheck wird anhand der konfigurierten Kriterien ausgewertet:
+   - Falls contentcheck_enabled false ist, wird der Check übersprungen.
+   - Ansonsten werden Standard-Kriterien (required_layers, required_metadata)
+     oder, falls keyword_check_enabled aktiv und im "keywords" Feld das definierte
+     Keyword vorkommt, die keyword-spezifischen Kriterien (keyword_layers, keyword_metadata)
+     geprüft.
+4) Fehlende Kriterien werden in einem Dictionary gesammelt und in das Fail‑Log geschrieben.
+   Nur wenn alle Kriterien erfüllt sind, wird die Datei in den Success‑Ordner verschoben.
+"""
 
 import os
 import time
@@ -18,16 +23,17 @@ import shutil
 import json
 import subprocess
 import threading
+import queue
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from dynamic_jsx_generator import generate_jsx_script, debug_print
+from dynamic_jsx_generator import generate_jsx_script
 
 DEBUG_OUTPUT = True
-def debug_print(message):
+def debug_print(msg):
     if DEBUG_OUTPUT:
-        print("[DEBUG]", message)
+        print("[DEBUG]", msg)
 
 def open_in_photoshop(file_path: str) -> bool:
     cmd_open = ["open", "-b", "com.adobe.Photoshop", file_path]
@@ -42,7 +48,9 @@ def open_in_photoshop(file_path: str) -> bool:
 def run_jsx_in_photoshop(jsx_script_path: str) -> bool:
     try:
         cmd_jsx = f'tell application id "com.adobe.Photoshop" to do javascript file "{jsx_script_path}"'
-        result = subprocess.run(["osascript", "-e", cmd_jsx], capture_output=True, text=True)
+        result = subprocess.run(["osascript", "-e", cmd_jsx],
+                                  capture_output=True,
+                                  text=True)
         debug_print(f"JSX execution result: RC={result.returncode}")
         if result.stdout:
             debug_print(f"JSX stdout: {result.stdout}")
@@ -96,13 +104,13 @@ class HotfolderEventHandler(FileSystemEventHandler):
         if event.is_directory or is_hidden(event.src_path):
             return
         debug_print(f"File created: {event.src_path}")
-        threading.Thread(target=self.monitor.process_file, args=(event.src_path,)).start()
+        self.monitor.enqueue_file(event.src_path)
 
     def on_modified(self, event):
         if event.is_directory or is_hidden(event.src_path):
             return
         debug_print(f"File modified: {event.src_path}")
-        threading.Thread(target=self.monitor.process_file, args=(event.src_path,)).start()
+        self.monitor.enqueue_file(event.src_path)
 
 class HotfolderMonitor:
     def __init__(self, hf_config: dict, on_status_update=None, on_file_processing=None):
@@ -110,8 +118,9 @@ class HotfolderMonitor:
         self.monitor_dir = hf_config.get("monitor_dir", "")
         self.observer = None
         self.active = False
-        self.processed_files = set()  # Verarbeitete Dateien
-
+        self.file_queue = queue.Queue()
+        self.worker_thread = None
+        self.stop_event = threading.Event()
         self.on_status_update = on_status_update
         self.on_file_processing = on_file_processing
 
@@ -119,71 +128,79 @@ class HotfolderMonitor:
         if not self.monitor_dir or not os.path.exists(self.monitor_dir):
             debug_print(f"Hotfolder existiert nicht: {self.monitor_dir}")
             return
-
         debug_print(f"Starte HotfolderMonitor für: {self.monitor_dir}")
         self.observer = Observer()
         event_handler = HotfolderEventHandler(self)
         self.observer.schedule(event_handler, self.monitor_dir, recursive=True)
         self.observer.start()
         self.active = True
-
         if self.on_status_update:
             self.on_status_update("Aktiv", True)
-
         for root, dirs, files in os.walk(self.monitor_dir):
             for file in files:
                 file_path = os.path.join(root, file)
-                debug_print(f"Processing existing file: {file_path}")
-                self.process_file(file_path)
+                debug_print(f"Found existing file: {file_path}")
+                self.enqueue_file(file_path)
+        self.worker_thread = threading.Thread(target=self.worker_loop, daemon=True)
+        self.worker_thread.start()
 
     def stop(self):
-        if self.observer and self.active:
+        if self.active:
             debug_print(f"Stoppe HotfolderMonitor für: {self.monitor_dir}")
-            self.observer.stop()
-            self.observer.join()
+            self.stop_event.set()
+            self.file_queue.put(None)  # Poison Pill
+            if self.observer:
+                self.observer.stop()
+                self.observer.join()
+            if self.worker_thread:
+                self.worker_thread.join()
             self.active = False
             if self.on_status_update:
                 self.on_status_update("Inaktiv", False)
 
-    def process_file(self, file_path: str):
-        # Falls Datei bereits verarbeitet, überspringen
-        if file_path in self.processed_files:
-            debug_print(f"Datei {file_path} wurde bereits verarbeitet. Überspringe.")
-            return
-        self.processed_files.add(file_path)
+    def enqueue_file(self, file_path: str):
+        if file_path:
+            debug_print(f"Enqueue file: {file_path}")
+            self.file_queue.put(file_path)
 
+    def worker_loop(self):
+        while not self.stop_event.is_set():
+            try:
+                file_path = self.file_queue.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            if file_path is None:
+                break
+            self.process_file(file_path)
+            self.file_queue.task_done()
+
+    def process_file(self, file_path: str):
         if self.on_file_processing:
             self.on_file_processing(os.path.basename(file_path))
-
         debug_print(f"Verarbeite Datei: {file_path}")
-
         if not is_file_stable(file_path):
             debug_print(f"Datei ist nicht stabil (noch im Kopiervorgang?): {file_path}")
             if self.on_file_processing:
                 self.on_file_processing(None)
             return
-
         if not open_in_photoshop(file_path):
             debug_print("Fehler beim Öffnen der Datei in Photoshop.")
             if self.on_file_processing:
                 self.on_file_processing(None)
             return
-
         file_name = os.path.basename(file_path)
         jsx_script_path = generate_jsx_script(self.hf_config, file_name)
-        success = run_jsx_in_photoshop(jsx_script_path)
-        if not success:
+        success_jsx = run_jsx_in_photoshop(jsx_script_path)
+        if not success_jsx:
             debug_print("Fehler beim Ausführen des Contentcheck-JSX.")
             fault_dir = self.hf_config.get("fault_dir", "")
             move_file(file_path, fault_dir)
             if self.on_file_processing:
                 self.on_file_processing(None)
             return
-
         logfiles_dir = self.hf_config.get("logfiles_dir", "")
         log_file = os.path.join(logfiles_dir, file_name.rsplit(".", 1)[0] + "_log_contentcheck.json")
         debug_print("Erwarte Logfile: " + log_file)
-
         timeout = 30
         elapsed = 0
         while elapsed < timeout:
@@ -191,7 +208,6 @@ class HotfolderMonitor:
                 break
             time.sleep(1)
             elapsed += 1
-
         if not os.path.exists(log_file):
             debug_print("Contentcheck-Logfile wurde nicht erzeugt, verschiebe Datei in Fault.")
             fault_dir = self.hf_config.get("fault_dir", "")
@@ -199,7 +215,6 @@ class HotfolderMonitor:
             if self.on_file_processing:
                 self.on_file_processing(None)
             return
-
         try:
             with open(log_file, "r", encoding="utf-8") as f:
                 contentcheck = json.load(f)
@@ -211,39 +226,80 @@ class HotfolderMonitor:
                 self.on_file_processing(None)
             return
 
-        # Vergleiche die ausgewählten Metadaten-Felder (required_metadata) mit den Werten im Log
-        var_required = self.hf_config.get("required_metadata", [])
-        var_missing = {}
-        for field in var_required:
-            if "metadata" in contentcheck and field in contentcheck["metadata"]:
-                val = contentcheck["metadata"][field]
-            else:
-                val = "undefined"
-            if val.strip().lower() == "undefined" or val.strip() == "":
-                var_missing[field] = val
-
-        if len(var_missing) == 0:
-            criteria_met = True
-        else:
-            criteria_met = False
-
-        if criteria_met:
-            debug_print("Contentcheck erfolgreich. Führe zusätzliches JSX aus und verschiebe Datei in Success.")
-            additional_jsx = self.hf_config.get("additional_jsx", "").strip()
-            if additional_jsx and os.path.exists(additional_jsx):
-                add_success = run_jsx_in_photoshop(additional_jsx)
-                if not add_success:
-                    debug_print("Zusätzliches JSX-Skript schlug fehl (wird aber ignoriert).")
+        missing_dict = self.evaluate_contentcheck(contentcheck)
+        if not missing_dict:
+            debug_print("Contentcheck erfolgreich. Verschiebe Datei in Success.")
             success_dir = self.hf_config.get("success_dir", "")
             move_file(file_path, success_dir)
         else:
-            debug_print("Contentcheck fehlgeschlagen. Fehlende Felder: " + json.dumps(var_missing))
-            debug_print("Erzeuge Fail-Log und verschiebe Datei in Fault.")
-            fail_log_file = os.path.join(logfiles_dir, file_name.rsplit(".", 1)[0] + "_01_log_fail.json")
-            with open(fail_log_file, "w", encoding="utf-8") as f:
-                json.dump({"missing": var_missing}, f, indent=4, ensure_ascii=False)
+            debug_print("Contentcheck fehlgeschlagen. Fehlende Kriterien: " + json.dumps(missing_dict))
+            log_fail_file = os.path.join(logfiles_dir, file_name.rsplit(".", 1)[0] + "_01_log_fail.json")
+            with open(log_fail_file, "w", encoding="utf-8") as ff:
+                json.dump(missing_dict, ff, indent=4, ensure_ascii=False)
             fault_dir = self.hf_config.get("fault_dir", "")
             move_file(file_path, fault_dir)
 
         if self.on_file_processing:
             self.on_file_processing(None)
+
+    def evaluate_contentcheck(self, contentcheck: dict) -> dict:
+        missing = {}
+        # Globaler Contentcheck-Schalter
+        if not self.hf_config.get("contentcheck_enabled", True):
+            debug_print("Globaler Contentcheck deaktiviert.")
+            return missing  # Check bestanden
+
+        # Standard-Kriterien
+        standard_layers = self.hf_config.get("required_layers", [])
+        standard_meta = self.hf_config.get("required_metadata", [])
+        # Keyword-Check
+        kw_enabled = self.hf_config.get("keyword_check_enabled", False)
+        kw_word = self.hf_config.get("keyword_check_word", "Rueckseite").lower()
+
+        meta_dict = contentcheck.get("metadata", {})
+        details = contentcheck.get("details", {})
+        layer_dict = details.get("layers", {})
+
+        is_keyword = False
+        if kw_enabled and "keywords" in meta_dict:
+            raw_keywords = meta_dict["keywords"]
+            if isinstance(raw_keywords, str):
+                if kw_word in raw_keywords.lower():
+                    debug_print("Keyword-basierter Check: Keyword erkannt.")
+                    is_keyword = True
+            elif isinstance(raw_keywords, list):
+                joined = ", ".join(raw_keywords)
+                if kw_word in joined.lower():
+                    debug_print("Keyword-basierter Check: Keyword erkannt.")
+                    is_keyword = True
+
+        if is_keyword:
+            used_layers = self.hf_config.get("keyword_layers", [])
+            used_meta = self.hf_config.get("keyword_metadata", [])
+        else:
+            used_layers = standard_layers
+            used_meta = standard_meta
+
+        if not used_layers and not used_meta:
+            debug_print("Keine Contentcheck-Kriterien definiert, Check übersprungen.")
+            return missing
+
+        # Ebenen-Prüfung
+        missing_layers = []
+        for layer in used_layers:
+            val = layer_dict.get(layer, "no")
+            if val.lower() != "yes":
+                missing_layers.append(layer)
+        if missing_layers:
+            missing["layers"] = missing_layers
+
+        # Metadaten-Prüfung
+        missing_meta = []
+        for meta in used_meta:
+            val = meta_dict.get(meta, "undefined")
+            if val.strip().lower() in ["undefined", "no", ""]:
+                missing_meta.append(meta)
+        if missing_meta:
+            missing["metadata"] = missing_meta
+
+        return missing

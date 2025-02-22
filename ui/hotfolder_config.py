@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import os
-from PyQt5 import QtWidgets, QtCore
-from config.config_manager import load_config, save_config, get_recent_dirs, update_recent_dirs
+import uuid
+from PyQt5 import QtWidgets
+from config.config_manager import load_settings, save_settings, get_recent_dirs, update_recent_dirs
 
 DEBUG_OUTPUT = True
 def debug_print(msg):
@@ -12,15 +13,21 @@ def debug_print(msg):
 
 class HotfolderConfigDialog(QtWidgets.QDialog):
     """
-    Dialog zum Bearbeiten eines einzelnen Hotfolders.
+    Dialog zum Bearbeiten eines einzelnen Hotfolders (per Referenz).
+    Identifikation erfolgt über 'id' statt über den Namen.
+    Die Änderungen werden nur einmal gespeichert – kein doppeltes Überschreiben.
     """
     def __init__(self, hotfolder_data: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Hotfolder Konfiguration")
-        self.resize(600, 500)
+        self.resize(700, 600)
+
+        # Direkte Referenz; Änderungen wirken direkt im übergebenen Dictionary
         self.hotfolder = hotfolder_data
-        self.current_config = load_config()
-        self.recent_dirs = self.current_config.get("recent_paths", {
+        debug_print("HotfolderConfigDialog init: " + str(self.hotfolder))
+
+        self.current_config = load_settings()
+        self.recent_dirs = self.current_config.setdefault("recent_paths", {
             "monitor": [],
             "success": [],
             "fault": [],
@@ -29,12 +36,20 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.init_ui()
 
     def init_ui(self):
-        layout = QtWidgets.QVBoxLayout(self)
+        main_layout = QtWidgets.QVBoxLayout(self)
+
+        # (A) Formulardaten
         form_layout = QtWidgets.QFormLayout()
 
-        self.name_edit = QtWidgets.QLineEdit(self.hotfolder.get("name", ""))
+        # ID (nur zur Information)
+        self.id_label = QtWidgets.QLabel(self.hotfolder.get("id", "NO-ID"))
+        form_layout.addRow("ID:", self.id_label)
+
+        # Name
+        self.name_edit = QtWidgets.QLineEdit(self.hotfolder.get("name", "Neuer Hotfolder"))
         form_layout.addRow("Name:", self.name_edit)
 
+        # Hauptpfad
         self.path_edit = QtWidgets.QLineEdit(self.hotfolder.get("path", ""))
         self.browse_main_btn = QtWidgets.QPushButton("Browse")
         main_path_layout = QtWidgets.QHBoxLayout()
@@ -42,65 +57,73 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         main_path_layout.addWidget(self.browse_main_btn)
         form_layout.addRow("Hauptpfad:", main_path_layout)
 
+        # 01_Monitor
         self.monitor_combo = QtWidgets.QComboBox()
         self.monitor_combo.setEditable(True)
-        for d in self.recent_dirs.get("monitor", []):
+        for d in get_recent_dirs("monitor"):
             self.monitor_combo.addItem(d)
-        var_monitor = self.hotfolder.get("monitor_dir", "")
-        if (var_monitor) and (var_monitor not in self.recent_dirs["monitor"]):
-            self.monitor_combo.insertItem(0, var_monitor)
-        self.monitor_combo.setCurrentText(var_monitor)
-
+        monitor_dir = self.hotfolder.get("monitor_dir", "")
+        if monitor_dir and monitor_dir not in get_recent_dirs("monitor"):
+            self.monitor_combo.insertItem(0, monitor_dir)
+        self.monitor_combo.setCurrentText(monitor_dir)
         self.browse_monitor_btn = QtWidgets.QPushButton("Browse")
         monitor_layout = QtWidgets.QHBoxLayout()
         monitor_layout.addWidget(self.monitor_combo)
         monitor_layout.addWidget(self.browse_monitor_btn)
         form_layout.addRow("01_Monitor:", monitor_layout)
 
+        # 02_Success
         self.success_combo = QtWidgets.QComboBox()
         self.success_combo.setEditable(True)
-        for d in self.recent_dirs.get("success", []):
+        for d in get_recent_dirs("success"):
             self.success_combo.addItem(d)
-        var_success = self.hotfolder.get("success_dir", "")
-        if (var_success) and (var_success not in self.recent_dirs["success"]):
-            self.success_combo.insertItem(0, var_success)
-        self.success_combo.setCurrentText(var_success)
-
+        success_dir = self.hotfolder.get("success_dir", "")
+        if success_dir and success_dir not in get_recent_dirs("success"):
+            self.success_combo.insertItem(0, success_dir)
+        self.success_combo.setCurrentText(success_dir)
         self.browse_success_btn = QtWidgets.QPushButton("Browse")
         success_layout = QtWidgets.QHBoxLayout()
         success_layout.addWidget(self.success_combo)
         success_layout.addWidget(self.browse_success_btn)
-        form_layout.addRow("02_Succes:", success_layout)
+        form_layout.addRow("02_Success:", success_layout)
 
+        # 03_Fault
         self.fault_combo = QtWidgets.QComboBox()
         self.fault_combo.setEditable(True)
-        for d in self.recent_dirs.get("fault", []):
+        for d in get_recent_dirs("fault"):
             self.fault_combo.addItem(d)
-        var_fault = self.hotfolder.get("fault_dir", "")
-        if (var_fault) and (var_fault not in self.recent_dirs["fault"]):
-            self.fault_combo.insertItem(0, var_fault)
-        self.fault_combo.setCurrentText(var_fault)
-
+        fault_dir = self.hotfolder.get("fault_dir", "")
+        if fault_dir and fault_dir not in get_recent_dirs("fault"):
+            self.fault_combo.insertItem(0, fault_dir)
+        self.fault_combo.setCurrentText(fault_dir)
         self.browse_fault_btn = QtWidgets.QPushButton("Browse")
         fault_layout = QtWidgets.QHBoxLayout()
         fault_layout.addWidget(self.fault_combo)
         fault_layout.addWidget(self.browse_fault_btn)
         form_layout.addRow("03_Fault:", fault_layout)
 
+        # 04_Logfiles
         self.logfiles_combo = QtWidgets.QComboBox()
         self.logfiles_combo.setEditable(True)
-        for d in self.recent_dirs.get("logfiles", []):
+        for d in get_recent_dirs("logfiles"):
             self.logfiles_combo.addItem(d)
-        var_logfiles = self.hotfolder.get("logfiles_dir", "")
-        if (var_logfiles) and (var_logfiles not in self.recent_dirs["logfiles"]):
-            self.logfiles_combo.insertItem(0, var_logfiles)
-        self.logfiles_combo.setCurrentText(var_logfiles)
-
+        logfiles_dir = self.hotfolder.get("logfiles_dir", "")
+        if logfiles_dir and logfiles_dir not in get_recent_dirs("logfiles"):
+            self.logfiles_combo.insertItem(0, logfiles_dir)
+        self.logfiles_combo.setCurrentText(logfiles_dir)
         self.browse_logfiles_btn = QtWidgets.QPushButton("Browse")
         logfiles_layout = QtWidgets.QHBoxLayout()
         logfiles_layout.addWidget(self.logfiles_combo)
         logfiles_layout.addWidget(self.browse_logfiles_btn)
         form_layout.addRow("04_Logfiles:", logfiles_layout)
+
+        main_layout.addLayout(form_layout)
+
+        # (B) Standard-Contentcheck
+        self.standard_contentcheck_group = QtWidgets.QGroupBox("Standard-Contentcheck")
+        self.standard_contentcheck_group.setCheckable(True)
+        self.standard_contentcheck_group.setChecked(self.hotfolder.get("contentcheck_enabled", True))
+        std_layout = QtWidgets.QHBoxLayout(self.standard_contentcheck_group)
 
         self.layer_checks = {}
         layer_group = QtWidgets.QGroupBox("Erforderliche Ebenen")
@@ -112,7 +135,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
             layer_layout.addWidget(cb)
             self.layer_checks[layer] = cb
         layer_group.setLayout(layer_layout)
-        form_layout.addRow(layer_group)
+        std_layout.addWidget(layer_group)
 
         self.meta_checks = {}
         meta_group = QtWidgets.QGroupBox("Erforderliche Metadaten")
@@ -124,43 +147,119 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
             meta_layout.addWidget(cb)
             self.meta_checks[meta] = cb
         meta_group.setLayout(meta_layout)
-        form_layout.addRow(meta_group)
+        std_layout.addWidget(meta_group)
 
+        main_layout.addWidget(self.standard_contentcheck_group)
+
+        # (C) Keyword-basierter Contentcheck
+        self.keyword_check_group = QtWidgets.QGroupBox("Keyword-basierter Contentcheck")
+        self.keyword_check_group.setCheckable(True)
+        self.keyword_check_group.setChecked(self.hotfolder.get("keyword_check_enabled", False))
+        keyword_vlayout = QtWidgets.QVBoxLayout(self.keyword_check_group)
+
+        keyword_hlayout = QtWidgets.QHBoxLayout()
+        keyword_hlayout.addWidget(QtWidgets.QLabel("Keyword:"))
+        self.keyword_edit = QtWidgets.QLineEdit(self.hotfolder.get("keyword_check_word", "Rueckseite"))
+        keyword_hlayout.addWidget(self.keyword_edit)
+        keyword_vlayout.addLayout(keyword_hlayout)
+
+        kw_hlayout = QtWidgets.QHBoxLayout()
+
+        self.keyword_layer_checks = {}
+        keyword_layer_group = QtWidgets.QGroupBox("Erforderliche Ebenen (Keyword)")
+        kw_layer_layout = QtWidgets.QVBoxLayout()
+        kw_layers_cfg = self.hotfolder.get("keyword_layers", [])
+        for layer in ["Freisteller", "Messwerte", "Korrektur", "Freisteller_Wand", "Bildausschnitt"]:
+            cb = QtWidgets.QCheckBox(layer)
+            if layer in kw_layers_cfg:
+                cb.setChecked(True)
+            kw_layer_layout.addWidget(cb)
+            self.keyword_layer_checks[layer] = cb
+        keyword_layer_group.setLayout(kw_layer_layout)
+        kw_hlayout.addWidget(keyword_layer_group)
+
+        self.keyword_meta_checks = {}
+        keyword_meta_group = QtWidgets.QGroupBox("Erforderliche Metadaten (Keyword)")
+        kw_meta_layout = QtWidgets.QVBoxLayout()
+        kw_meta_cfg = self.hotfolder.get("keyword_metadata", [])
+        for meta in ["author", "description", "keywords", "headline"]:
+            cb = QtWidgets.QCheckBox(meta)
+            if meta in kw_meta_cfg:
+                cb.setChecked(True)
+            kw_meta_layout.addWidget(cb)
+            self.keyword_meta_checks[meta] = cb
+        keyword_meta_group.setLayout(kw_meta_layout)
+        kw_hlayout.addWidget(keyword_meta_group)
+
+        keyword_vlayout.addLayout(kw_hlayout)
+        main_layout.addWidget(self.keyword_check_group)
+
+        # (D) JSX Folder + Dropdown
+        self.jsx_folder_edit = QtWidgets.QLineEdit(self.hotfolder.get("jsx_folder", ""))
+        self.browse_jsx_folder_btn = QtWidgets.QPushButton("Browse Folder")
+        jsx_folder_layout = QtWidgets.QHBoxLayout()
+        jsx_folder_layout.addWidget(QtWidgets.QLabel("JSX Folder:"))
+        jsx_folder_layout.addWidget(self.jsx_folder_edit)
+        jsx_folder_layout.addWidget(self.browse_jsx_folder_btn)
+        main_layout.addLayout(jsx_folder_layout)
+
+        self.jsx_combo = QtWidgets.QComboBox()
+        self.jsx_combo.setEditable(True)
+        self.populate_jsx_combo()
+        jsx_combo_layout = QtWidgets.QHBoxLayout()
+        jsx_combo_layout.addWidget(QtWidgets.QLabel("JSX-Script Auswahl:"))
+        jsx_combo_layout.addWidget(self.jsx_combo)
+        main_layout.addLayout(jsx_combo_layout)
+
+        # (E) Zusätzliches JSX
         self.additional_jsx_edit = QtWidgets.QLineEdit(self.hotfolder.get("additional_jsx", ""))
         self.jsx_browse_btn = QtWidgets.QPushButton("JSX durchsuchen")
-        jsx_layout = QtWidgets.QHBoxLayout()
-        jsx_layout.addWidget(self.additional_jsx_edit)
-        jsx_layout.addWidget(self.jsx_browse_btn)
-        form_layout.addRow("Zusätzliches JSX:", jsx_layout)
+        add_jsx_layout = QtWidgets.QHBoxLayout()
+        add_jsx_layout.addWidget(QtWidgets.QLabel("Zusätzliches JSX:"))
+        add_jsx_layout.addWidget(self.additional_jsx_edit)
+        add_jsx_layout.addWidget(self.jsx_browse_btn)
+        main_layout.addLayout(add_jsx_layout)
 
-        layout.addLayout(form_layout)
-
+        # (F) OK / Cancel
         btn_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        layout.addWidget(btn_box)
+        main_layout.addWidget(btn_box)
 
+        # Signals
         self.browse_main_btn.clicked.connect(self.browse_main_path)
         self.browse_monitor_btn.clicked.connect(lambda: self.browse_folder("monitor"))
         self.browse_success_btn.clicked.connect(lambda: self.browse_folder("success"))
         self.browse_fault_btn.clicked.connect(lambda: self.browse_folder("fault"))
         self.browse_logfiles_btn.clicked.connect(lambda: self.browse_folder("logfiles"))
         self.jsx_browse_btn.clicked.connect(self.browse_jsx_file)
-
+        self.browse_jsx_folder_btn.clicked.connect(self.browse_jsx_folder)
         btn_box.accepted.connect(self.save_and_close)
         btn_box.rejected.connect(self.reject)
 
+    def populate_jsx_combo(self):
+        self.jsx_combo.clear()
+        folder = self.hotfolder.get("jsx_folder", "")
+        if folder and os.path.isdir(folder):
+            for filename in os.listdir(folder):
+                if filename.lower().endswith(".jsx"):
+                    self.jsx_combo.addItem(filename)
+        additional_jsx = self.hotfolder.get("additional_jsx", "")
+        if additional_jsx:
+            base = os.path.basename(additional_jsx)
+            idx = self.jsx_combo.findText(base)
+            if idx >= 0:
+                self.jsx_combo.setCurrentIndex(idx)
+
     def browse_main_path(self):
-        start_dir = self.get_last_used_dir_any()
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Wähle Hauptpfad", start_dir)
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Wähle Hauptpfad", self.get_last_used_dir_any())
         if folder:
             self.path_edit.setText(folder)
             self.monitor_combo.setCurrentText(os.path.join(folder, "01_Monitor"))
-            self.success_combo.setCurrentText(os.path.join(folder, "02_Succes"))
+            self.success_combo.setCurrentText(os.path.join(folder, "02_Success"))
             self.fault_combo.setCurrentText(os.path.join(folder, "03_Fault"))
             self.logfiles_combo.setCurrentText(os.path.join(folder, "04_Logfiles"))
 
     def browse_folder(self, folder_type: str):
-        start_dir = self.get_last_used_dir(folder_type)
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, f"Wähle {folder_type}-Pfad", start_dir)
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, f"Wähle {folder_type}-Pfad", self.get_last_used_dir(folder_type))
         if folder:
             if folder_type == "monitor":
                 self.monitor_combo.setCurrentText(folder)
@@ -177,7 +276,17 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         if file_path:
             self.additional_jsx_edit.setText(file_path)
 
+    def browse_jsx_folder(self):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Wähle JSX Folder", os.path.expanduser("~"))
+        if folder:
+            self.jsx_folder_edit.setText(folder)
+            self.hotfolder["jsx_folder"] = folder
+            self.populate_jsx_combo()
+
     def save_and_close(self):
+        debug_print("Vor save_and_close - Hotfolder war: " + str(self.hotfolder))
+
+        # 1) Basisdaten
         self.hotfolder["name"] = self.name_edit.text()
         self.hotfolder["path"] = self.path_edit.text()
         self.hotfolder["monitor_dir"] = self.monitor_combo.currentText()
@@ -185,27 +294,72 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.hotfolder["fault_dir"] = self.fault_combo.currentText()
         self.hotfolder["logfiles_dir"] = self.logfiles_combo.currentText()
 
-        req_layers = []
+        # 2) Standard-Contentcheck
+        self.hotfolder["contentcheck_enabled"] = self.standard_contentcheck_group.isChecked()
+        chosen_layers = []
         for layer, cb in self.layer_checks.items():
             if cb.isChecked():
-                req_layers.append(layer)
-        self.hotfolder["required_layers"] = req_layers
+                chosen_layers.append(layer)
+        self.hotfolder["required_layers"] = chosen_layers
 
-        req_meta = []
+        chosen_meta = []
         for meta, cb in self.meta_checks.items():
             if cb.isChecked():
-                req_meta.append(meta)
-        self.hotfolder["required_metadata"] = req_meta
+                chosen_meta.append(meta)
+        self.hotfolder["required_metadata"] = chosen_meta
 
+        # 3) Keyword-Contentcheck
+        self.hotfolder["keyword_check_enabled"] = self.keyword_check_group.isChecked()
+        self.hotfolder["keyword_check_word"] = self.keyword_edit.text()
+
+        kw_layers = []
+        for layer, cb in self.keyword_layer_checks.items():
+            if cb.isChecked():
+                kw_layers.append(layer)
+        self.hotfolder["keyword_layers"] = kw_layers
+
+        kw_meta = []
+        for meta, cb in self.keyword_meta_checks.items():
+            if cb.isChecked():
+                kw_meta.append(meta)
+        self.hotfolder["keyword_metadata"] = kw_meta
+
+        # 4) JSX
+        self.hotfolder["jsx_folder"] = self.jsx_folder_edit.text()
         self.hotfolder["additional_jsx"] = self.additional_jsx_edit.text()
 
+        debug_print("In save_and_close - Hotfolder neu: " + str(self.hotfolder))
+
+        # 5) Sicherstellen, dass der Hotfolder eine ID besitzt
+        if not self.hotfolder.get("id"):
+            new_id = str(uuid.uuid4())
+            self.hotfolder["id"] = new_id
+            debug_print("Keine ID vorhanden. Neue ID: " + new_id)
+
+        # 6) In globale settings.json übernehmen
+        settings_data = load_settings()
+        hotfolders_list = settings_data.setdefault("hotfolders", [])
+        current_id = self.hotfolder["id"]
+
+        found_idx = -1
+        for i, hf in enumerate(hotfolders_list):
+            if hf.get("id") == current_id:
+                found_idx = i
+                break
+
+        if found_idx >= 0:
+            debug_print(f"Ersetze alten Eintrag an Index {found_idx} durch: {self.hotfolder}")
+            hotfolders_list[found_idx] = self.hotfolder
+        else:
+            debug_print("Kein Hotfolder mit dieser ID gefunden; hänge neuen an.")
+            hotfolders_list.append(self.hotfolder)
+
+        save_settings(settings_data)
         debug_print("Hotfolder-Konfiguration gespeichert/aktualisiert.")
         self.accept()
 
     def get_last_used_dir(self, folder_type: str) -> str:
-        if self.recent_dirs.get(folder_type):
-            return self.recent_dirs[folder_type][0]
-        return os.path.expanduser("~")
+        return self.recent_dirs.get(folder_type, [os.path.expanduser("~")])[0]
 
     def get_last_used_dir_any(self) -> str:
         for cat in ["monitor", "success", "fault", "logfiles"]:
