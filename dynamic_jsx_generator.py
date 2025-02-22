@@ -1,114 +1,52 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
-import re
 import json
+import tempfile
 
+DEBUG_OUTPUT = True
+def debug_print(msg):
+    if DEBUG_OUTPUT:
+        print("[DEBUG]", msg)
 
-class DynamicJSXGenerator:
-    def __init__(self, debug_output=False):
-        self.debug_output = debug_output
-
-    def generate_jsx_from_template(self, template_name, replacements):
-        """
-        Generates a JSX script from a template file with the given replacements.
-
-        Args:
-            template_name (str): Name of the template file
-            replacements (dict): Dictionary containing replacement values
-
-        Returns:
-            str: Generated JSX script content
-        """
-        if isinstance(replacements, str):
-            try:
-                replacements = json.loads(replacements)
-            except:
-                replacements = {}
-
-        if not isinstance(replacements, dict):
-            replacements = {}
-
-        # Füge debug_output zu den Ersetzungen hinzu
-        replacements['DEBUG_OUTPUT'] = str(self.debug_output).lower()
-
-        template_path = os.path.join('jsx_templates', template_name)
-        with open(template_path, 'r', encoding='utf-8') as file:
-            template_content = file.read()
-
-        # Ersetze den DEBUG_OUTPUT-Block im Template
-        template_content = re.sub(
-            r'if \(typeof DEBUG_OUTPUT === "undefined"\) \{\s*var DEBUG_OUTPUT = .*?;\s*\}',
-            f'var DEBUG_OUTPUT = {replacements["DEBUG_OUTPUT"]};',
-            template_content
-        )
-
-        # Führe die restlichen Ersetzungen durch
-        for key, value in replacements.items():
-            if isinstance(value, str):
-                # Escape Anführungszeichen in Strings
-                value = value.replace('"', '\\"')
-            template_content = template_content.replace(f'${{{key}}}', str(value))
-
-        return template_content
-
-    def generate_contentcheck_jsx(self, image_path, check_settings, output_path):
-        """
-        Generates a JSX script for content checking with the given parameters.
-
-        Args:
-            image_path (str): Path to the image file
-            check_settings (dict): Dictionary containing check settings
-            output_path (str): Path where to save the results
-
-        Returns:
-            str: Generated JSX script content
-        """
-        replacements = {
-            'IMAGE_PATH': image_path,
-            'CHECK_SETTINGS': str(check_settings),
-            'OUTPUT_PATH': output_path
-        }
-
-        return self.generate_jsx_from_template('contentcheck_template.jsx', replacements)
-
-    def save_jsx_script(self, jsx_content, output_path):
-        """
-        Saves the generated JSX script to a file.
-
-        Args:
-            jsx_content (str): The JSX script content
-            output_path (str): Path where to save the script
-        """
-        with open(output_path, 'w', encoding='utf-8') as file:
-            file.write(jsx_content)
-
-
-def generate_jsx_script(hf_config, file_name, debug_output=False):
+def generate_hybrid_jsx(hf_config: dict, template_path: str) -> str:
     """
-    Compatibility function for existing code.
-
-    Args:
-        hf_config: Hotfolder configuration
-        file_name: Name of the file to process
-        debug_output: Boolean for debug output
-
-    Returns:
-        str: Path to the generated JSX script
+    Liest das JSX-Template, ersetzt die Platzhalter mit den in hf_config definierten
+    required_layers, required_metadata und logfiles_dir und gibt den Pfad zur temporären Datei zurück.
     """
-    generator = DynamicJSXGenerator(debug_output=debug_output)
+    required_layers = hf_config.get("required_layers", [])
+    required_metadata = hf_config.get("required_metadata", [])
+    logfiles_dir = hf_config.get("logfiles_dir", "")
 
-    # Erstelle ein Dictionary mit den Ersetzungen
-    replacements = {
-        'IMAGE_PATH': file_name,
-        'CONFIG': json.dumps(hf_config) if isinstance(hf_config, dict) else str(hf_config)
-    }
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    abs_template_path = os.path.join(base_dir, "jsx_templates", "contentcheck_template.jsx")
+    if not os.path.exists(abs_template_path):
+        raise FileNotFoundError(f"JSX-Template nicht gefunden: {abs_template_path}")
 
-    # Generiere das JSX-Script
-    jsx_content = generator.generate_jsx_from_template('contentcheck_template.jsx', replacements)
+    with open(abs_template_path, "r", encoding="utf-8") as f:
+        jsx_template = f.read()
 
-    # Speichere das Script
-    output_dir = 'temp'
-    os.makedirs(output_dir, exist_ok=True)
-    jsx_script_path = os.path.join(output_dir, f'generated_script_{os.path.basename(file_name)}.jsx')
+    layers_str = json.dumps(required_layers)
+    metadata_str = json.dumps(required_metadata)
+    logfiles_str = logfiles_dir.replace("\\", "/")
 
-    generator.save_jsx_script(jsx_content, jsx_script_path)
-    return jsx_script_path
+    jsx_code = jsx_template
+    jsx_code = jsx_code.replace("/*PYTHON_INSERT_LAYERS*/", layers_str)
+    jsx_code = jsx_code.replace("/*PYTHON_INSERT_METADATA*/", metadata_str)
+    jsx_code = jsx_code.replace("/*PYTHON_INSERT_LOGFOLDER*/", logfiles_str)
+
+    debug_print("Generierter JSX-Code:")
+    debug_print(jsx_code)
+
+    tmp_dir = tempfile.gettempdir()
+    tmp_path = os.path.join(tmp_dir, "dynamic_contentcheck.jsx")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.write(jsx_code)
+    debug_print(f"Hybrid-JSX-Skript erzeugt: {tmp_path}")
+    return tmp_path
+
+def generate_jsx_script(hf_config: dict, target_filename: str) -> str:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(base_dir, "jsx_templates", "contentcheck_template.jsx")
+    return generate_hybrid_jsx(hf_config, template_path)
