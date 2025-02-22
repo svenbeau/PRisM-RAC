@@ -255,11 +255,13 @@ class HotfolderWidget(QtWidgets.QFrame):
                 self.spinner_label.setVisible(False)
 
     def on_file_processing(self, filename: str):
+        import os
         if filename:
+            short_filename = os.path.basename(filename)
             if self.spinner_movie:
                 self.spinner_label.setVisible(True)
                 self.spinner_label.setStyleSheet("opacity: 1.0;")
-            self.status_label.setText(f"Aktiv (Verarbeite: {filename})")
+            self.status_label.setText(f"Aktiv (Verarbeite: {short_filename})")
             self.status_label.setStyleSheet("color: green;")
         else:
             if self.monitor and self.monitor.active:

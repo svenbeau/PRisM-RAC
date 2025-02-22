@@ -6,11 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Contentcheck funktioniert">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/config/config_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/hotfolder_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,19 +53,19 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.hotfolder_config.executor": "Run",
-    "Python.hotfolder_monitor.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.main_window.executor": "Run",
-    "Python.start.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "stable-v2",
-    "settings.editor.selected.configurable": "preferences.lookFeel"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
+    &quot;Python.start.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;stable-v2&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/ui" />

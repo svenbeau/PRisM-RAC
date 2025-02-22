@@ -1,8 +1,35 @@
 // contentcheck_template.jsx
 
+// Polyfill für String.prototype.trim (ExtendScript unterstützt trim() möglicherweise nicht)
+if (typeof String.prototype.trim !== "function") {
+    String.prototype.trim = function() {
+        return this.replace(/^\s+|\s+$/g, "");
+    };
+}
+
 // Lade die Adobe XMPScript Library, falls noch nicht geladen
 if (ExternalObject.AdobeXMPScript == undefined) {
     ExternalObject.AdobeXMPScript = new ExternalObject("lib:AdobeXMPScript");
+}
+
+// Die folgenden Variablen werden dynamisch von Python injiziert:
+// var keywordCheckEnabled = true/false;
+// var keywordCheckWord = "Rueckseite";
+// var keyword_layers = [...];
+// var keyword_metadata = [...];
+
+// Falls nicht injiziert, Standardwerte:
+if (typeof keywordCheckEnabled === "undefined") {
+    var keywordCheckEnabled = false;
+}
+if (typeof keywordCheckWord === "undefined") {
+    var keywordCheckWord = "";
+}
+if (typeof keyword_layers === "undefined") {
+    var keyword_layers = []; // Leere Liste -> dann werden Layer gar nicht geprüft, wenn KW-Check greift.
+}
+if (typeof keyword_metadata === "undefined") {
+    var keyword_metadata = []; // Leere Liste -> dann werden Metadaten gar nicht geprüft, wenn KW-Check greift.
 }
 
 // Polyfill für Array.isArray
@@ -72,27 +99,22 @@ function serializeToJsonPretty(obj, indent) {
     return result;
 }
 
-// Globaler Debug-Schalter – wird von außen injiziert, falls vorhanden.
+// Globaler Debug-Schalter – wird von außen injiziert, falls nicht gesetzt.
 if (typeof DEBUG_OUTPUT === "undefined") {
     var DEBUG_OUTPUT = true;
 }
-
 function debug_print(msg) {
     if (DEBUG_OUTPUT) {
         $.writeln("[DEBUG] " + msg);
     }
 }
 
-// Platzhalter – diese Werte werden von Python ersetzt:
+// Standardwerte für den normalen Contentcheck
 var requiredLayers = ["Freisteller", "Messwerte", "Korrektur", "Freisteller_Wand", "Bildausschnitt"];
 var requiredMetadata = ["author", "description", "keywords", "headline"];
 var logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles";
 
-// NEUE PLACEHOLDER für den Check-Typ:
-var keywordCheckEnabled = false;  // Wird von Python ersetzt, z.B. true
-var keywordCheckWord = "";        // Wird von Python ersetzt, z.B. "Rueckseite"
-
-// Zunächst setzen wir checkType standardmäßig auf "Standard"
+// Setze checkType standardmäßig auf "Standard"
 var checkType = "Standard";
 
 // Funktion zum Entfernen umgebender Anführungszeichen
@@ -106,13 +128,13 @@ function removeSurroundingQuotes(str) {
 
 // Feld-Mapping – Keys entsprechen der gewünschten Zuordnung.
 var fieldMapping = {
-    "documentTitle":    { ns: XMPConst.NS_DC, prop: "title", altText: true,  isArray: false },
-    "author":           { ns: XMPConst.NS_DC, prop: "creator", altText: false, isArray: true  },
+    "documentTitle":    { ns: XMPConst.NS_DC, prop: "title", altText: true, isArray: false },
+    "author":           { ns: XMPConst.NS_DC, prop: "creator", altText: false, isArray: true },
     "authorPosition":   { ns: XMPConst.NS_PHOTOSHOP, prop: "AuthorsPosition", altText: false, isArray: false },
-    "description":      { ns: XMPConst.NS_DC, prop: "description", altText: true,  isArray: false },
+    "description":      { ns: XMPConst.NS_DC, prop: "description", altText: true, isArray: false },
     "descriptionWriter":{ ns: XMPConst.NS_PHOTOSHOP, prop: "CaptionWriter", altText: false, isArray: false },
-    "keywords":         { ns: XMPConst.NS_DC, prop: "subject", altText: false, isArray: true  },
-    "copyrightNotice":  { ns: XMPConst.NS_DC, prop: "rights", altText: true,  isArray: false },
+    "keywords":         { ns: XMPConst.NS_DC, prop: "subject", altText: false, isArray: true },
+    "copyrightNotice":  { ns: XMPConst.NS_DC, prop: "rights", altText: true, isArray: false },
     "copyrightURL":     { ns: "http://ns.adobe.com/xap/1.0/rights/", prop: "WebStatement", altText: false, isArray: false },
     "city":             { ns: XMPConst.NS_PHOTOSHOP, prop: "City", altText: false, isArray: false },
     "stateProvince":    { ns: XMPConst.NS_PHOTOSHOP, prop: "State", altText: false, isArray: false },
@@ -132,7 +154,7 @@ var userFriendlyLabels = {
     "keywords":         "Keywords",
     "headline":         "Headline",
     "authorPosition":   "Author Position",
-    "descriptionWriter":"Description Writer",
+    "descriptionWriter": "Description Writer",
     "copyrightNotice":  "Copyright Notice",
     "copyrightURL":     "Copyright URL",
     "city":             "City",
@@ -214,13 +236,12 @@ for (var key in fieldMapping) {
     metadataOutput[key] = getXMPValue(key);
 }
 
-// Keyword-Check: Falls keywordCheckEnabled true ist und ein Suchbegriff definiert,
+// 1) Prüfe, ob "keywordCheckEnabled" aktiv ist und ob "keywordCheckWord" in den Keywords enthalten ist
 if (keywordCheckEnabled && keywordCheckWord !== "") {
-    // Teile den keywords-String anhand des Semikolons auf.
-    var tags = metadataOutput["keywords"].split(";");
+    var tags = String(metadataOutput["keywords"]).split(";");
     var found = false;
     for (var i = 0; i < tags.length; i++) {
-        if (tags[i].trim().toLowerCase() === keywordCheckWord.toLowerCase()) {
+        if (String(tags[i]).trim().toLowerCase() === keywordCheckWord.toLowerCase()) {
             found = true;
             break;
         }
@@ -234,18 +255,30 @@ if (keywordCheckEnabled && keywordCheckWord !== "") {
     checkType = "Standard";
 }
 
+// 2) Erzeuge "effectiveLayers" und "effectiveMetadata" je nach Check-Typ
+var effectiveLayers, effectiveMetadata;
+if (checkType === "Keyword-based") {
+    // Falls Listen leer -> keine Prüfung
+    effectiveLayers = (keyword_layers.length > 0) ? keyword_layers : [];
+    effectiveMetadata = (keyword_metadata.length > 0) ? keyword_metadata : [];
+} else {
+    // Standard
+    effectiveLayers = requiredLayers;
+    effectiveMetadata = requiredMetadata;
+}
+
 // Erzeuge formatierten Output für die ausgewählten Metadaten
 var formattedMeta = "Metadata Output:\n";
-for (var i = 0; i < requiredMetadata.length; i++) {
-    var key = requiredMetadata[i];
+for (var i = 0; i < effectiveMetadata.length; i++) {
+    var key = effectiveMetadata[i];
     var label = userFriendlyLabels[key] || key;
     formattedMeta += label + ": " + metadataOutput[key] + "\n";
 }
 
 // Erzeuge formatierten Output für die Ebenen
 var formattedLayers = "Layer Output:\n";
-for (var i = 0; i < requiredLayers.length; i++) {
-    var lname = requiredLayers[i];
+for (var i = 0; i < effectiveLayers.length; i++) {
+    var lname = effectiveLayers[i];
     formattedLayers += lname + ": " + (layerExists(doc, lname) ? "yes" : "NO") + "\n";
 }
 
@@ -268,12 +301,12 @@ function layerExists(doc, layerName) {
     return searchLayers(doc.layers, layerName);
 }
 
-// Ausgabe des Alerts im alten Layout (nur Metadaten und Ebenen)
+// Debug-Alert (nur Metadaten und Ebenen)
 if (DEBUG_OUTPUT === true) {
     alert(formattedMeta + "\n\n" + formattedLayers);
 }
 
-// Erstelle das finale Objekt für die JSON-Ausgabe
+// Finale Datenstruktur
 var resultObj = {
     metadata: metadataOutput,
     details: {
@@ -282,13 +315,14 @@ var resultObj = {
         missingMetadata: [],
         layerStatus: "OK",
         metaStatus: "OK",
-        checkType: checkType
+        checkType: checkType,
+        keywordCheck: { enabled: keywordCheckEnabled, keyword: keywordCheckWord }
     }
 };
 
-// Prüfe fehlende Ebenen
-for (var i = 0; i < requiredLayers.length; i++) {
-    var lname = requiredLayers[i];
+// 3) Prüfung der Ebenen
+for (var i = 0; i < effectiveLayers.length; i++) {
+    var lname = effectiveLayers[i];
     var present = layerExists(doc, lname);
     resultObj.details.layers[lname] = present ? "yes" : "no";
     if (!present) {
@@ -297,16 +331,16 @@ for (var i = 0; i < requiredLayers.length; i++) {
     }
 }
 
-// Prüfe fehlende Metadaten
-for (var j = 0; j < requiredMetadata.length; j++) {
-    var field = requiredMetadata[j];
+// 4) Prüfung der Metadaten
+for (var j = 0; j < effectiveMetadata.length; j++) {
+    var field = effectiveMetadata[j];
     if (metadataOutput[field] === "undefined") {
         resultObj.details.missingMetadata.push(field);
         resultObj.details.metaStatus = "FAIL";
     }
 }
 
-// Erzeuge den kompletten Contentcheck-Log (Pretty Print)
+// Serialize resultObj
 var jsonString = serializeToJsonPretty(resultObj, "");
 var baseName = doc.name.replace(/\.[^\.]+$/, "");
 var contentLogFile = new File(logFolderPath + "/" + baseName + "_01_log_contentcheck.json");
@@ -317,8 +351,7 @@ contentLogFile.close();
 
 debug_print("Contentcheck-Log gespeichert: " + contentLogFile.fullName);
 
-// Falls layerStatus oder metaStatus FAIL, zusätzlich einen Fail-Log erzeugen,
-// der nur die fehlenden Kriterien enthält.
+// Falls layerStatus oder metaStatus FAIL, Fail-Log mit reduzierten Daten
 if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus === "FAIL") {
     var missingLayersObj = {};
     for (var i = 0; i < resultObj.details.missingLayers.length; i++) {
@@ -335,7 +368,8 @@ if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus ===
         missingMetadata: missingMetadataObj,
         layerStatus: resultObj.details.layerStatus,
         metaStatus: resultObj.details.metaStatus,
-        checkType: checkType
+        checkType: checkType,
+        keywordCheck: { enabled: keywordCheckEnabled, keyword: keywordCheckWord }
     };
     var failJsonString = serializeToJsonPretty(failObj, "");
     var failLogFile = new File(logFolderPath + "/" + baseName + "_01_log_fail.json");

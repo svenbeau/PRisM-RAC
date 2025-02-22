@@ -12,15 +12,12 @@
             "required_layers": [
                 "Freisteller",
                 "Messwerte",
-                "Korrektur",
-                "Freisteller_Wand",
-                "Bildausschnitt"
+                "Korrektur"
             ],
             "required_metadata": [
                 "author",
                 "description",
-                "keywords",
-                "headline"
+                "keywords"
             ],
             "keyword_check_enabled": true,
             "keyword_check_word": "Rueckseite",

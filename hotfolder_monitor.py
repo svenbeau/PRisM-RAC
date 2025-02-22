@@ -87,7 +87,7 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
         return
 
     if on_status_update:
-        on_status_update(f"Processing: {file_path}", True)
+        on_status_update(f"Processing: {os.path.basename(file_path)}", True)
     debug_print(f"Processing file: {file_path}")
 
     if open_in_photoshop(file_path):
@@ -104,7 +104,7 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
         dest = os.path.join(fault_dir, os.path.basename(file_path))
         move_file(file_path, dest)
         if on_status_update:
-            on_status_update(f"Processed (no script): {file_path}", True)
+            on_status_update(f"Processed (no script): {os.path.basename(file_path)}", True)
         return
 
     if run_jsx_in_photoshop(tmp_jsx_path):
@@ -145,7 +145,7 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
         debug_print(f"Error moving file from {file_path} to {dest}")
 
     if on_status_update:
-        on_status_update(f"Processed: {file_path}", True)
+        on_status_update(f"Processed: {os.path.basename(file_path)}", True)
 
 class HotfolderMonitor:
     """
@@ -180,10 +180,14 @@ class HotfolderMonitor:
                 for filename in os.listdir(self.monitor_dir):
                     file_path = os.path.join(self.monitor_dir, filename)
                     if os.path.isfile(file_path) and file_path not in processed_files:
-                        process_file(file_path, self.hf_config, self.jsx_script_path, on_status_update=self.on_status_update)
-                        processed_files.add(file_path)
-                        if self.on_file_processing:
-                            self.on_file_processing(file_path)
+                        if is_hidden(file_path):
+                            debug_print("Skipping hidden file: " + file_path)
+                            processed_files.add(file_path)
+                        else:
+                            process_file(file_path, self.hf_config, self.jsx_script_path, on_status_update=self.on_status_update)
+                            processed_files.add(file_path)
+                            if self.on_file_processing:
+                                self.on_file_processing(file_path)
                 time.sleep(1)
             except Exception as e:
                 debug_print(f"Error in HotfolderMonitor: {e}")
