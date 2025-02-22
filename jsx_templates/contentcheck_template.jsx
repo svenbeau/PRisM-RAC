@@ -12,13 +12,9 @@ if (ExternalObject.AdobeXMPScript == undefined) {
     ExternalObject.AdobeXMPScript = new ExternalObject("lib:AdobeXMPScript");
 }
 
-// Die folgenden Variablen werden dynamisch von Python injiziert:
-// var keywordCheckEnabled = true/false;
-// var keywordCheckWord = "Rueckseite";
-// var keyword_layers = [...];
-// var keyword_metadata = [...];
-
-// Falls nicht injiziert, Standardwerte:
+// --- Dynamisch injizierte Variablen ---
+// Diese Variablen werden von Python übergeben, basierend auf den Werten in settings.json.
+// Falls nicht injiziert, werden Standardwerte gesetzt.
 if (typeof keywordCheckEnabled === "undefined") {
     var keywordCheckEnabled = false;
 }
@@ -26,10 +22,14 @@ if (typeof keywordCheckWord === "undefined") {
     var keywordCheckWord = "";
 }
 if (typeof keyword_layers === "undefined") {
-    var keyword_layers = []; // Leere Liste -> dann werden Layer gar nicht geprüft, wenn KW-Check greift.
+    var keyword_layers = []; // Leere Liste -> dann werden in diesem Bereich keine Layer geprüft.
 }
 if (typeof keyword_metadata === "undefined") {
-    var keyword_metadata = []; // Leere Liste -> dann werden Metadaten gar nicht geprüft, wenn KW-Check greift.
+    var keyword_metadata = []; // Leere Liste -> dann werden in diesem Bereich keine Metadaten geprüft.
+}
+// Optional: Falls logFolderPath nicht injiziert wurde, setzen wir einen Standardwert.
+if (typeof logFolderPath === "undefined") {
+    var logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles";
 }
 
 // Polyfill für Array.isArray
@@ -109,12 +109,17 @@ function debug_print(msg) {
     }
 }
 
-// Standardwerte für den normalen Contentcheck
-var requiredLayers = ["Freisteller", "Messwerte", "Korrektur", "Freisteller_Wand", "Bildausschnitt"];
-var requiredMetadata = ["author", "description", "keywords", "headline"];
-var logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles";
+// Standardwerte für den normalen Contentcheck – diese kommen aus settings.json:
+if (typeof required_layers === "undefined") {
+    var required_layers = ["Freisteller", "Messwerte", "Korrektur"];
+}
+if (typeof required_metadata === "undefined") {
+    var required_metadata = ["author", "description", "keywords"];
+}
+var requiredLayers = required_layers;
+var requiredMetadata = required_metadata;
 
-// Setze checkType standardmäßig auf "Standard"
+// Setze zunächst checkType standardmäßig auf "Standard"
 var checkType = "Standard";
 
 // Funktion zum Entfernen umgebender Anführungszeichen
@@ -236,7 +241,8 @@ for (var key in fieldMapping) {
     metadataOutput[key] = getXMPValue(key);
 }
 
-// 1) Prüfe, ob "keywordCheckEnabled" aktiv ist und ob "keywordCheckWord" in den Keywords enthalten ist
+// 1) Keyword-Check: Falls keywordCheckEnabled true ist und ein Suchbegriff definiert ist,
+// teilen wir das "keywords"-Feld anhand des Semikolons auf und prüfen, ob ein Tag exakt übereinstimmt.
 if (keywordCheckEnabled && keywordCheckWord !== "") {
     var tags = String(metadataOutput["keywords"]).split(";");
     var found = false;
@@ -255,19 +261,19 @@ if (keywordCheckEnabled && keywordCheckWord !== "") {
     checkType = "Standard";
 }
 
-// 2) Erzeuge "effectiveLayers" und "effectiveMetadata" je nach Check-Typ
+// 2) Effektive Kriterien: Falls der Keyword-basierte Check aktiv ist,
+// verwenden wir ausschließlich die in keyword_layers und keyword_metadata definierten Werte.
+// Sind diese Arrays leer, werden in diesem Bereich keine Kriterien geprüft.
 var effectiveLayers, effectiveMetadata;
 if (checkType === "Keyword-based") {
-    // Falls Listen leer -> keine Prüfung
     effectiveLayers = (keyword_layers.length > 0) ? keyword_layers : [];
     effectiveMetadata = (keyword_metadata.length > 0) ? keyword_metadata : [];
 } else {
-    // Standard
     effectiveLayers = requiredLayers;
     effectiveMetadata = requiredMetadata;
 }
 
-// Erzeuge formatierten Output für die ausgewählten Metadaten
+// 3) Erzeuge formatierten Output für die ausgewählten Metadaten
 var formattedMeta = "Metadata Output:\n";
 for (var i = 0; i < effectiveMetadata.length; i++) {
     var key = effectiveMetadata[i];
@@ -275,7 +281,7 @@ for (var i = 0; i < effectiveMetadata.length; i++) {
     formattedMeta += label + ": " + metadataOutput[key] + "\n";
 }
 
-// Erzeuge formatierten Output für die Ebenen
+// 4) Erzeuge formatierten Output für die Ebenen
 var formattedLayers = "Layer Output:\n";
 for (var i = 0; i < effectiveLayers.length; i++) {
     var lname = effectiveLayers[i];
@@ -301,12 +307,12 @@ function layerExists(doc, layerName) {
     return searchLayers(doc.layers, layerName);
 }
 
-// Debug-Alert (nur Metadaten und Ebenen)
+// Debug-Ausgabe (nur Metadaten und Ebenen)
 if (DEBUG_OUTPUT === true) {
     alert(formattedMeta + "\n\n" + formattedLayers);
 }
 
-// Finale Datenstruktur
+// 5) Erstelle das finale Objekt für die JSON-Ausgabe
 var resultObj = {
     metadata: metadataOutput,
     details: {
@@ -320,7 +326,7 @@ var resultObj = {
     }
 };
 
-// 3) Prüfung der Ebenen
+// 6) Prüfung der Ebenen
 for (var i = 0; i < effectiveLayers.length; i++) {
     var lname = effectiveLayers[i];
     var present = layerExists(doc, lname);
@@ -331,7 +337,7 @@ for (var i = 0; i < effectiveLayers.length; i++) {
     }
 }
 
-// 4) Prüfung der Metadaten
+// 7) Prüfung der Metadaten
 for (var j = 0; j < effectiveMetadata.length; j++) {
     var field = effectiveMetadata[j];
     if (metadataOutput[field] === "undefined") {
@@ -340,7 +346,7 @@ for (var j = 0; j < effectiveMetadata.length; j++) {
     }
 }
 
-// Serialize resultObj
+// 8) Erzeuge den kompletten Contentcheck-Log (Pretty Print)
 var jsonString = serializeToJsonPretty(resultObj, "");
 var baseName = doc.name.replace(/\.[^\.]+$/, "");
 var contentLogFile = new File(logFolderPath + "/" + baseName + "_01_log_contentcheck.json");
@@ -351,7 +357,8 @@ contentLogFile.close();
 
 debug_print("Contentcheck-Log gespeichert: " + contentLogFile.fullName);
 
-// Falls layerStatus oder metaStatus FAIL, Fail-Log mit reduzierten Daten
+// 9) Falls layerStatus oder metaStatus FAIL, zusätzlich einen Fail-Log erzeugen,
+// der nur die fehlenden Kriterien enthält.
 if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus === "FAIL") {
     var missingLayersObj = {};
     for (var i = 0; i < resultObj.details.missingLayers.length; i++) {
