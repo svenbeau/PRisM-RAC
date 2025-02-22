@@ -44,7 +44,7 @@ if (typeof JSON === "undefined") {
 // Wichtig: Wir setzen DEBUG_OUTPUT _nicht_ neu, wenn er bereits definiert ist (z. B. von Python).
 // Dadurch wird der von außen injizierte Wert (true oder false) beibehalten.
 if (typeof DEBUG_OUTPUT === "undefined") {
-    var DEBUG_OUTPUT = false; // Standardwert, falls nichts von außen übergeben wird
+    var DEBUG_OUTPUT = true; // Standardwert, falls nichts von außen übergeben wird
 }
 
 function debug_print(msg) {
