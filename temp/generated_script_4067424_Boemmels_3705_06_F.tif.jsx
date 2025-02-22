@@ -23,7 +23,7 @@ function main() {
         debugLog("Starting content check script");
 
         // Hier kommt der Rest deines Template-Codes...
-        var imagePath = "${IMAGE_PATH}";
+        var imagePath = "4067424_Boemmels_3705_06_F.tif";
         var checkSettings = ${CHECK_SETTINGS};
         var outputPath = "${OUTPUT_PATH}";
 
