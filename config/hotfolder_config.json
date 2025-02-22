@@ -1,0 +1,40 @@
+{
+    "name": "Test-Hotfolder",
+    "monitor_dir": "/path/to/01_Monitor",
+    "success_dir": "/path/to/02_Success",
+    "fault_dir": "/path/to/03_Fault",
+    "logfiles_dir": "/path/to/04_Logfiles",
+    "required_layers": [
+        "Freisteller",
+        "Messwerte",
+        "Korrektur",
+        "Freisteller_Wand",
+        "Bildausschnitt"
+    ],
+    "required_metadata": [
+        "author",
+        "description",
+        "keywords",
+        "headline"
+    ],
+    "additional_jsx": "/path/to/script.jsx",
+    "check_rueckseite": true,
+    "rueckseite_required_layers": [
+        "Freisteller_Wand"
+    ],
+    "rueckseite_required_metadata": [
+        "keywords"
+    ],
+    "hotfolders": [
+        {
+            "name": "Neuer Hotfolder",
+            "monitor_dir": "01_Monitor",
+            "success_dir": "02_Success",
+            "fault_dir": "03_Fault",
+            "logfiles_dir": "04_Logfiles",
+            "required_layers": [],
+            "required_metadata": [],
+            "additional_jsx": ""
+        }
+    ]
+}
