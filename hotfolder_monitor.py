@@ -61,6 +61,20 @@ def create_temp_jsx_with_keyword_check(base_jsx_path, keyword_check_enabled, key
         debug_print(f"Error writing temporary JSX script: {e}")
         return None
 
+def close_in_photoshop():
+    """
+    Schließt das aktuell geöffnete Dokument in Photoshop ohne zu speichern.
+    """
+    try:
+        photoshop_app = "Adobe Photoshop 2025"
+        cmd = 'tell application id "com.adobe.Photoshop" to close front document saving no'
+        subprocess.run(["osascript", "-e", cmd], check=True)
+        debug_print("Active document closed in Photoshop (without saving).")
+        return True
+    except Exception as e:
+        debug_print(f"Error closing active document in Photoshop: {e}")
+        return False
+
 def process_file(file_path, config, jsx_script_path, on_status_update=None):
     """
     Verarbeitet eine einzelne Datei:
@@ -68,13 +82,11 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
       - Prüft, ob die Datei stabil ist.
       - Ruft on_status_update mit "Processing: ..." auf.
       - Öffnet die Datei in Photoshop.
-      - Erzeugt dynamisch ein temporäres JSX-Script mit den Keyword-Parametern,
-        führt es aus und löscht es anschließend.
-      - Wartet kurz, liest den generierten Contentcheck-Log und entscheidet anhand der Statuswerte,
-        ob die Datei in den Success- oder Fault-Ordner verschoben wird.
-      - Wenn der Contentcheck erfolgreich war, wird zusätzlich das im Hotfolder-Config ausgewählte
-        JSX-Skript gestartet und auf das geöffnete Bild angewandt.
-      - Ruft on_status_update mit "Processed: ..." auf.
+      - Führt ein temporäres JSX-Script für den Contentcheck aus und löscht es anschließend.
+      - Liest das Log aus und prüft, ob layerStatus und metaStatus == "OK".
+      - Falls OK, werden nacheinander "selected_jsx" (ComboBox) und "additional_jsx" (manuell) ausgeführt.
+      - Danach wird das Dokument in Photoshop ohne Speichern geschlossen.
+      - Datei wird in Success bzw. Fault verschoben.
     """
     success_dir = config.get("success_dir")
     fault_dir = config.get("fault_dir")
@@ -107,13 +119,16 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
         move_file(file_path, dest)
         if on_status_update:
             on_status_update(f"Processed (no script): {os.path.basename(file_path)}", True)
+        close_in_photoshop()
         return
 
+    # Führe Contentcheck-JSX aus
     if run_jsx_in_photoshop(tmp_jsx_path):
-        debug_print(f"Executed JSX script: {tmp_jsx_path}")
+        debug_print(f"Executed temporary JSX script: {tmp_jsx_path}")
     else:
-        debug_print(f"Failed to execute JSX script: {tmp_jsx_path}")
+        debug_print(f"Failed to execute temporary JSX script: {tmp_jsx_path}")
 
+    # Entferne temporäre Datei
     try:
         os.remove(tmp_jsx_path)
     except Exception as e:
@@ -126,38 +141,48 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
     contentCheck = read_json_file(logPath)
     debug_print(f"ContentCheck Log ({logPath}): {contentCheck}")
 
+    # Bestimme, ob Contentcheck erfolgreich war
+    content_ok = False
     if contentCheck:
         details = contentCheck.get("details", {})
         layerStatus = details.get("layerStatus", "FAIL")
         metaStatus = details.get("metaStatus", "FAIL")
         if layerStatus == "OK" and metaStatus == "OK":
-            # Contentcheck erfolgreich: Weiterverarbeitung starten
-            # Versuche, das im Hotfolder-Config ausgewählte JSX-Skript zu ermitteln
-            script_to_run = None
-            additional_jsx = config.get("additional_jsx", "").strip()
-            jsx_folder = config.get("jsx_folder", "").strip()
-            if additional_jsx:
-                script_to_run = additional_jsx
-            elif jsx_folder and os.path.isdir(jsx_folder):
-                # Falls kein zusätzliches JSX angegeben wurde, wähle das erste .jsx im Ordner
-                for fname in os.listdir(jsx_folder):
-                    if fname.lower().endswith(".jsx"):
-                        script_to_run = os.path.join(jsx_folder, fname)
-                        break
-            if script_to_run:
-                if run_jsx_in_photoshop(script_to_run):
-                    debug_print(f"Additional JSX script executed: {script_to_run}")
-                else:
-                    debug_print(f"Failed to execute additional JSX script: {script_to_run}")
-            dest_dir = success_dir
-            debug_print("Contentcheck OK: Datei wird in Success verschoben.")
+            content_ok = True
+            debug_print("Contentcheck OK.")
         else:
-            dest_dir = fault_dir
-            debug_print("Contentcheck FAIL: Datei wird in Fault verschoben.")
+            debug_print("Contentcheck FAIL.")
+    else:
+        debug_print("Kein Contentcheck Log gefunden (FAIL).")
+
+    # Bei Erfolg: Nacheinander "selected_jsx" und "additional_jsx" ausführen
+    if content_ok:
+        # Skript aus ComboBox
+        script_combo = config.get("selected_jsx", "").strip()
+        # Manuelles Skript
+        script_manual = config.get("additional_jsx", "").strip()
+
+        # Liste aller Skripte, die ausgeführt werden sollen
+        scripts_to_run = []
+        if script_combo:
+            scripts_to_run.append(script_combo)
+        if script_manual:
+            scripts_to_run.append(script_manual)
+
+        for script_path in scripts_to_run:
+            if run_jsx_in_photoshop(script_path):
+                debug_print(f"Executed additional JSX: {script_path}")
+            else:
+                debug_print(f"Failed to execute additional JSX: {script_path}")
+
+        dest_dir = success_dir
     else:
         dest_dir = fault_dir
-        debug_print("Kein Contentcheck Log gefunden: Datei wird in Fault verschoben.")
 
+    # Photoshop-Dokument ohne Speichern schließen
+    close_in_photoshop()
+
+    # Datei verschieben
     dest = os.path.join(dest_dir, os.path.basename(file_path))
     if move_file(file_path, dest):
         debug_print(f"Moved file from {file_path} to {dest}")

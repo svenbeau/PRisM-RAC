@@ -205,6 +205,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         jsx_folder_layout.addWidget(self.browse_jsx_folder_btn)
         main_layout.addLayout(jsx_folder_layout)
 
+        # ComboBox-Skript -> "selected_jsx"
         self.jsx_combo = QtWidgets.QComboBox()
         self.jsx_combo.setEditable(True)
         self.populate_jsx_combo()  # Füllt die ComboBox mit .jsx-Dateien
@@ -213,7 +214,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         jsx_combo_layout.addWidget(self.jsx_combo)
         main_layout.addLayout(jsx_combo_layout)
 
-        # (E) Zusätzliches JSX
+        # (E) Zusätzliches JSX (manuelles Skript) -> "additional_jsx"
         self.additional_jsx_edit = QtWidgets.QLineEdit(self.hotfolder.get("additional_jsx", ""))
         self.jsx_browse_btn = QtWidgets.QPushButton("JSX durchsuchen")
         add_jsx_layout = QtWidgets.QHBoxLayout()
@@ -253,7 +254,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
     def populate_jsx_combo(self):
         """
         Füllt die ComboBox (self.jsx_combo) mit allen .jsx-Dateien aus dem Ordner self.hotfolder["jsx_folder"].
-        Setzt die Auswahl auf das Skript in 'additional_jsx', falls vorhanden.
+        Setzt die Auswahl auf self.hotfolder["selected_jsx"], falls vorhanden.
         """
         self.jsx_combo.clear()
         folder = self.hotfolder.get("jsx_folder", "")
@@ -262,10 +263,10 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
                 if filename.lower().endswith(".jsx"):
                     self.jsx_combo.addItem(filename)
 
-        # Falls in "additional_jsx" bereits ein Skript hinterlegt ist, wähle es aus
-        additional_jsx = self.hotfolder.get("additional_jsx", "")
-        if additional_jsx:
-            base_script = os.path.basename(additional_jsx)
+        # Falls in "selected_jsx" bereits ein Skript hinterlegt ist, wähle es aus
+        selected_jsx_path = self.hotfolder.get("selected_jsx", "")
+        if selected_jsx_path:
+            base_script = os.path.basename(selected_jsx_path)
             idx = self.jsx_combo.findText(base_script)
             if idx >= 0:
                 self.jsx_combo.setCurrentIndex(idx)
@@ -350,17 +351,17 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
 
         # 4) JSX
         self.hotfolder["jsx_folder"] = self.jsx_folder_edit.text()
-        selected_script = self.jsx_combo.currentText().strip()
-        manual_script   = self.additional_jsx_edit.text().strip()
 
-        # Falls in der ComboBox ein Skript gewählt wurde, hat es Priorität:
+        # Speichere die ComboBox-Auswahl in "selected_jsx"
+        selected_script = self.jsx_combo.currentText().strip()
         if selected_script and selected_script != "(none)":
-            self.hotfolder["additional_jsx"] = os.path.join(self.hotfolder["jsx_folder"], selected_script)
-        elif manual_script:
-            # Nur wenn ComboBox leer => nutze das manuell eingetragene Skript
-            self.hotfolder["additional_jsx"] = manual_script
+            self.hotfolder["selected_jsx"] = os.path.join(self.hotfolder["jsx_folder"], selected_script)
         else:
-            self.hotfolder["additional_jsx"] = ""
+            self.hotfolder["selected_jsx"] = ""
+
+        # Speichere das manuell eingetragene Skript in "additional_jsx"
+        manual_script = self.additional_jsx_edit.text().strip()
+        self.hotfolder["additional_jsx"] = manual_script  # Kann leer sein oder ein Pfad
 
         debug_print("In save_and_close - Hotfolder neu: " + str(self.hotfolder))
 
@@ -483,15 +484,18 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
 
         self.hotfolder["jsx_folder"] = self.jsx_folder_edit.text()
 
-        # ComboBox + Additional
+        # Speichere ComboBox-Auswahl in "selected_jsx"
         selected_script = self.jsx_combo.currentText().strip()
-        manual_script   = self.additional_jsx_edit.text().strip()
         if selected_script and selected_script != "(none)":
-            self.hotfolder["additional_jsx"] = os.path.join(self.hotfolder["jsx_folder"], selected_script)
-        elif manual_script:
-            self.hotfolder["additional_jsx"] = manual_script
+            self.hotfolder["selected_jsx"] = os.path.join(self.hotfolder["jsx_folder"], selected_script)
         else:
-            self.hotfolder["additional_jsx"] = ""
+            self.hotfolder["selected_jsx"] = ""
+
+        # Speichere manuell eingetragenes Skript in "additional_jsx"
+        manual_script = self.additional_jsx_edit.text().strip()
+        self.hotfolder["additional_jsx"] = manual_script
+
+        debug_print(f"update_hotfolder_from_fields: selected_jsx={self.hotfolder['selected_jsx']}, additional_jsx={self.hotfolder['additional_jsx']}")
 
     def update_fields_from_hotfolder(self):
         """
@@ -522,9 +526,12 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
             cb.setChecked(meta in self.hotfolder.get("keyword_metadata", []))
 
         self.jsx_folder_edit.setText(self.hotfolder.get("jsx_folder", ""))
-        self.populate_jsx_combo()  # ComboBox neu füllen
-        additional_jsx = self.hotfolder.get("additional_jsx", "")
-        self.additional_jsx_edit.setText(additional_jsx)
+
+        # ComboBox -> selected_jsx
+        self.populate_jsx_combo()
+
+        # Manuelles Skript -> additional_jsx
+        self.additional_jsx_edit.setText(self.hotfolder.get("additional_jsx", ""))
 
 if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
@@ -545,6 +552,7 @@ if __name__ == "__main__":
         "keyword_layers": [],
         "keyword_metadata": [],
         "jsx_folder": "",
+        "selected_jsx": "",
         "additional_jsx": ""
     }
     dlg = HotfolderConfigDialog(test_config)
