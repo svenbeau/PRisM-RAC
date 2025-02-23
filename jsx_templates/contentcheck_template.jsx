@@ -101,7 +101,7 @@ function serializeToJsonPretty(obj, indent) {
 
 // Globaler Debug-Schalter – wird von außen injiziert, falls nicht gesetzt.
 if (typeof DEBUG_OUTPUT === "undefined") {
-    var DEBUG_OUTPUT = true;
+    var DEBUG_OUTPUT = false;
 }
 function debug_print(msg) {
     if (DEBUG_OUTPUT) {

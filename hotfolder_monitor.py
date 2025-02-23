@@ -72,6 +72,8 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
         führt es aus und löscht es anschließend.
       - Wartet kurz, liest den generierten Contentcheck-Log und entscheidet anhand der Statuswerte,
         ob die Datei in den Success- oder Fault-Ordner verschoben wird.
+      - Wenn der Contentcheck erfolgreich war, wird zusätzlich das im Hotfolder-Config ausgewählte
+        JSX-Skript gestartet und auf das geöffnete Bild angewandt.
       - Ruft on_status_update mit "Processed: ..." auf.
     """
     success_dir = config.get("success_dir")
@@ -117,7 +119,7 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
     except Exception as e:
         debug_print(f"Error removing temporary JSX script {tmp_jsx_path}: {e}")
 
-    time.sleep(2)
+    time.sleep(2)  # Warte, bis die Log-Datei erstellt wurde
 
     baseName = os.path.basename(file_path).rsplit(".", 1)[0]
     logPath = os.path.join(logfiles_dir, baseName + "_01_log_contentcheck.json")
@@ -129,6 +131,24 @@ def process_file(file_path, config, jsx_script_path, on_status_update=None):
         layerStatus = details.get("layerStatus", "FAIL")
         metaStatus = details.get("metaStatus", "FAIL")
         if layerStatus == "OK" and metaStatus == "OK":
+            # Contentcheck erfolgreich: Weiterverarbeitung starten
+            # Versuche, das im Hotfolder-Config ausgewählte JSX-Skript zu ermitteln
+            script_to_run = None
+            additional_jsx = config.get("additional_jsx", "").strip()
+            jsx_folder = config.get("jsx_folder", "").strip()
+            if additional_jsx:
+                script_to_run = additional_jsx
+            elif jsx_folder and os.path.isdir(jsx_folder):
+                # Falls kein zusätzliches JSX angegeben wurde, wähle das erste .jsx im Ordner
+                for fname in os.listdir(jsx_folder):
+                    if fname.lower().endswith(".jsx"):
+                        script_to_run = os.path.join(jsx_folder, fname)
+                        break
+            if script_to_run:
+                if run_jsx_in_photoshop(script_to_run):
+                    debug_print(f"Additional JSX script executed: {script_to_run}")
+                else:
+                    debug_print(f"Failed to execute additional JSX script: {script_to_run}")
             dest_dir = success_dir
             debug_print("Contentcheck OK: Datei wird in Success verschoben.")
         else:

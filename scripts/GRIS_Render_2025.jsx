@@ -101,7 +101,7 @@ function ResizeTheImage(width, height) {
         if (DEBUG_OUTPUT) alert("istRückseite: \n" + filename);
     }
 
-    var configjsonfile = '/Users/Shared/GrisebachSkripte/Config/GB_Config_Render.json';
+    var configjsonfile = '/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/JSX_Config/GB_Config_Render.json';
     if (DEBUG_OUTPUT) alert(configjsonfile);
 
     try {
