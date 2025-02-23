@@ -1,0 +1,29 @@
+{
+    "id": "b0d16093-e9e4-4885-a5b9-484bab97e98e",
+    "name": "Render",
+    "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
+    "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor",
+    "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
+    "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
+    "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
+    "contentcheck_enabled": true,
+    "required_layers": [
+        "Freisteller",
+        "Messwerte",
+        "Korrektur"
+    ],
+    "required_metadata": [
+        "author",
+        "description",
+        "keywords"
+    ],
+    "keyword_check_enabled": true,
+    "keyword_check_word": "Rueckseite",
+    "keyword_layers": [],
+    "keyword_metadata": [
+        "author",
+        "description"
+    ],
+    "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+    "additional_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx"
+}
