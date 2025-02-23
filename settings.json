@@ -32,7 +32,8 @@
                 "keywords"
             ],
             "jsx_folder": "",
-            "additional_jsx": ""
+            "additional_jsx": "",
+            "selected_jsx": ""
         },
         {
             "id": "b0d16093-e9e4-4885-a5b9-484bab97e98e",
