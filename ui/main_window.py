@@ -8,15 +8,15 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from config.config_manager import load_settings, save_settings, debug_print
 from ui.hotfolder_widget import HotfolderListWidget
 from ui.logfile_widget import LogfileWidget
+from ui.json_explorer_widget import JSONExplorerWidget  # Unser neues Widget
 
 DEBUG_OUTPUT = True
-
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PRisM-RAC")
-        self.resize(1200, 700)
+        self.resize(1200, 1000)
         self.settings = load_settings()
         self.init_ui()
 
@@ -57,30 +57,45 @@ class MainWindow(QtWidgets.QMainWindow):
         main_hlayout = QtWidgets.QHBoxLayout()
         main_vlayout.addLayout(main_hlayout, stretch=1)
 
-        # Linker Bereich: Buttons "Hotfolder" und "Logfile"
+        # Linker Bereich: Buttons "Hotfolder", "Logfile", "JSON Editor"
         left_widget = QtWidgets.QWidget()
         left_vlayout = QtWidgets.QVBoxLayout(left_widget)
         left_vlayout.setContentsMargins(5, 5, 5, 5)
+
         self.hotfolder_btn = QtWidgets.QPushButton("Hotfolder")
         self.logfile_btn = QtWidgets.QPushButton("Logfile")
+        self.json_editor_btn = QtWidgets.QPushButton("JSON Editor")
+
         left_vlayout.addWidget(self.hotfolder_btn)
         left_vlayout.addWidget(self.logfile_btn)
+        left_vlayout.addWidget(self.json_editor_btn)
         left_vlayout.addStretch()
+
         main_hlayout.addWidget(left_widget, stretch=0)
 
-        # Rechter Bereich: StackedWidget für Hotfolder- und Logfile-Ansicht
+        # Rechter Bereich: StackedWidget für Hotfolder, Logfile und JSON Editor
         self.stack = QtWidgets.QStackedWidget()
         main_hlayout.addWidget(self.stack, stretch=1)
 
+        # Widget 0: Hotfolder
         self.hotfolder_list_widget = HotfolderListWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.hotfolder_list_widget)
 
+        # Widget 1: Logfile
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.logfile_widget)
 
+        # Widget 2: JSON Explorer
+        self.json_explorer_widget = JSONExplorerWidget(self.settings, parent=self.stack)
+        self.stack.addWidget(self.json_explorer_widget)
+
+        # Default: Hotfolder
         self.stack.setCurrentIndex(0)
+
+        # Button-Klicks -> Index wechseln
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
+        self.json_editor_btn.clicked.connect(lambda: self.stack.setCurrentIndex(2))
 
     def toggle_debug(self):
         global DEBUG_OUTPUT
@@ -96,13 +111,11 @@ class MainWindow(QtWidgets.QMainWindow):
         save_settings(self.settings)
         super().closeEvent(event)
 
-
 def main():
     app = QtWidgets.QApplication(sys.argv)
     win = MainWindow()
     win.show()
     sys.exit(app.exec_())
-
 
 if __name__ == "__main__":
     main()

@@ -1,50 +1,50 @@
 {
-    "source":"RecomART-Dom",
-    "target":"19JH",
-    "outputs":[ 
+    "source": "RecomART-Dom",
+    "target": "19JH",
+    "outputs": [
         {
-            "name":"Master",
-            "photoshopAction":"12 Master DOM (MA)",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/01_Master",
-            "suffix":"MA",
-            "filetype":"jpg",
-            "backside":true,
-            "backsideAction":null,
-            "backsideSuffix":"MF"
-        }, 
-        {
-            "name":"Web_Komplett",
-            "photoshopAction":"23 DOM Color 2 Web Komplett (WK)",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web",
-            "suffix":"WK",
-            "filetype":"png",
-            "backside":true,
-            "backsideAction":null,
-            "backsideSuffix":"WF"
+            "name": "Master",
+            "photoshopAction": "12 Master DOM (MA)",
+            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/01_Master",
+            "suffix": "MA",
+            "filetype": "jpg",
+            "backside": true,
+            "backsideAction": null,
+            "backsideSuffix": "MF"
         },
         {
-            "name":"Web_Ausschnitt",
-            "photoshopAction":"22 DOM Color 2 Web Cropped (WC)",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web",
-            "suffix":"WC",
-            "filetype":"png",
-            "backside":false
-        }, 
-        {
-            "name":"Druck",
-            "photoshopAction":"42 DOM Color 2 PSOv3 (P3s)",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/02_Druck",
-            "suffix":"P2s",
-            "filetype":"tif",
-            "backside":false
+            "name": "Web_Komplett",
+            "photoshopAction": "23 DOM Color 2 Web Komplett (WK)",
+            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web",
+            "suffix": "WK",
+            "filetype": "png",
+            "backside": true,
+            "backsideAction": "23b DOM Color 2 Web Komplett (WK) R",
+            "backsideSuffix": "WF"
         },
         {
-            "name":"OPI",
-            "photoshopAction":"80 Color 2 OPI",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/06_OPI_Lay",
-            "suffix":"P2s",
-            "filetype":"jpg",
-            "backside":false
+            "name": "Web_Ausschnitt",
+            "photoshopAction": "22 DOM Color 2 Web Cropped (WC)",
+            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web",
+            "suffix": "WC",
+            "filetype": "png",
+            "backside": false
+        },
+        {
+            "name": "Druck",
+            "photoshopAction": "42 DOM Color 2 PSOv3 (P3s)",
+            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/02_Druck",
+            "suffix": "P2s",
+            "filetype": "tif",
+            "backside": false
+        },
+        {
+            "name": "OPI",
+            "photoshopAction": "80 Color 2 OPI",
+            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/06_OPI_Lay",
+            "suffix": "P2s",
+            "filetype": "jpg",
+            "backside": false
         }
-        ]
-    }
+    ]
+}
