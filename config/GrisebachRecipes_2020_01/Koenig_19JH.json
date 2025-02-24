@@ -1,0 +1,22 @@
+{
+    "source":"Königsdruck",
+    "target":"19JH",
+    "outputs":[ 
+        {
+            "name":"Druck",
+            "photoshopAction":"32 DOM Color 2 39L (P2s)",
+            "outputFolder":"/Volumes/Druckereien/01_Heenemann/02_Druck",
+            "suffix":"P2s",
+            "filetype":"tif",
+            "backside":false
+        },
+        {
+            "name":"OPI",
+            "photoshopAction":"80 Color 2 OPI",
+            "outputFolder":"/Volumes/Druckereien/01_Heenemann/01_OPI",
+            "suffix":"P2s",
+            "filetype":"jpg",
+            "backside":false
+        }
+        ]
+    }

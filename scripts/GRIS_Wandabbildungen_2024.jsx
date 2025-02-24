@@ -93,231 +93,171 @@ isCancelled ? 'cancel' : undefined;
 //////////////////////////////////////////////////////////////
 
 function SaveImages(width, height) {
-         const saveFTP = false;
+    const saveFTP = false;
+    importFunctions();
 
-		 importFunctions();
+    // Feste Pfadangabe für die JSON-Datei:
+    var configjsonpath = '/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/JSX_Config/GB_Config_Render.json';
+    if (DEBUG_OUTPUT)
+        alert(configjsonpath);
+    try {
+        // Get file object
+        var configjsonfile = new File(configjsonpath);
+        // open it before reading.
+        configjsonfile.open('r');
+        // Read and get the content
+        var content = configjsonfile.read();
+        if (DEBUG_OUTPUT)
+            alert("Content: " + content);
+        // Parse the configuration into an Object 
+        var config = JSON.parse(content);
+        if (DEBUG_OUTPUT)
+            alert("config: " + config + " recipesPath: " + config.recipesPath);
+    } catch (e) {
+        alert("Wall error saving " + e + " line: " + e.line);
+    }
 
-		 
-	// Use absolute path for the JSON file.
-	var configjsonfolder = 'config/'
-	var configjsonpath = (new File($.fileName)).parent+ '/'+configjsonfolder + 'GrisConfig.json'
-	if(DEBUG_OUTPUT)
-		alert(configjsonpath);
-	try{
-		// Get file object
-		var configjsonfile = new File(configjsonpath)
+    /* THE PATH WHERE THE WALLFILES ARE
+     *  AND WHERE THE FILES ARE SAVED!
+     *  @ SVEN this is to change!!!
+     */
+    var pathtofiles = config.basicWandFiles;
 
-		// open it before reading.
-		configjsonfile.open('r')
-		
+    var mainPathDwgWall = "//Volumes/rcm_GB/__Render/Wand/";
+    var oldPref = app.preferences.rulerUnits;
+    var doc = app.activeDocument;
+    var filename = (app.activeDocument.name.split("."))[0];
 
+    var wid = doc.width;
+    var hei = doc.height;
 
-		// Read and get the content
-		content = configjsonfile.read()
-		if(DEBUG_OUTPUT)
-			alert("Content: " +content)
-		//Parse the configuration into an Object 
-		var config = JSON.parse(content)
+    const wall1dpi = 23.863;
+    const wall2dpi = 23.863;
+    const wall3dpi = 23.863;
+    const wall4dpi = 23.863;
+    const wall5dpi = 25.3992672;
+    const wall6dpi = 60.35;
 
+    const dpis = [23.863, 23.863, 23.863, 23.863, 25.3992672, 60.35];
+    const files = ["Waende01.psb", "Waende02.psb", "Waende03.psb", "Waende04.psb", "Waende05.psb", "Waende06.psb"];
+    const xValues = [2592, 2509, 2509, 2362, 2194, 2362];
+    const yValues = [1341, 1604, 1508, 1543, 1498, 1397];
 
-		/* THE PATH WHERE THE WALLFILES ARE
-		*  AND WHERE THE FILES ARE SAVED!
-		*  @ SVEN this is to change!!!
-		*/
-		var pathtofiles = config.basicWandFiles;
+    const afterActions = [
+        "06_WeiterverarbeitungWand_Wand01",
+        "06_WeiterverarbeitungWand_Wand02",
+        "06_WeiterverarbeitungWand_Wand03",
+        "06_WeiterverarbeitungWand_Wand04",
+        "06_WeiterverarbeitungWand_Wand05",
+        "06_WeiterverarbeitungWand_Wand06"
+    ];
 
+    const wallSizeLimits = [
+        { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+        { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+        { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+        { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+        { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+        { minHeight: 0, minWidth: 0, maxHeight: 50, maxWidth: 50 }
+    ];
 
-		var mainPathDwgWall = "//Volumes/rcm_GB/__Render/Wand/"; 
-		//mainPathDwgWall = "//Users/rcmart_gb_render1/Documents/grisebach/";   
-		//var ftpPathDwgWall = "//Volumes/rcm_GB_Share/05_OnlineOnly/09_Wand/";
-		
+    // Read the Size from the EXIF Headline Field. 
+    var s = doc.info.headline;
+    if (s != "") {
+        if (DEBUG_OUTPUT)
+            alert("headline " + s);
+        var size = s.split("x");
+        var h = parseFloat(size[0]);
+        var b = parseFloat(size[1]);
 
-		var oldPref = app.preferences.rulerUnits;
-		var doc = app.activeDocument;
+        // Select a random Image of the WallImages based on size
+        var validOptions = [];
+        for (var i = 0; i < wallSizeLimits.length; i++) {
+            var limit = wallSizeLimits[i];
+            if ((h >= limit.minHeight && h <= limit.maxHeight) || (b >= limit.minWidth && b <= limit.maxWidth)) {
+                validOptions.push(i);
+            }
+        }
+        if (validOptions.length > 0) {
+            var randomIndex = Math.floor(Math.random() * validOptions.length);
+            var random = validOptions[randomIndex];
+        } else {
+            alert("No suitable wall image found for the given dimensions.");
+            return;
+        }
+        var randomField = activeDocument.info.instructions;
+        if (randomField != "") {
+            random = randomField;
+        }
+        var s = "Random: " + random;
+        if (DEBUG_OUTPUT)
+            alert(s + " dpi: " + dpis[random] + " file:" + files[random]);
+        var image = activeDocument;
+        app.preferences.rulerUnits = Units.PIXELS;
 
-		var filename = (app.activeDocument.name.split ("."))[0];
-    
-    
-    
-		var wid = doc.width;
-		var hei = doc.height;
-		
-		
-		
-		const wall1dpi = 23.863;
-		const wall2dpi = 23.863;
-		const wall3dpi = 23.863;
-		const wall4dpi = 23.863;
-		const wall5dpi = 25.3992672;
-		const wall6dpi = 60.35;
+        // prepare the PSD
+        var layers = doc.artLayers;
+        try {
+            var freisteller = activeDocument.layers.getByName("Freisteller");
+        } catch (e) {
+            app.doAction("H011 Wand Alles Freistellen", "Grisebach DOM 2021");
+        }
+        var freisteller = activeDocument.layers.getByName("Freisteller");
+        try {
+            var freistellerWand = activeDocument.layers.getByName("Freisteller_Wand");
+        } catch (e) {
+            freisteller.name = "Freisteller_Wand";
+        }
+        app.doAction("70 DOM Color 2 Wand (WA)", "Grisebach DOM 2021");
+        if (DEBUG_OUTPUT)
+            alert("vorbereitet");
+        // Resize to the Right dpi and Scale Values; 
+        image.resizeImage(new UnitValue(b, "cm"), new UnitValue(h, "cm"), dpis[random]);
 
-		const dpis = [23.863, 23.863, 23.863, 23.863, 25.3992672, 60.35];
-		const files = ["Waende01.psb", "Waende02.psb", "Waende03.psb", "Waende04.psb", "Waende05.psb", "Waende06.psb"];
-		const xValues = [2592, 2509, 2509, 2362, 2194, 2362];
-		const yValues = [1341, 1604, 1508, 1543, 1498, 1397];
+        // open the Randomly selected WALL image
+        var pathtoWallFile = pathtofiles + files[random];
+        var fileRef = new File(pathtoWallFile);
+        if (DEBUG_OUTPUT)
+            alert("Wandpfad:" + pathtoWallFile);
+        var wallImage = app.open(fileRef);
 
-		const afterActions = [
-			"06_WeiterverarbeitungWand_Wand01",
-			"06_WeiterverarbeitungWand_Wand02",
-			"06_WeiterverarbeitungWand_Wand03",
-			"06_WeiterverarbeitungWand_Wand04",
-			"06_WeiterverarbeitungWand_Wand05",
-			"06_WeiterverarbeitungWand_Wand06"
-		]
+        app.activeDocument = image;
+        image.activeLayer.duplicate(wallImage, ElementPlacement.PLACEATBEGINNING);
+        app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
+        app.activeDocument = wallImage;
+        app.activeDocument.activeLayer = activeDocument.artLayers.getByName("insertedImage");
+        var imageLayer = app.activeDocument.activeLayer;
+        MoveLayerTo(imageLayer, xValues[random], yValues[random]);
 
+        app.doAction(afterActions[random], "Grisebach DOM 2021");
 
+        //#Filename for the websave
+        var newName = filename + "_W.psd";
+        var outputFile = config.wandFileSavePath + newName;
 
-   		// Define the wall image size limits
-		   const wallSizeLimits = [
-			{ minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 }, // Wand 01-05
-			{ minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
-			{ minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
-			{ minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
-			{ minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
-			{ minHeight: 0, minWidth: 0, maxHeight: 50, maxWidth: 50 } // Wand 06
-		];
+        var webFile = new File(outputFile);
+        if (DEBUG_OUTPUT)
+            alert("save as:" + outputFile);
 
-		// Read the Size from the EXIF Headline Field. 
-		var s = doc.info.headline;
-		if(s != ""){
-			if(DEBUG_OUTPUT)
-				alert("headline "+s);
+        var psdSaveOptions = new PhotoshopSaveOptions();
+        psdSaveOptions.embedColorProfile = true;
+        psdSaveOptions.alphaChannels = true;
+        // Pfad prüfen und Verzeichnis bei Bedarf erstellen
+        if (!webFile.parent.exists) {
+            webFile.parent.create();
+        }
 
-			var size = s.split("x");
-			var h = parseFloat(size[0]);
-			var b = parseFloat(size[1]);
-
-			// Select a random Image of the WallImages based on size
-			var validOptions = [];
-			for (var i = 0; i < wallSizeLimits.length; i++) {
-				var limit = wallSizeLimits[i];
-				if ((h >= limit.minHeight && h <= limit.maxHeight) || (b >= limit.minWidth && b <= limit.maxWidth)) {
-					validOptions.push(i);
-				}
-			}
-
-			if (validOptions.length > 0) {
-				var randomIndex = Math.floor(Math.random() * validOptions.length);
-				var random = validOptions[randomIndex];
-			} else {
-				alert("No suitable wall image found for the given dimensions.");
-				return;
-			}
-			
-			var randomField = activeDocument.info.instructions;
-			if (randomField != ""){
-				random = randomField;
-			}
-    
-			var s = "Random: "+random;
-			if(DEBUG_OUTPUT)
-				alert (s+" dpi: "+ dpis[random]+" file:"+files[random]);
-			var image = activeDocument;
-
-			app.preferences.rulerUnits = Units.PIXELS;
-
-			// prepare the PSD
-
-			var layers = doc.artLayers;
-			try{
-				var freisteller = activeDocument.layers.getByName("Freisteller");
-			} catch (e){
-				app.doAction("H011 Wand Alles Freistellen","Grisebach DOM 2021");
-			}
-			var freisteller = activeDocument.layers.getByName("Freisteller");
-			//alert(freisteller.name);
-			try {
-			var freistellerWand= activeDocument.layers.getByName("Freisteller_Wand");
-			} catch (e){
-				freisteller.name = "Freisteller_Wand";
-				//alert("umbenannt");
-			}
-			/*for (var q = 0; q<layers.length;q++){
-				if(layers[q].name == "Freisteller"){
-					freisteller = layers[q];
-				}
-				else if (layers[q].name == "Freisteller_Wand"){
-					freisteller_wand = layers[q];
-				}
-			}
-			if(freistellerWand == null && freisteller != null){
-				freisteller.name = "Freisteller_Wand";
-				if(DEBUG_OUTPUT)
-					alert ("freisteller Umbenannt");
-			} else
-				alert("NotFound")*/
-			app.doAction("70 DOM Color 2 Wand (WA)","Grisebach DOM 2021");
-			if(DEBUG_OUTPUT)
-			alert ("vorbereitet");
-			// Resize to the Right dpi and Scale Values; 
-			image.resizeImage(new UnitValue (b, "cm"),new UnitValue(h, "cm"),dpis[random]);
-
-			// open the Randomly selected WALL image
-			var pathtoWallFile = pathtofiles+files[random];
-			//alert(pathtoWallFile);
-			var fileRef = new File(pathtoWallFile);
-			if(DEBUG_OUTPUT)
-				alert("Wandpfad:"+pathtoWallFile);
-			var wallImage = app.open( fileRef );  
-
-			app.activeDocument = image;
-			image.activeLayer.duplicate(wallImage,ElementPlacement.PLACEATBEGINNING);
-			app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
-			app.activeDocument = wallImage;
-			app.activeDocument.activeLayer = activeDocument.artLayers.getByName("insertedImage");  
-			var imageLayer = app.activeDocument.activeLayer;
-			MoveLayerTo(imageLayer, xValues[random], yValues[random]);
-
-    		app.doAction(afterActions[random],"Grisebach DOM 2021");
-		
-
-
-    		//#Filename for the websave
-			var newName = filename+"_W.psd"
-			var outputFile = config.wandFileSavePath + newName; 
-    	
-					
-			var webFile = new File(outputFile);
-			if(DEBUG_OUTPUT)
-				alert("save as:"+outputFile);
-			
-
-            var psdSaveOptions = new PhotoshopSaveOptions();
-            psdSaveOptions.embedColorProfile = true;
-            psdSaveOptions.alphaChannels = true;  
-            //document.saveAs(psdFile, psdSaveOptions, true, Extension.LOWERCASE);
-    	
-
-
-        	//wallImage.flatten();
-        	//docCopyWeb.saveAs(webFile, jpgSaveOptions, false,Extension.LOWERCASE);   
-        	//docCopyWeb.saveAs(layFile, jpgSaveOptions, false,Extension.LOWERCASE); 
-        	///wallImage.saveAs(webFile, psdSaveOptions, false,Extension.LOWERCASE);   
-        	//docCopyWeb.saveAs(layFile, pngSaveOptions, false,Extension.LOWERCASE); 
-        
-			// Pfad prüfen und Verzeichnis bei Bedarf erstellen
-if (!webFile.parent.exists) {
-    webFile.parent.create();
-}
-
-// Speichern mit psdSaveOptions
-try {
-    wallImage.saveAs(webFile, psdSaveOptions, true, Extension.LOWERCASE);
-} catch (e) {
-    alert("Fehler beim Speichern: " + e.message + " line: " + e.line);
-}
-
-
-
-		}
-	} catch (e) {
-		alert("Wall error saving "+ e + "line: "+e.line);
-	}	
+        // Speichern mit psdSaveOptions
+        try {
+            wallImage.saveAs(webFile, psdSaveOptions, true, Extension.LOWERCASE);
+        } catch (e) {
+            alert("Fehler beim Speichern: " + e.message + " line: " + e.line);
+        }
+    }
     app.preferences.rulerUnits = oldPref; // restore old prefs
-	isCancelled = false; // if get here, definitely executed
-	app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
-	return false; // no error
-    
+    isCancelled = false;
+    app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
+    return false; // no error
 }
 
 

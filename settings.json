@@ -65,11 +65,41 @@
             "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
             "additional_jsx": "",
             "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
-            "body_visible": true
+            "body_visible": false
+        },
+        {
+            "id": "490d7fbd-5d03-4f9e-a890-97470b108d28",
+            "name": "Wand",
+            "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
+            "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor",
+            "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
+            "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
+            "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
+            "contentcheck_enabled": true,
+            "required_layers": [
+                "Freisteller"
+            ],
+            "required_metadata": [
+                "author",
+                "description",
+                "keywords"
+            ],
+            "keyword_check_enabled": true,
+            "keyword_check_word": "Rueckseite",
+            "keyword_layers": [],
+            "keyword_metadata": [
+                "author",
+                "description"
+            ],
+            "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+            "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_C_ReadWriteCSV.jsx",
+            "additional_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024.jsx",
+            "body_visible": false
         }
     ],
     "log_entries": [],
     "recent_dirs": [
+        "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2020_01",
         "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/JSX_Config",
         "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
         "/Users/sschonauer"

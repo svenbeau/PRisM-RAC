@@ -1,9 +1,8 @@
-    {
-    "recipesPath":"/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01/",
-    "actionFolderName":"Grisebach 2025",
-    "outputMainPath":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web/",
-    "basicWandFiles":"/Volumes/File_01/__intern/Grisebach_Wandbilder_Shooting_inszenierte_Expertenfotos/2024_10_30_Wandbildvorlagen_GRISEBACH_NEU/01_Vorlagen/",
-    "csvWandFile":"/Volumes/File_01/__intern/Grisebach_Wandbilder_Shooting_inszenierte_Expertenfotos/2024_10_30_Wandbildvorlagen_GRISEBACH_NEU/03_Script_und_CSV/File01.csv",
-    "wandFileSavePath":"/Volumes/File_01/__intern/Grisebach_Wandbilder_Shooting_inszenierte_Expertenfotos/2024_10_30_Wandbildvorlagen_GRISEBACH_NEU/05_Wand_Output/PSD/"
-
+{
+    "recipesPath": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01/",
+    "actionFolderName": "Grisebach 2025",
+    "outputMainPath": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web/",
+    "basicWandFiles": "/Volumes/File_01/_GRIS/06_Wand/01_Vorlagen/",
+    "csvWandFile": "/Volumes/File_01/_GRIS/01_dokumente/A750_Wandbilder_29012025.csv",
+    "wandFileSavePath": "/Volumes/4TM2/Grisebach/30_Renderfiles/05_Wand/PSD/"
 }

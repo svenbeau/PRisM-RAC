@@ -5,21 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Samsatg Abend - Contentcheck funktioniert">
-      <change afterPath="$PROJECT_DIR$/ui/json_editor.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/json_explorer.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/json_explorer_widget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/log_exporter.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/log_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_19JH.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_19JH.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/hotfolder_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/logfile_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/logfile_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -221,7 +207,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740320218692</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="Samsatg Abend - Contentcheck funktioniert">
+      <option name="closed" value="true" />
+      <created>1740407444247</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1740407444247</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

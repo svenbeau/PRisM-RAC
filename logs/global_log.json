@@ -1,0 +1,1747 @@
+{
+    "log_counter": 44,
+    "entries": [
+        {
+            "timestamp": "2025-02-24T14:26:14.313621",
+            "filename": "4067424_Boemmels_3705_06_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "742; Rueckseite",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "60x100",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000001"
+        },
+        {
+            "timestamp": "2025-02-24T14:39:53.031669",
+            "filename": "4067424_Boemmels_3705_06_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "742; Rueckseite",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "60x100",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000002"
+        },
+        {
+            "timestamp": "2025-02-24T14:41:11.629821",
+            "filename": "4067424_Boemmels_3705_06_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "742; Rueckseite",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "60x100",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000003"
+        },
+        {
+            "timestamp": "2025-02-24T15:18:39.688696",
+            "filename": "4067424_Boemmels_3705_06_L15_ohne_Ebenen.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "742",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Fail",
+            "applied_script": "(none)",
+            "details": {
+                "layers": {
+                    "Freisteller": "no",
+                    "Messwerte": "no",
+                    "Korrektur": "no"
+                },
+                "missingLayers": [
+                    "Freisteller",
+                    "Messwerte",
+                    "Korrektur"
+                ],
+                "missingMetadata": [],
+                "layerStatus": "FAIL",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000004"
+        },
+        {
+            "timestamp": "2025-02-24T15:20:01.405120",
+            "filename": "4069284_Kirchner_3193_01.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "751",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "25.73x20.14",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000005"
+        },
+        {
+            "timestamp": "2025-02-24T15:22:52.092862",
+            "filename": "4070135_Knoebel_3561_01.psb",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000006"
+        },
+        {
+            "timestamp": "2025-02-24T15:28:46.277380",
+            "filename": "4069481_Ziem_3249_01.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "19JH",
+                "descriptionWriter": "undefined",
+                "keywords": "362",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000007"
+        },
+        {
+            "timestamp": "2025-02-24T15:35:13.786700",
+            "filename": "4067424_Boemmels_3705_06_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "742; Rueckseite",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "60x100",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000008"
+        },
+        {
+            "timestamp": "2025-02-24T15:41:26.767727",
+            "filename": "4067424_Boemmels_3705_06_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "742; Rueckseite",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "60x100",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000009"
+        },
+        {
+            "timestamp": "2025-02-24T15:48:05.540636",
+            "filename": "4067424_Boemmels_3705_06_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "742; Rueckseite",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "60x100",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000010"
+        },
+        {
+            "timestamp": "2025-02-24T16:04:23.553390",
+            "filename": "4070068_Grosz_3029_01_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Fail",
+            "applied_script": "(none)",
+            "details": {
+                "layers": {
+                    "Freisteller": "no",
+                    "Messwerte": "no",
+                    "Korrektur": "no"
+                },
+                "missingLayers": [
+                    "Freisteller",
+                    "Messwerte",
+                    "Korrektur"
+                ],
+                "missingMetadata": [],
+                "layerStatus": "FAIL",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000011"
+        },
+        {
+            "timestamp": "2025-02-24T16:09:56.632652",
+            "filename": "4070068_Grosz_3029_01_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000012"
+        },
+        {
+            "timestamp": "2025-02-24T16:11:05.620115",
+            "filename": "4070068_Grosz_3029_01.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000013"
+        },
+        {
+            "timestamp": "2025-02-24T16:12:42.039466",
+            "filename": "4070070_Grosz_3028_07.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "367",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000014"
+        },
+        {
+            "timestamp": "2025-02-24T16:13:21.546949",
+            "filename": "4070070_Grosz_3028_07_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "367; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000015"
+        },
+        {
+            "timestamp": "2025-02-24T16:14:22.999078",
+            "filename": "4070071_Grosz_3028_08.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "367",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000016"
+        },
+        {
+            "timestamp": "2025-02-24T16:15:03.146790",
+            "filename": "4070071_Grosz_3028_08_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "367; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000017"
+        },
+        {
+            "timestamp": "2025-02-24T16:15:47.849302",
+            "filename": "4070082_Dix_3029_11.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "367",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000018"
+        },
+        {
+            "timestamp": "2025-02-24T16:16:18.804913",
+            "filename": "4070082_Dix_3029_11_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "367; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000019"
+        },
+        {
+            "timestamp": "2025-02-24T16:16:58.962459",
+            "filename": "4070193_Beckmann_3052_02.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000020"
+        },
+        {
+            "timestamp": "2025-02-24T16:17:29.406606",
+            "filename": "4070193_Beckmann_3052_02_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000021"
+        },
+        {
+            "timestamp": "2025-02-24T16:18:06.570275",
+            "filename": "4070200_Grosz_3052_09.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000022"
+        },
+        {
+            "timestamp": "2025-02-24T16:18:32.410244",
+            "filename": "4070200_Grosz_3052_09_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000023"
+        },
+        {
+            "timestamp": "2025-02-24T16:19:08.317469",
+            "filename": "4070207_Schmidt_Rottluff_3052_15.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000024"
+        },
+        {
+            "timestamp": "2025-02-24T16:19:31.215960",
+            "filename": "4070207_Schmidt_Rottluff_3052_15_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000025"
+        },
+        {
+            "timestamp": "2025-02-24T16:20:27.534137",
+            "filename": "4070208_Schmidt_Rottluff_3052_16.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000026"
+        },
+        {
+            "timestamp": "2025-02-24T16:21:10.139550",
+            "filename": "4070208_Schmidt_Rottluff_3052_16_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000027"
+        },
+        {
+            "timestamp": "2025-02-24T16:21:46.850078",
+            "filename": "4070215_Zille_3052_22.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000028"
+        },
+        {
+            "timestamp": "2025-02-24T16:22:14.192050",
+            "filename": "4070215_Zille_3052_22_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000029"
+        },
+        {
+            "timestamp": "2025-02-24T16:22:53.815564",
+            "filename": "4070217_Beckmann_3065_02.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000030"
+        },
+        {
+            "timestamp": "2025-02-24T16:23:30.816908",
+            "filename": "4070217_Beckmann_3065_02_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000031"
+        },
+        {
+            "timestamp": "2025-02-24T16:23:56.472671",
+            "filename": "4070221_Liebermann_3065_06.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000032"
+        },
+        {
+            "timestamp": "2025-02-24T16:24:14.131484",
+            "filename": "4070221_Liebermann_3065_06_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000033"
+        },
+        {
+            "timestamp": "2025-02-24T16:24:55.503552",
+            "filename": "4070228_Zille_3065_12.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000034"
+        },
+        {
+            "timestamp": "2025-02-24T16:25:23.921337",
+            "filename": "4070228_Zille_3065_12_F.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "ModerneContemporary",
+                "descriptionWriter": "undefined",
+                "keywords": "368; Rueckseite",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Keyword-based",
+            "status": "Success",
+            "applied_script": "GRIS_Render_2025.jsx",
+            "details": {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Keyword-based",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000035"
+        },
+        {
+            "timestamp": "2025-02-24T16:56:13.023651",
+            "filename": "4069116_Feininger_3114_01.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Wandabbildungen_2024.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000036"
+        },
+        {
+            "timestamp": "2025-02-24T17:00:37.399537",
+            "filename": "4069394_Chillida_3252_02.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Wandabbildungen_2024.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000037"
+        },
+        {
+            "timestamp": "2025-02-24T17:00:48.812995",
+            "filename": "4069397_Francis_3252_05.tif",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Wandabbildungen_2024.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000038"
+        },
+        {
+            "timestamp": "2025-02-24T17:00:57.159446",
+            "filename": "4070013_Nay_3500_01.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Wandabbildungen_2024.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000039"
+        },
+        {
+            "timestamp": "2025-02-24T17:02:21.721988",
+            "filename": "4069394_Chillida_3252_02.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_Wandabbildungen_2024.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000040"
+        },
+        {
+            "timestamp": "2025-02-24T17:08:40.614670",
+            "filename": "4069394_Chillida_3252_02.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_C_Wand_2021_C_PSD.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000041"
+        },
+        {
+            "timestamp": "2025-02-24T17:18:50.185401",
+            "filename": "4069394_Chillida_3252_02.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_C_Wand_2021_C_PSD.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000042"
+        },
+        {
+            "timestamp": "2025-02-24T19:21:51.425660",
+            "filename": "4069394_Chillida_3252_02.psd",
+            "metadata": {
+                "documentTitle": "undefined",
+                "author": "RecomART-Dom",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "750",
+                "copyrightNotice": "undefined",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            },
+            "checkType": "Standard",
+            "status": "Success",
+            "applied_script": "GRIS_C_ReadWriteCSV.jsx",
+            "details": {
+                "layers": {
+                    "Freisteller": "yes",
+                    "Messwerte": "yes",
+                    "Korrektur": "yes"
+                },
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": true,
+                    "keyword": "Rueckseite"
+                }
+            },
+            "id": "0000043"
+        }
+    ]
+}

@@ -1,0 +1,50 @@
+{
+    "source":"Fotostudio Bartsch",
+    "target":"19JH",
+    "outputs":[ 
+        {
+            "name":"Master",
+            "photoshopAction":"12 Master DOM (MA)",
+            "outputFolder":"/Volumes/Bilddatenserver/02_Master",
+            "suffix":"MA",
+            "filetype":"jpg",
+            "backside":true,
+            "backsideAction":null,
+            "backsideSuffix":"MF"
+        }, 
+        {
+            "name":"Web_Komplett",
+            "photoshopAction":"23 DOM Color 2 Web Komplett (WK)",
+            "outputFolder":"/Volumes/Bilddatenserver/03_Web",
+            "suffix":"WK",
+            "filetype":"png",
+            "backside":true,
+            "backsideAction":null,
+            "backsideSuffix":"WF"
+        },
+        {
+            "name":"Web_Ausschnitt",
+            "photoshopAction":"22 DOM Color 2 Web Cropped (WC)",
+            "outputFolder":"/Volumes/Bilddatenserver/03_Web",
+            "suffix":"WC",
+            "filetype":"png",
+            "backside":false
+        }, 
+        {
+            "name":"Druck",
+            "photoshopAction":"34 DOM Color 2 39L relfm (P2s)",
+            "outputFolder":"/Volumes/Druckereien/01_Heenemann/02_Druck",
+            "suffix":"P2s",
+            "filetype":"tif",
+            "backside":false
+        },
+        {
+            "name":"OPI",
+            "photoshopAction":"80 Color 2 OPI",
+            "outputFolder":"/Volumes/Druckereien/01_Heenemann/06_OPI_Lay",
+            "suffix":"P2s",
+            "filetype":"jpg",
+            "backside":false
+        }
+        ]
+    }
