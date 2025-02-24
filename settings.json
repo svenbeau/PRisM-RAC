@@ -71,7 +71,7 @@
             "id": "490d7fbd-5d03-4f9e-a890-97470b108d28",
             "name": "Wand",
             "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
-            "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor",
+            "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/02_Wand",
             "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
             "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
             "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",

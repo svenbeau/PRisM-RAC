@@ -18,7 +18,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
     Identifikation erfolgt über 'id' statt über den Namen.
     Die Änderungen werden nur einmal gespeichert – kein doppeltes Überschreiben.
     """
-
     def __init__(self, hotfolder_data: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Hotfolder Konfiguration")
@@ -29,11 +28,12 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         debug_print("HotfolderConfigDialog init: " + str(self.hotfolder))
 
         self.current_config = load_settings()
+        # recent_paths wird nun verwendet – falls keine Einträge vorhanden sind, liefern wir einen Fallback
         self.recent_dirs = self.current_config.setdefault("recent_paths", {
-            "monitor": [],
-            "success": [],
-            "fault": [],
-            "logfiles": []
+            "monitor": [os.path.expanduser("~")],
+            "success": [os.path.expanduser("~")],
+            "fault": [os.path.expanduser("~")],
+            "logfiles": [os.path.expanduser("~")]
         })
         self.init_ui()
 
@@ -246,23 +246,16 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.browse_jsx_folder_btn.clicked.connect(self.browse_jsx_folder)
         btn_box.accepted.connect(self.save_and_close)
         btn_box.rejected.connect(self.reject)
-
-        # NEUE SIGNALS FÜR SPEICHERN/LADEN
         self.btn_save_config.clicked.connect(self.save_configuration_to_file)
         self.btn_load_config.clicked.connect(self.load_configuration_from_file)
 
     def populate_jsx_combo(self):
-        """
-        Füllt die ComboBox (self.jsx_combo) mit allen .jsx-Dateien aus dem Ordner self.hotfolder["jsx_folder"].
-        Setzt die Auswahl auf self.hotfolder["selected_jsx"], falls vorhanden.
-        """
         self.jsx_combo.clear()
         folder = self.hotfolder.get("jsx_folder", "")
         if folder and os.path.isdir(folder):
             for filename in os.listdir(folder):
                 if filename.lower().endswith(".jsx"):
                     self.jsx_combo.addItem(filename)
-
         # Falls in "selected_jsx" bereits ein Skript hinterlegt ist, wähle es aus
         selected_jsx_path = self.hotfolder.get("selected_jsx", "")
         if selected_jsx_path:
@@ -291,7 +284,8 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
                 self.fault_combo.setCurrentText(folder)
             elif folder_type == "logfiles":
                 self.logfiles_combo.setCurrentText(folder)
-            update_recent_dirs(folder_type, folder)
+            # Hier übergeben wir self.recent_dirs als erstes Argument an update_recent_dirs
+            update_recent_dirs(self.recent_dirs, folder)
 
     def browse_jsx_file(self):
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -310,7 +304,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
 
     def save_and_close(self):
         debug_print("Vor save_and_close - Hotfolder war: " + str(self.hotfolder))
-
         # 1) Basisdaten
         self.hotfolder["name"] = self.name_edit.text()
         self.hotfolder["path"] = self.path_edit.text()
@@ -321,50 +314,28 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
 
         # 2) Standard-Contentcheck
         self.hotfolder["contentcheck_enabled"] = self.standard_contentcheck_group.isChecked()
-        chosen_layers = []
-        for layer, cb in self.layer_checks.items():
-            if cb.isChecked():
-                chosen_layers.append(layer)
-        self.hotfolder["required_layers"] = chosen_layers
-
-        chosen_meta = []
-        for meta, cb in self.meta_checks.items():
-            if cb.isChecked():
-                chosen_meta.append(meta)
-        self.hotfolder["required_metadata"] = chosen_meta
+        self.hotfolder["required_layers"] = [layer for layer, cb in self.layer_checks.items() if cb.isChecked()]
+        self.hotfolder["required_metadata"] = [meta for meta, cb in self.meta_checks.items() if cb.isChecked()]
 
         # 3) Keyword-Contentcheck
         self.hotfolder["keyword_check_enabled"] = self.keyword_check_group.isChecked()
         self.hotfolder["keyword_check_word"] = self.keyword_edit.text()
-
-        kw_layers = []
-        for layer, cb in self.keyword_layer_checks.items():
-            if cb.isChecked():
-                kw_layers.append(layer)
-        self.hotfolder["keyword_layers"] = kw_layers
-
-        kw_meta = []
-        for meta, cb in self.keyword_meta_checks.items():
-            if cb.isChecked():
-                kw_meta.append(meta)
-        self.hotfolder["keyword_metadata"] = kw_meta
+        self.hotfolder["keyword_layers"] = [layer for layer, cb in self.keyword_layer_checks.items() if cb.isChecked()]
+        self.hotfolder["keyword_metadata"] = [meta for meta, cb in self.keyword_meta_checks.items() if cb.isChecked()]
 
         # 4) JSX
         self.hotfolder["jsx_folder"] = self.jsx_folder_edit.text()
-
         # Speichere die ComboBox-Auswahl in "selected_jsx"
         selected_script = self.jsx_combo.currentText().strip()
         if selected_script and selected_script != "(none)":
             self.hotfolder["selected_jsx"] = os.path.join(self.hotfolder["jsx_folder"], selected_script)
         else:
             self.hotfolder["selected_jsx"] = ""
-
         # Speichere das manuell eingetragene Skript in "additional_jsx"
         manual_script = self.additional_jsx_edit.text().strip()
-        self.hotfolder["additional_jsx"] = manual_script  # Kann leer sein oder ein Pfad
+        self.hotfolder["additional_jsx"] = manual_script
 
         debug_print("In save_and_close - Hotfolder neu: " + str(self.hotfolder))
-
         # 5) Sicherstellen, dass der Hotfolder eine ID besitzt
         if not self.hotfolder.get("id"):
             new_id = str(uuid.uuid4())
@@ -375,20 +346,17 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         settings_data = load_settings()
         hotfolders_list = settings_data.setdefault("hotfolders", [])
         current_id = self.hotfolder["id"]
-
         found_idx = -1
         for i, hf in enumerate(hotfolders_list):
             if hf.get("id") == current_id:
                 found_idx = i
                 break
-
         if found_idx >= 0:
             debug_print(f"Ersetze alten Eintrag an Index {found_idx} durch: {self.hotfolder}")
             hotfolders_list[found_idx] = self.hotfolder
         else:
             debug_print("Kein Hotfolder mit dieser ID gefunden; hänge neuen an.")
             hotfolders_list.append(self.hotfolder)
-
         save_settings(settings_data)
         debug_print("Hotfolder-Konfiguration gespeichert/aktualisiert.")
         self.accept()
@@ -444,8 +412,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
 
     def update_hotfolder_from_fields(self):
         """
-        Aktualisiert das hotfolder-Dictionary anhand der aktuellen Dialog-Felder,
-        falls wir z.B. vor dem Speichern aufrufen wollen.
+        Aktualisiert das hotfolder-Dictionary anhand der aktuellen Dialog-Felder.
         """
         self.hotfolder["name"] = self.name_edit.text()
         self.hotfolder["path"] = self.path_edit.text()
@@ -454,47 +421,20 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.hotfolder["fault_dir"] = self.fault_combo.currentText()
         self.hotfolder["logfiles_dir"] = self.logfiles_combo.currentText()
         self.hotfolder["contentcheck_enabled"] = self.standard_contentcheck_group.isChecked()
-
-        chosen_layers = []
-        for layer, cb in self.layer_checks.items():
-            if cb.isChecked():
-                chosen_layers.append(layer)
-        self.hotfolder["required_layers"] = chosen_layers
-
-        chosen_meta = []
-        for meta, cb in self.meta_checks.items():
-            if cb.isChecked():
-                chosen_meta.append(meta)
-        self.hotfolder["required_metadata"] = chosen_meta
-
+        self.hotfolder["required_layers"] = [layer for layer, cb in self.layer_checks.items() if cb.isChecked()]
+        self.hotfolder["required_metadata"] = [meta for meta, cb in self.meta_checks.items() if cb.isChecked()]
         self.hotfolder["keyword_check_enabled"] = self.keyword_check_group.isChecked()
         self.hotfolder["keyword_check_word"] = self.keyword_edit.text()
-
-        kw_layers = []
-        for layer, cb in self.keyword_layer_checks.items():
-            if cb.isChecked():
-                kw_layers.append(layer)
-        self.hotfolder["keyword_layers"] = kw_layers
-
-        kw_meta = []
-        for meta, cb in self.keyword_meta_checks.items():
-            if cb.isChecked():
-                kw_meta.append(meta)
-        self.hotfolder["keyword_metadata"] = kw_meta
-
+        self.hotfolder["keyword_layers"] = [layer for layer, cb in self.keyword_layer_checks.items() if cb.isChecked()]
+        self.hotfolder["keyword_metadata"] = [meta for meta, cb in self.keyword_meta_checks.items() if cb.isChecked()]
         self.hotfolder["jsx_folder"] = self.jsx_folder_edit.text()
-
-        # Speichere ComboBox-Auswahl in "selected_jsx"
         selected_script = self.jsx_combo.currentText().strip()
         if selected_script and selected_script != "(none)":
             self.hotfolder["selected_jsx"] = os.path.join(self.hotfolder["jsx_folder"], selected_script)
         else:
             self.hotfolder["selected_jsx"] = ""
-
-        # Speichere manuell eingetragenes Skript in "additional_jsx"
         manual_script = self.additional_jsx_edit.text().strip()
         self.hotfolder["additional_jsx"] = manual_script
-
         debug_print(f"update_hotfolder_from_fields: selected_jsx={self.hotfolder['selected_jsx']}, additional_jsx={self.hotfolder['additional_jsx']}")
 
     def update_fields_from_hotfolder(self):
@@ -504,33 +444,23 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.id_label.setText(self.hotfolder.get("id", "NO-ID"))
         self.name_edit.setText(self.hotfolder.get("name", "Neuer Hotfolder"))
         self.path_edit.setText(self.hotfolder.get("path", ""))
-
         self.monitor_combo.setCurrentText(self.hotfolder.get("monitor_dir", ""))
         self.success_combo.setCurrentText(self.hotfolder.get("success_dir", ""))
         self.fault_combo.setCurrentText(self.hotfolder.get("fault_dir", ""))
         self.logfiles_combo.setCurrentText(self.hotfolder.get("logfiles_dir", ""))
-
         self.standard_contentcheck_group.setChecked(self.hotfolder.get("contentcheck_enabled", True))
         for layer, cb in self.layer_checks.items():
             cb.setChecked(layer in self.hotfolder.get("required_layers", []))
-
         for meta, cb in self.meta_checks.items():
             cb.setChecked(meta in self.hotfolder.get("required_metadata", []))
-
         self.keyword_check_group.setChecked(self.hotfolder.get("keyword_check_enabled", False))
         self.keyword_edit.setText(self.hotfolder.get("keyword_check_word", ""))
-
         for layer, cb in self.keyword_layer_checks.items():
             cb.setChecked(layer in self.hotfolder.get("keyword_layers", []))
         for meta, cb in self.keyword_meta_checks.items():
             cb.setChecked(meta in self.hotfolder.get("keyword_metadata", []))
-
         self.jsx_folder_edit.setText(self.hotfolder.get("jsx_folder", ""))
-
-        # ComboBox -> selected_jsx
         self.populate_jsx_combo()
-
-        # Manuelles Skript -> additional_jsx
         self.additional_jsx_edit.setText(self.hotfolder.get("additional_jsx", ""))
 
 if __name__ == "__main__":
