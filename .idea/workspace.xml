@@ -4,16 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Mit JSON-Edit und Wandbild-Script">
-      <change afterPath="$PROJECT_DIR$/config/script_config_manager.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/path_selection_widget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/script_recipe_config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/script_recipe_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/settings_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/settings_widget.py" afterDir="false" />
-    </list>
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau zu globaler Konfiguration" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -248,7 +239,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740812879910</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="Umbau zu globaler Konfiguration">
+      <option name="closed" value="true" />
+      <created>1740864427030</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1740864427030</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
