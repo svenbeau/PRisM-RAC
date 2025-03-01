@@ -5,18 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Mit JSON-Edit und Wandbild-Script">
-      <change afterPath="$PROJECT_DIR$/ui/path_config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/script_config_dialog.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/script_list_widget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/script_recipe_widget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/settings_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/script_config_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/path_selection_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/script_recipe_config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/config/config_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/GRIS_Render_2025.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/GRIS_Render_2025.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/settings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/script_recipe_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/settings_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/settings_widget.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -69,6 +65,7 @@
     "Python.json_explorer.executor": "Run",
     "Python.main.executor": "Run",
     "Python.main_window.executor": "Run",
+    "Python.script_config_manager.executor": "Run",
     "Python.settings_widget.executor": "Run",
     "Python.start.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -259,6 +256,7 @@
     <MESSAGE value="Contentcheck funktioniert" />
     <MESSAGE value="Samsatg Abend - Contentcheck funktioniert" />
     <MESSAGE value="Mit JSON-Edit und Wandbild-Script" />
-    <option name="LAST_COMMIT_MESSAGE" value="Mit JSON-Edit und Wandbild-Script" />
+    <MESSAGE value="Umbau zu globaler Konfiguration" />
+    <option name="LAST_COMMIT_MESSAGE" value="Umbau zu globaler Konfiguration" />
   </component>
 </project>

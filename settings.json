@@ -120,15 +120,37 @@
     ],
     "script_configs": [
         {
-            "script_name": "",
-            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01"
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "Grisebach 2025",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
+        },
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_C_ReadWriteCSV.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "Grisebach 2025",
+            "basicWandFiles": "",
+            "csvWandFile": "/Volumes/4TM2/Grisebach/01_dokumente/2025_02_25_GB_WBL_752_Osuagwu.csv",
+            "wandFileSavePath": ""
+        },
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "Grisebach 2025",
+            "basicWandFiles": "/Volumes/4TM2/Grisebach/06_Wand/01_Vorlagen",
+            "csvWandFile": "",
+            "wandFileSavePath": "/Volumes/4TM2/Grisebach/30_Renderfiles/05_Wand/Test"
         }
     ],
     "recent_json_folders": [],
     "scripts": [
         {
             "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
-            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01"
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "action_folder": "Grisebach 2025",
+            "id": "0af3adfd-398b-40ce-acfb-7dfe267ce80a"
         }
     ],
     "global_script_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
@@ -152,5 +174,35 @@
     },
     "scripts_base_folder": "",
     "script_json_mapping": [],
-    "script_settings": []
+    "script_settings": [],
+    "renderConfig": {
+        "actionFolderName": "",
+        "basicWandFiles": "",
+        "csvWandFile": "",
+        "wandFileSavePath": ""
+    },
+    "scriptsConfig": [],
+    "scriptRecipeMappings": [
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
+        },
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024.jsx",
+            "json_folder": "",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
+        },
+        {
+            "script_path": "",
+            "json_folder": "",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
+        }
+    ]
 }
