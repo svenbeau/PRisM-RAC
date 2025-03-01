@@ -4,8 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Samsatg Abend - Contentcheck funktioniert">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Mit JSON-Edit und Wandbild-Script">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/JSX_Config/GB_Config_Render.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/JSX_Config/GB_Config_Render.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/global_log.json" beforeDir="false" afterPath="$PROJECT_DIR$/logs/global_log.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/GRIS_Wandabbildungen_2024.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/GRIS_Wandabbildungen_2024.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/settings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,21 +57,21 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.hotfolder_config.executor": "Run",
-    "Python.hotfolder_monitor.executor": "Run",
-    "Python.json_editor.executor": "Run",
-    "Python.json_explorer.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.main_window.executor": "Run",
-    "Python.start.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "stable-v4",
-    "settings.editor.selected.configurable": "preferences.lookFeel"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
+    &quot;Python.start.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;stable-v6&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/utils" />
@@ -215,13 +222,30 @@
       <option name="project" value="LOCAL" />
       <updated>1740407444247</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="Samsatg Abend - Contentcheck funktioniert">
+      <option name="closed" value="true" />
+      <created>1740421515521</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1740421515521</updated>
+    </task>
+    <task id="LOCAL-00018" summary="Mit JSON-Edit und Wandbild-Script">
+      <option name="closed" value="true" />
+      <created>1740423283260</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1740423283260</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="erste schritte" />
     <MESSAGE value="Contentcheck funktioniert" />
     <MESSAGE value="Samsatg Abend - Contentcheck funktioniert" />
-    <option name="LAST_COMMIT_MESSAGE" value="Samsatg Abend - Contentcheck funktioniert" />
+    <MESSAGE value="Mit JSON-Edit und Wandbild-Script" />
+    <option name="LAST_COMMIT_MESSAGE" value="Mit JSON-Edit und Wandbild-Script" />
   </component>
 </project>

@@ -6,13 +6,16 @@ import json
 import tempfile
 
 DEBUG_OUTPUT = True
+
+
 def debug_print(msg):
     if DEBUG_OUTPUT:
         print("[DEBUG]", msg)
 
+
 def generate_hybrid_jsx(hf_config: dict, template_path: str) -> str:
     """
-    Liest das JSX-Template, ersetzt die Platzhalter mit den in hf_config definierten
+    Liest das JSX‑Template, ersetzt die Platzhalter mit den in hf_config definierten
     required_layers, required_metadata und logfiles_dir und gibt den Pfad zur temporären Datei zurück.
     """
     required_layers = hf_config.get("required_layers", [])
@@ -27,6 +30,8 @@ def generate_hybrid_jsx(hf_config: dict, template_path: str) -> str:
     with open(abs_template_path, "r", encoding="utf-8") as f:
         jsx_template = f.read()
 
+    # Ersetze die Platzhalter – dabei gehen wir davon aus, dass das Template
+    # keine eigenen Defaultwerte mehr setzt.
     layers_str = json.dumps(required_layers)
     metadata_str = json.dumps(required_metadata)
     logfiles_str = logfiles_dir.replace("\\", "/")
@@ -34,7 +39,7 @@ def generate_hybrid_jsx(hf_config: dict, template_path: str) -> str:
     jsx_code = jsx_template
     jsx_code = jsx_code.replace("/*PYTHON_INSERT_LAYERS*/", layers_str)
     jsx_code = jsx_code.replace("/*PYTHON_INSERT_METADATA*/", metadata_str)
-    jsx_code = jsx_code.replace("/*PYTHON_INSERT_LOGFOLDER*/", logfiles_str)
+    jsx_code = jsx_code.replace("/*PYTHON_INSERT_LOGFOLDER*/", json.dumps(logfiles_str))
 
     debug_print("Generierter JSX-Code:")
     debug_print(jsx_code)
@@ -45,6 +50,7 @@ def generate_hybrid_jsx(hf_config: dict, template_path: str) -> str:
         f.write(jsx_code)
     debug_print(f"Hybrid-JSX-Skript erzeugt: {tmp_path}")
     return tmp_path
+
 
 def generate_jsx_script(hf_config: dict, target_filename: str) -> str:
     base_dir = os.path.dirname(os.path.abspath(__file__))

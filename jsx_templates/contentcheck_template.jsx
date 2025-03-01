@@ -1,5 +1,18 @@
 // contentcheck_template.jsx
 
+// Die folgenden Variablen werden von Python injiziert:
+// Falls nicht injiziert, werden leere Arrays bzw. ein leerer String genutzt.
+var required_layers = /*PYTHON_INSERT_LAYERS*/;
+var required_metadata = /*PYTHON_INSERT_METADATA*/;
+var logFolderPath = /*PYTHON_INSERT_LOGFOLDER*/;
+
+// Setze diese Werte als die für den Check zu verwendenden:
+var requiredLayers = required_layers;
+var requiredMetadata = required_metadata;
+
+// Setze zunächst checkType standardmäßig auf "Standard"
+var checkType = "Standard";
+
 // Polyfill für String.prototype.trim (ExtendScript unterstützt trim() möglicherweise nicht)
 if (typeof String.prototype.trim !== "function") {
     String.prototype.trim = function() {
@@ -10,26 +23,6 @@ if (typeof String.prototype.trim !== "function") {
 // Lade die Adobe XMPScript Library, falls noch nicht geladen
 if (ExternalObject.AdobeXMPScript == undefined) {
     ExternalObject.AdobeXMPScript = new ExternalObject("lib:AdobeXMPScript");
-}
-
-// --- Dynamisch injizierte Variablen ---
-// Diese Variablen werden von Python übergeben, basierend auf den Werten in settings.json.
-// Falls nicht injiziert, werden Standardwerte gesetzt.
-if (typeof keywordCheckEnabled === "undefined") {
-    var keywordCheckEnabled = false;
-}
-if (typeof keywordCheckWord === "undefined") {
-    var keywordCheckWord = "";
-}
-if (typeof keyword_layers === "undefined") {
-    var keyword_layers = []; // Leere Liste -> dann werden in diesem Bereich keine Layer geprüft.
-}
-if (typeof keyword_metadata === "undefined") {
-    var keyword_metadata = []; // Leere Liste -> dann werden in diesem Bereich keine Metadaten geprüft.
-}
-// Optional: Falls logFolderPath nicht injiziert wurde, setzen wir einen Standardwert.
-if (typeof logFolderPath === "undefined") {
-    var logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles";
 }
 
 // Polyfill für Array.isArray
@@ -99,28 +92,10 @@ function serializeToJsonPretty(obj, indent) {
     return result;
 }
 
-// Globaler Debug-Schalter – wird von außen injiziert, falls nicht gesetzt.
-if (typeof DEBUG_OUTPUT === "undefined") {
-    var DEBUG_OUTPUT = false;
-}
+// Debug-Funktion
 function debug_print(msg) {
-    if (DEBUG_OUTPUT) {
-        $.writeln("[DEBUG] " + msg);
-    }
+    $.writeln("[DEBUG] " + msg);
 }
-
-// Standardwerte für den normalen Contentcheck – diese kommen aus settings.json:
-if (typeof required_layers === "undefined") {
-    var required_layers = ["Freisteller", "Messwerte", "Korrektur"];
-}
-if (typeof required_metadata === "undefined") {
-    var required_metadata = ["author", "description", "keywords"];
-}
-var requiredLayers = required_layers;
-var requiredMetadata = required_metadata;
-
-// Setze zunächst checkType standardmäßig auf "Standard"
-var checkType = "Standard";
 
 // Funktion zum Entfernen umgebender Anführungszeichen
 function removeSurroundingQuotes(str) {
@@ -131,7 +106,7 @@ function removeSurroundingQuotes(str) {
     return str;
 }
 
-// Feld-Mapping – Keys entsprechen der gewünschten Zuordnung.
+// Feld-Mapping
 var fieldMapping = {
     "documentTitle":    { ns: XMPConst.NS_DC, prop: "title", altText: true, isArray: false },
     "author":           { ns: XMPConst.NS_DC, prop: "creator", altText: false, isArray: true },
@@ -151,7 +126,7 @@ var fieldMapping = {
     "transmissionRef":  { ns: XMPConst.NS_PHOTOSHOP, prop: "TransmissionReference", altText: false, isArray: false }
 };
 
-// Benutzerfreundliche Labels für die Anzeige
+// Benutzerfreundliche Labels
 var userFriendlyLabels = {
     "documentTitle":    "Title",
     "author":           "Author",
@@ -159,7 +134,7 @@ var userFriendlyLabels = {
     "keywords":         "Keywords",
     "headline":         "Headline",
     "authorPosition":   "Author Position",
-    "descriptionWriter": "Description Writer",
+    "descriptionWriter":"Description Writer",
     "copyrightNotice":  "Copyright Notice",
     "copyrightURL":     "Copyright URL",
     "city":             "City",
@@ -171,7 +146,7 @@ var userFriendlyLabels = {
     "transmissionRef":  "Transmission Ref"
 };
 
-// Funktion zum Auslesen eines Feldes gemäß Mapping
+// Funktion zum Auslesen eines Feldes
 function getXMPValue(fieldKey) {
     var mapping = fieldMapping[fieldKey];
     if (!mapping) {
@@ -196,7 +171,6 @@ function getXMPValue(fieldKey) {
                 } catch(e) {}
             }
             if (items.length > 0) {
-                // Verbinde alle Einträge mit Semikolon
                 val = items.join("; ");
             }
         } catch(e) {
@@ -235,14 +209,13 @@ var doc = app.activeDocument;
 var xmpData = doc.xmpMetadata.rawData;
 var xmp = new XMPMeta(xmpData);
 
-// Erzeuge ein Objekt, das alle Felder enthält (basierend auf fieldMapping)
+// Erzeuge ein Objekt, das alle Felder enthält
 var metadataOutput = {};
 for (var key in fieldMapping) {
     metadataOutput[key] = getXMPValue(key);
 }
 
-// 1) Keyword-Check: Falls keywordCheckEnabled true ist und ein Suchbegriff definiert ist,
-// teilen wir das "keywords"-Feld anhand des Semikolons auf und prüfen, ob ein Tag exakt übereinstimmt.
+// 1) Keyword-Check: Teile "keywords" anhand des Semikolons auf und prüfe, ob ein Tag exakt übereinstimmt.
 if (keywordCheckEnabled && keywordCheckWord !== "") {
     var tags = String(metadataOutput["keywords"]).split(";");
     var found = false;
@@ -261,19 +234,18 @@ if (keywordCheckEnabled && keywordCheckWord !== "") {
     checkType = "Standard";
 }
 
-// 2) Effektive Kriterien: Falls der Keyword-basierte Check aktiv ist,
-// verwenden wir ausschließlich die in keyword_layers und keyword_metadata definierten Werte.
-// Sind diese Arrays leer, werden in diesem Bereich keine Kriterien geprüft.
+// 2) Effektive Kriterien: Falls Keyword-basierter Check aktiv ist, verwende die in keyword_layers und keyword_metadata definierten Werte;
+// andernfalls verwende requiredLayers und requiredMetadata.
 var effectiveLayers, effectiveMetadata;
 if (checkType === "Keyword-based") {
-    effectiveLayers = (keyword_layers.length > 0) ? keyword_layers : [];
-    effectiveMetadata = (keyword_metadata.length > 0) ? keyword_metadata : [];
+    effectiveLayers = (typeof keyword_layers !== "undefined" && keyword_layers.length > 0) ? keyword_layers : [];
+    effectiveMetadata = (typeof keyword_metadata !== "undefined" && keyword_metadata.length > 0) ? keyword_metadata : [];
 } else {
     effectiveLayers = requiredLayers;
     effectiveMetadata = requiredMetadata;
 }
 
-// 3) Erzeuge formatierten Output für die ausgewählten Metadaten
+// 3) Formatiere den Output für Metadaten
 var formattedMeta = "Metadata Output:\n";
 for (var i = 0; i < effectiveMetadata.length; i++) {
     var key = effectiveMetadata[i];
@@ -281,14 +253,14 @@ for (var i = 0; i < effectiveMetadata.length; i++) {
     formattedMeta += label + ": " + metadataOutput[key] + "\n";
 }
 
-// 4) Erzeuge formatierten Output für die Ebenen
+// 4) Formatiere den Output für Ebenen
 var formattedLayers = "Layer Output:\n";
 for (var i = 0; i < effectiveLayers.length; i++) {
     var lname = effectiveLayers[i];
     formattedLayers += lname + ": " + (layerExists(doc, lname) ? "yes" : "NO") + "\n";
 }
 
-// Funktion, um zu prüfen, ob eine Ebene im Dokument existiert
+// Funktion, um zu prüfen, ob eine Ebene existiert
 function layerExists(doc, layerName) {
     function searchLayers(layers, name) {
         for (var i = 0; i < layers.length; i++) {
@@ -307,12 +279,12 @@ function layerExists(doc, layerName) {
     return searchLayers(doc.layers, layerName);
 }
 
-// Debug-Ausgabe (nur Metadaten und Ebenen)
+// Debug-Ausgabe
 if (DEBUG_OUTPUT === true) {
     alert(formattedMeta + "\n\n" + formattedLayers);
 }
 
-// 5) Erstelle das finale Objekt für die JSON-Ausgabe
+// 5) Erstelle das finale Ergebnisobjekt für die JSON-Ausgabe
 var resultObj = {
     metadata: metadataOutput,
     details: {
@@ -346,7 +318,7 @@ for (var j = 0; j < effectiveMetadata.length; j++) {
     }
 }
 
-// 8) Erzeuge den kompletten Contentcheck-Log (Pretty Print)
+// 8) Erzeuge das finale JSON
 var jsonString = serializeToJsonPretty(resultObj, "");
 var baseName = doc.name.replace(/\.[^\.]+$/, "");
 var contentLogFile = new File(logFolderPath + "/" + baseName + "_01_log_contentcheck.json");
@@ -357,8 +329,7 @@ contentLogFile.close();
 
 debug_print("Contentcheck-Log gespeichert: " + contentLogFile.fullName);
 
-// 9) Falls layerStatus oder metaStatus FAIL, zusätzlich einen Fail-Log erzeugen,
-// der nur die fehlenden Kriterien enthält.
+// 9) Falls ein Fehler vorliegt, erzeuge zusätzlich einen Fail-Log
 if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus === "FAIL") {
     var missingLayersObj = {};
     for (var i = 0; i < resultObj.details.missingLayers.length; i++) {

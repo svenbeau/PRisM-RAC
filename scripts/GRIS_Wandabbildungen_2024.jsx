@@ -208,7 +208,7 @@ function SaveImages(width, height) {
         } catch (e) {
             freisteller.name = "Freisteller_Wand";
         }
-        app.doAction("70 DOM Color 2 Wand (WA)", "Grisebach DOM 2021");
+        app.doAction("70 DOM Color 2 Wand (WA)", "Grisebach 2025");
         if (DEBUG_OUTPUT)
             alert("vorbereitet");
         // Resize to the Right dpi and Scale Values; 
