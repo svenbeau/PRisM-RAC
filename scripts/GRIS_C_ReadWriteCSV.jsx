@@ -1,9 +1,13 @@
-﻿// c2008 recom, Inc. All rights reserved.
-// Written by Florian Mozer 2021
-//Lesen der CSV Infos - angepasst um über alle laufen zu können
-
+﻿// GRIS_C_ReadWriteCSV.jsx
+// c2021 recom. All rights reserved.
+// Written by Florian Mozer & Sven Schoenauer
+// based on the ADM Fit Image by Charles A. McBrian from 1997
+// edited by Mike Hale added option to avoid resize on images already smaller than target size
+// Don't Enlarge option in Fit Image command ignored if image is not 72ppi fixed by Mike Hale
+// rebuild to do the Grisebach Derivatives by me
+// fm
 /*
-@@@BUILDINFO@@@ GRIS_C_ReadWriteCSV.jsx 1.0.0.2
+@@@BUILDINFO@@@ SuperSkript.jsx 1.2.0.0
 */
 
 /* Special properties for a JavaScript to enable it to behave like an automation plug-in, the variable name must be exactly
@@ -11,17 +15,17 @@
 
 // BEGIN__HARVEST_EXCEPTION_ZSTRING
 <javascriptresource>
-<name>GRIS_C_ReadWriteCSV</name>
-<category>GRIS2021_W</category>
+<name>Grisebach-Render-Skript-2025</name>
 <menu>automate</menu>
+<category>GRIS2025</category>
 <enableinfo>true</enableinfo>
-<eventid>3caa3434-cb67-11d1-bc43-0060b0c2021C</eventid>
+<eventid>3cax3434-cb67-12d1-bc43-0060b0a13cc1</eventid>
 <terminology><![CDATA[<< /Version 1
                          /Events <<
-                          /3caa3434-cb67-11d1-bc43-0060b0c2021C [($$$/AdobePlugin/FitImageCSV/Name=GRIS_C_ReadWriteCSV) /imageReference <<
-	                       /width [($$$/AdobePlugin/FitImage/Width=width) /pixelsUnit]
-	                       /height [($$$/AdobePlugin/FitImage/Height=height) /pixelsUnit]
-	                       /limit [($$$/AdobePlugin/FitImage/limit=Don't Enlarge) /boolean]
+                          /3cax3434-cb67-12d1-bc43-0060b0a13cc1 [(Grisebach-Render-Skript-2025) /imageReference <<
+                           /width [Breite /pixelsUnit]
+                           /height [Höhe /pixelsUnit]
+                           /limit [Limitierung /boolean]
                           >>]
                          >>
                       >> ]]></terminology>
@@ -32,16 +36,48 @@
 // enable double clicking from the Macintosh Finder or the Windows Explorer
 #target photoshop
 
-// debug level: 0-2 (0:disable, 1:break on error, 2:break at beginning)
-// $.level = 1;
-// debugger; // launch debugger on next line
-
-// on localized builds we pull the $$$/Strings from a .dat file, see documentation for more details
-$.localize = true;
-
+$.localize = false;
+var DEBUG_OUTPUT = false;
 var isCancelled = true; // assume cancelled until actual resize occurs
 
-var DEBUG_OUTPUT = false;
+// === Konfiguration laden ====================================================
+var config = loadScriptConfigForThisScript();
+function loadScriptConfigForThisScript() {
+    var scriptFile = new File($.fileName);
+    // Annahme: Die config/script_config.json liegt zwei Ebenen oberhalb des Skriptordners
+    var configPath = new File(scriptFile.parent.parent + "/config/script_config.json");
+    if (!configPath.exists) {
+        alert("Script config not found: " + configPath.fsName);
+        return {};
+    }
+    configPath.open("r");
+    var configStr = configPath.read();
+    configPath.close();
+    try {
+        var fullConfig = JSON.parse(configStr);
+        var scripts = fullConfig.scripts;
+        var currentScriptPath = scriptFile.fsName;
+        for (var i = 0; i < scripts.length; i++) {
+            if (currentScriptPath.indexOf(scripts[i].script_path) !== -1) {
+                return scripts[i];
+            }
+        }
+        return {};
+    } catch (e) {
+        alert("Error parsing script_config.json: " + e);
+        return {};
+    }
+}
+
+var config_json_folder = config.json_folder || "";
+var config_actionFolderName = config.actionFolderName || "";
+var config_basicWandFiles = config.basicWandFiles || "";
+var config_csvWandFile = config.csvWandFile || "";
+var config_wandFileSavePath = config.wandFileSavePath || "";
+
+// === Rest des Skripts ======================================================
+// (Hier folgt der restliche Code von GRIS_C_ReadWriteCSV.jsx, der unverändert beibehalten wird)
+// … (Restlicher Originalcode) …
 
 // the main routine
 // the FitImage object does most of the work
@@ -814,4 +850,3 @@ function trim (strIn) {
 	return str1.replace(/\s+$/,'');
 }
 // End Fit Image.jsx
-

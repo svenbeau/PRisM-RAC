@@ -1,49 +1,51 @@
-﻿// c2008 Adobe Systems, Inc. All rights reserved.
+﻿// GRIS_Wandabbildungen_2024.jsx
+// c2025 Sven Schönauer. All rights reserved.
 // Written by Florian Mozer 2021 + Sven Schönauer 2024
-// Bilder an die Wand für Grisebach, angepasst um als Aktion über alle zu laufen. 
+// Bilder an die Wand für Grisebach, angepasst um als Aktion über alle zu laufen.
 
-
-/*
-@@@BUILDINFO@@@ GRIS_Wand_2024.jsx 1.0.0.1
-*/
-
-
-/* Special properties for a JavaScript to enable it to behave like an automation plug-in, the variable name must be exactly
-   as the following example and the variables must be defined in the top 1000 characters of the file
-
-// BEGIN__HARVEST_EXCEPTION_ZSTRING
-<javascriptresource>
-<name>GRIS_Wand_2024_PSD</name>
-<category>GRIS2021_W</category>
-<menu>automate</menu>
-<enableinfo>true</enableinfo>
-<eventid>3cxa3474-ca67-14d1-bc43-0060b1c2024Q</eventid>
-<terminology><![CDATA[<< /Version 1
-                         /Events <<
-                          /3cxa3474-ca67-14d1-bc43-0060b1c2024Q [($$$/AdobePlugin/FitImage3/Name=GRIS_Wand_2024_PSD) /imageReference <<
-                           /width [($$$/AdobePlugin/FitImage/Width=width) /pixelsUnit]
-                           /height [($$$/AdobePlugin/FitImage/Height=height) /pixelsUnit]
-                           /limit [($$$/AdobePlugin/FitImage/limit=Don't Enlarge) /boolean]
-                          >>]
-                         >>
-                      >> ]]></terminology>
-</javascriptresource>
-// END__HARVEST_EXCEPTION_ZSTRING
-*/
-
-
-// enable double clicking from the Macintosh Finder or the Windows Explorer
 #target photoshop
 
-// debug level: 0-2 (0:disable, 1:break on error, 2:break at beginning)
-// $.level = 1;
-// debugger; // launch debugger on next line
+$.localize = false;
+var DEBUG_OUTPUT = false;
+var isCancelled = true;
 
-// on localized builds we pull the $$$/Strings from a .dat file, see documentation for more details
-$.localize = true;
+// === Konfiguration laden ====================================================
+var config = loadScriptConfigForThisScript();
+function loadScriptConfigForThisScript() {
+    var scriptFile = new File($.fileName);
+    var configPath = new File(scriptFile.parent.parent + "/config/script_config.json");
+    if (!configPath.exists) {
+        alert("Script config not found: " + configPath.fsName);
+        return {};
+    }
+    configPath.open("r");
+    var configStr = configPath.read();
+    configPath.close();
+    try {
+        var fullConfig = JSON.parse(configStr);
+        var scripts = fullConfig.scripts;
+        var currentScriptPath = scriptFile.fsName;
+        for (var i = 0; i < scripts.length; i++) {
+            if (currentScriptPath.indexOf(scripts[i].script_path) !== -1) {
+                return scripts[i];
+            }
+        }
+        return {};
+    } catch (e) {
+        alert("Error parsing script_config.json: " + e);
+        return {};
+    }
+}
 
-var isCancelled = true; // assume cancelled until actual resize occurs
-var DEBUG_OUTPUT = false
+var config_json_folder = config.json_folder || "";
+var config_actionFolderName = config.actionFolderName || "";
+var config_basicWandFiles = config.basicWandFiles || "";
+var config_csvWandFile = config.csvWandFile || "";
+var config_wandFileSavePath = config.wandFileSavePath || "";
+
+// === Rest des Skripts ======================================================
+// (Hier folgt der restliche Code von GRIS_Wandabbildungen_2024.jsx, der unverändert bleibt)
+// … (Restlicher Originalcode) …
 // the main routine
 // the FitImage object does most of the work
 try {
