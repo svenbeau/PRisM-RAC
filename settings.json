@@ -138,7 +138,7 @@
         {
             "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024.jsx",
             "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
-            "actionFolderName": "Grisebach 2025",
+            "actionFolderName": "Grisebach DOM 2021",
             "basicWandFiles": "/Volumes/4TM2/Grisebach/06_Wand/01_Vorlagen",
             "csvWandFile": "",
             "wandFileSavePath": "/Volumes/4TM2/Grisebach/30_Renderfiles/05_Wand/Test"
