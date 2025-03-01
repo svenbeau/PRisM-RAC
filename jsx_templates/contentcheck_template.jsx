@@ -3,8 +3,17 @@
 // Die folgenden Variablen werden von Python injiziert:
 // Falls nicht injiziert, werden leere Arrays bzw. ein leerer String genutzt.
 var required_layers = /*PYTHON_INSERT_LAYERS*/;
+if (!required_layers || required_layers === "") {
+    required_layers = [];
+}
 var required_metadata = /*PYTHON_INSERT_METADATA*/;
+if (!required_metadata || required_metadata === "") {
+    required_metadata = [];
+}
 var logFolderPath = /*PYTHON_INSERT_LOGFOLDER*/;
+if (!logFolderPath || logFolderPath === "") {
+    logFolderPath = "";
+}
 
 // Setze diese Werte als die für den Check zu verwendenden:
 var requiredLayers = required_layers;

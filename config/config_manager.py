@@ -12,13 +12,19 @@ import time
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 
+# Standardpfade relativ zum Projektstamm
+DEFAULT_PATHS = {
+    "scripts": os.path.join(BASE_DIR, "scripts"),
+    "jsx_templates": os.path.join(BASE_DIR, "jsx_templates"),
+    "config": os.path.join(BASE_DIR, "config"),
+    "logs": os.path.join(BASE_DIR, "logs")
+}
 
 def debug_print(message):
     """
     Gibt eine Debug-Nachricht aus.
     """
     print("[DEBUG]", message)
-
 
 def load_settings():
     """
@@ -30,11 +36,13 @@ def load_settings():
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             settings = json.load(f)
+        # Falls der Schlüssel resource_paths noch nicht existiert, setze ihn auf die Standardwerte
+        if "resource_paths" not in settings:
+            settings["resource_paths"] = DEFAULT_PATHS.copy()
         return settings
     except Exception as e:
         debug_print(f"Error loading settings from {SETTINGS_FILE}: {e}")
-        return {}
-
+        return {"resource_paths": DEFAULT_PATHS.copy()}
 
 def save_settings(settings):
     """
@@ -49,7 +57,6 @@ def save_settings(settings):
         debug_print(f"Settings saved to {SETTINGS_FILE}.")
     except Exception as e:
         debug_print(f"Error saving settings to {SETTINGS_FILE}: {e}")
-
 
 def get_recent_dirs(settings):
     """
@@ -70,7 +77,6 @@ def get_recent_dirs(settings):
     else:
         return []
 
-
 def update_recent_dirs(settings, new_dir):
     """
     Fügt ein neues Verzeichnis in die Liste der zuletzt verwendeten Verzeichnisse ein,
@@ -89,6 +95,43 @@ def update_recent_dirs(settings, new_dir):
         settings["recent_dirs"] = recent_dirs
     return settings
 
+def get_resource_path(key):
+    """
+    Gibt den Ressourcypfad zurück, der dem übergebenen Schlüssel zugeordnet ist.
+
+    Args:
+        key (str): Der Schlüssel für den Ressourcypfad.
+
+    Returns:
+        str: Der Ressourcypfad.
+    """
+    settings = load_settings()
+    return settings.get("resource_paths", {}).get(key, DEFAULT_PATHS.get(key, ""))
+
+def update_resource_path(key, new_path):
+    """
+    Aktualisiert den Ressourcypfad für den übergebenen Schlüssel und speichert die Einstellungen.
+
+    Args:
+        key (str): Der Schlüssel für die Ressource.
+        new_path (str): Der neue Pfad, der gesetzt werden soll.
+
+    Returns:
+        str: Der aktualisierte Pfad.
+    """
+    settings = load_settings()
+    settings.setdefault("resource_paths", {})[key] = new_path
+    save_settings(settings)
+    return new_path
+
+def get_base_dir():
+    """
+    Gibt den Basisordner des Projekts zurück.
+
+    Returns:
+        str: Der Basisordner.
+    """
+    return BASE_DIR
 
 if __name__ == "__main__":
     # Testcode: Einstellungen laden, einen Testwert hinzufügen und wieder speichern.
@@ -97,7 +140,6 @@ if __name__ == "__main__":
     debug_print(json.dumps(settings, indent=4))
     # Beispiel: Füge den aktuellen Arbeitsordner als recent_dir hinzu.
     import os
-
     current_dir = os.getcwd()
     settings = update_recent_dirs(settings, current_dir)
     settings["last_saved"] = time.strftime("%Y-%m-%d %H:%M:%S")

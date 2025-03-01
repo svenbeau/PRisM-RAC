@@ -104,5 +104,53 @@
         "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/JSX_Config",
         "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
         "/Users/sschonauer"
-    ]
+    ],
+    "resource_paths": {
+        "scripts": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+        "jsx_templates": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/jsx_templates",
+        "config": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config",
+        "logs": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/logs"
+    },
+    "script_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+    "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config",
+    "scriptPaths": {},
+    "recentScriptPaths": {},
+    "jsonPaths": [
+        "/Users/sschonauer"
+    ],
+    "script_configs": [
+        {
+            "script_name": "",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01"
+        }
+    ],
+    "recent_json_folders": [],
+    "scripts": [
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01"
+        }
+    ],
+    "global_script_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+    "script_json_map": [
+        {
+            "script_path": "Choose your script here...",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts"
+        },
+        {
+            "script_path": "Choose your script here...",
+            "json_folder": "Set your JSON folder..."
+        }
+    ],
+    "global_config": {
+        "actionFolderName": "",
+        "basicWandFiles": "",
+        "csvWandFile": "",
+        "wandFileSavePath": "",
+        "recipesPath": "",
+        "outputMainPath": ""
+    },
+    "scripts_base_folder": "",
+    "script_json_mapping": [],
+    "script_settings": []
 }

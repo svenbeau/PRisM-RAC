@@ -5,14 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Mit JSON-Edit und Wandbild-Script">
+      <change afterPath="$PROJECT_DIR$/ui/path_config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/script_config_dialog.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/script_list_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/script_recipe_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/settings_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/JSX_Config/GB_Config_Render.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/JSX_Config/GB_Config_Render.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/config/config_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/global_log.json" beforeDir="false" afterPath="$PROJECT_DIR$/logs/global_log.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/GRIS_Wandabbildungen_2024.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/GRIS_Wandabbildungen_2024.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/GRIS_Render_2025.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/GRIS_Render_2025.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -57,21 +61,22 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
-    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
-    &quot;Python.start.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;stable-v6&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.hotfolder_config.executor": "Run",
+    "Python.hotfolder_monitor.executor": "Run",
+    "Python.json_editor.executor": "Run",
+    "Python.json_explorer.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.main_window.executor": "Run",
+    "Python.settings_widget.executor": "Run",
+    "Python.start.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "stable-v7",
+    "settings.editor.selected.configurable": "preferences.lookFeel"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/utils" />
@@ -238,7 +243,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740423283260</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="Mit JSON-Edit und Wandbild-Script">
+      <option name="closed" value="true" />
+      <created>1740812879910</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1740812879910</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
