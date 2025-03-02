@@ -57,7 +57,7 @@ class JSONEditorDialog(QtWidgets.QDialog):
     def __init__(self, json_file_path, parent=None):
         super().__init__(parent)
         self.setWindowTitle("JSON Editor")
-        self.resize(1200, 600)
+        self.resize(1200, 1000)
         self.json_file_path = json_file_path
         self.init_ui()
         self.load_json()
