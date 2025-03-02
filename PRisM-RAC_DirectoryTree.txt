@@ -2,22 +2,73 @@
 ├── ./PRisM-RAC_DirectoryTree.txt
 ├── ./README.md
 ├── ./assets
+│   ├── ./assets/close_list.png
+│   ├── ./assets/dropdown_list.png
 │   ├── ./assets/logo.png
 │   └── ./assets/spinner.gif
 ├── ./config
+│   ├── ./config/GrisebachRecipes_2020_01
+│   │   ├── ./config/GrisebachRecipes_2020_01/External_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/External_SammlungSander.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/Koenig_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/Koenig_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/WandCSV
+│   │   │   └── ./config/GrisebachRecipes_2020_01/WandCSV/File01.csv
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_Foto_Color.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_Foto_Color_print.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_OnlineOnly.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_SammlungSander.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/rcm_Koenig_Integeration.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_BoYinRa.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_BoYinRa_Film.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Foto_Color.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Foto_Color_Print.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Foto_Color_Print_Standard.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Foto_Duplex.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_HPC.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_OnlineOnly_Color.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Referencescan.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Rinn.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_OnlineOnly.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_OnlineOnlyMontage.json
+│   │   └── ./config/GrisebachRecipes_2020_01/recomDom_SammlungSander.json
+│   ├── ./config/GrisebachRecipes_2025_01
+│   │   ├── ./config/GrisebachRecipes_2025_01/bartsch_OnlineOnly.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_Moderne.json
+│   │   └── ./config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json
+│   ├── ./config/HF_Settings_Render.json
+│   ├── ./config/HF_Settings_Test.json
+│   ├── ./config/JSX_Config
+│   │   └── ./config/JSX_Config/GB_Config_Render.json
 │   ├── ./config/__init__.py
 │   ├── ./config/config_manager.py
-│   └── ./config/hotfolder_config.json
+│   ├── ./config/hotfolder_config.json
+│   ├── ./config/script_config.json
+│   └── ./config/script_config_manager.py
 ├── ./dynamic_jsx_generator.py
 ├── ./hotfolder
 ├── ./hotfolder_monitor.py
 ├── ./jsx_templates
 │   └── ./jsx_templates/contentcheck_template.jsx
 ├── ./logs
+│   └── ./logs/global_log.json
 ├── ./main.py
 ├── ./requirements.txt
+├── ./script_config.json
 ├── ./scripts
 │   ├── ./scripts/AnalyseLayersAndMetadata.jsx
+│   ├── ./scripts/GRIS_C_ReadWriteCSV.jsx
+│   ├── ./scripts/GRIS_ReadWriteCSV_2025.jsx
 │   ├── ./scripts/GRIS_Render_2025.jsx
 │   ├── ./scripts/GRIS_Wandabbildungen_2024.jsx
 │   ├── ./scripts/PS_Metadaten_XMP_check.jsx
@@ -29,6 +80,21 @@
 │   ├── ./ui/__init__.py
 │   ├── ./ui/hotfolder_config.py
 │   ├── ./ui/hotfolder_widget.py
+│   ├── ./ui/json_editor.py
+│   ├── ./ui/json_explorer.py
+│   ├── ./ui/json_explorer_widget.py
 │   ├── ./ui/logfile_widget.py
-│   └── ./ui/main_window.py
-└── ./utils.py
+│   ├── ./ui/logs
+│   │   └── ./ui/logs/global_log.json
+│   ├── ./ui/main_window.py
+│   ├── ./ui/path_config.py
+│   ├── ./ui/path_selection_widget.py
+│   ├── ./ui/script_config_dialog.py
+│   ├── ./ui/script_list_widget.py
+│   ├── ./ui/script_recipe_config.py
+│   ├── ./ui/script_recipe_widget.py
+│   └── ./ui/settings_widget.py
+└── ./utils
+    ├── ./utils/log_exporter.py
+    ├── ./utils/log_manager.py
+    └── ./utils/utils.py
