@@ -4,11 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau zu globaler Konfiguration">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/json_editor_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_editor_dialog.py" afterDir="false" />
-    </list>
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau zu globaler Konfiguration" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -331,7 +327,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740944540500</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="Umbau zu globaler Konfiguration">
+      <option name="closed" value="true" />
+      <created>1740948780415</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1740948780415</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
