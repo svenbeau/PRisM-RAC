@@ -2,50 +2,47 @@
 # -*- coding: utf-8 -*-
 
 import os
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets, QtCore
+from config.config_manager import save_settings, debug_print
 from ui.script_recipe_widget import ScriptRecipeWidget
-
 
 class SettingsWidget(QtWidgets.QWidget):
     """
-    Das Settings‑Widget enthält zwei Tabs:
-      - "Allgemein" (der vorerst leer ist)
-      - "Script › Rezept Zuordnung", in dem Du die Zuordnung der Skripte und zugehörigen JSON‑Ordner konfigurieren kannst.
+    Widget für Einstellungen, enthält zwei Tabs:
+      1) Allgemein
+      2) Script › Rezept Zuordnung
     """
-
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
         self.init_ui()
 
     def init_ui(self):
-        layout = QtWidgets.QVBoxLayout(self)
+        main_layout = QtWidgets.QVBoxLayout(self)
         self.tab_widget = QtWidgets.QTabWidget()
-        layout.addWidget(self.tab_widget)
+        main_layout.addWidget(self.tab_widget, stretch=1)
 
-        # Allgemein Tab – vorerst leer
-        general_tab = QtWidgets.QWidget()
-        general_layout = QtWidgets.QVBoxLayout(general_tab)
-        general_label = QtWidgets.QLabel("Allgemeine Einstellungen (noch leer)")
-        general_layout.addWidget(general_label)
-        general_layout.addStretch()
-        self.tab_widget.addTab(general_tab, "Allgemein")
+        # Tab 1: Allgemein
+        self.general_tab = QtWidgets.QWidget()
+        self.general_layout = QtWidgets.QVBoxLayout(self.general_tab)
+        self.general_layout.addWidget(QtWidgets.QLabel("Allgemeine Einstellungen (noch leer)"))
+        self.general_layout.addStretch()
+        self.tab_widget.addTab(self.general_tab, "Allgemein")
 
-        # Script › Rezept Zuordnung Tab
-        script_recipe_tab = QtWidgets.QWidget()
-        script_recipe_layout = QtWidgets.QVBoxLayout(script_recipe_tab)
-        self.script_recipe_widget = ScriptRecipeWidget(self.settings, parent=self)
-        script_recipe_layout.addWidget(self.script_recipe_widget)
-        self.tab_widget.addTab(script_recipe_tab, "Script › Rezept Zuordnung")
+        # Tab 2: Script-Rezept Zuordnung
+        self.script_recipe_tab = QtWidgets.QWidget()
+        self.script_recipe_layout = QtWidgets.QVBoxLayout(self.script_recipe_tab)
+        # Wir erstellen das ScriptRecipeWidget:
+        self.script_recipe_widget = ScriptRecipeWidget(self.settings, parent=self.script_recipe_tab)
+        self.script_recipe_layout.addWidget(self.script_recipe_widget, stretch=1)
+        self.tab_widget.addTab(self.script_recipe_tab, "Script › Rezept Zuordnung")
 
-        layout.addStretch()
+        # Unten ein Button zum Speichern (optional)
+        self.btn_save = QtWidgets.QPushButton("Einstellungen speichern")
+        self.btn_save.clicked.connect(self.save_settings)
+        main_layout.addWidget(self.btn_save, alignment=QtCore.Qt.AlignRight)
 
-
-if __name__ == "__main__":
-    import sys
-
-    app = QtWidgets.QApplication(sys.argv)
-    test_settings = {"script_configs": []}
-    widget = SettingsWidget(test_settings)
-    widget.show()
-    sys.exit(app.exec_())
+    def save_settings(self):
+        # Wir speichern die settings.json
+        save_settings(self.settings)
+        debug_print("Einstellungen gespeichert.")

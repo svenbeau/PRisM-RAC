@@ -9,31 +9,33 @@ from config.config_manager import load_settings, save_settings, debug_print
 from ui.hotfolder_widget import HotfolderListWidget
 from ui.logfile_widget import LogfileWidget
 from ui.json_explorer_widget import JSONExplorerWidget
-from ui.settings_widget import SettingsWidget  # NEU
+
+# Wir binden das SettingsWidget ein:
+from ui.settings_widget import SettingsWidget
 
 DEBUG_OUTPUT = True
-
-def debug_print_local(msg):
-    if DEBUG_OUTPUT:
-        print("[DEBUG]", msg)
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PRisM-RAC")
-        self.resize(1200, 800)
+        self.resize(1200, 900)
         self.settings = load_settings()
         self.init_ui()
 
     def init_ui(self):
+        # Haupt-Widget + Layout
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
         main_vlayout = QtWidgets.QVBoxLayout(central_widget)
         main_vlayout.setContentsMargins(5, 5, 5, 5)
         main_vlayout.setSpacing(5)
 
-        # Obere Leiste: Logo + Debug
+        # Obere Leiste: Logo links, Debug-Button rechts
         top_bar = QtWidgets.QHBoxLayout()
+        top_bar.setContentsMargins(10, 5, 10, 5)
+
+        # Logo (linksbündig, 200x21px)
         logo_label = QtWidgets.QLabel()
         logo_path = os.path.join("assets", "logo.png")
         if os.path.exists(logo_path):
@@ -43,8 +45,10 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             logo_label.setText("LOGO")
         top_bar.addWidget(logo_label, alignment=QtCore.Qt.AlignLeft)
+
         top_bar.addStretch()
 
+        # Debug-Button
         self.debug_toggle_btn = QtWidgets.QPushButton("Debug Stop")
         self.debug_toggle_btn.setCheckable(True)
         self.debug_toggle_btn.setChecked(True)
@@ -53,13 +57,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         main_vlayout.addLayout(top_bar)
 
-        # Hauptlayout: links Button, rechts QStackedWidget
+        # Hauptbereich (horizontal): Links Buttons, rechts StackedWidget
         main_hlayout = QtWidgets.QHBoxLayout()
         main_vlayout.addLayout(main_hlayout, stretch=1)
 
+        # Linke Buttons
         left_widget = QtWidgets.QWidget()
         left_vlayout = QtWidgets.QVBoxLayout(left_widget)
-        left_vlayout.setContentsMargins(5,5,5,5)
+        left_vlayout.setContentsMargins(5, 5, 5, 5)
+
         self.hotfolder_btn = QtWidgets.QPushButton("Hotfolder")
         self.logfile_btn = QtWidgets.QPushButton("Logfile")
         self.json_editor_btn = QtWidgets.QPushButton("JSON-Editor")
@@ -73,6 +79,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         main_hlayout.addWidget(left_widget, stretch=0)
 
+        # Rechter Bereich: StackedWidget
         self.stack = QtWidgets.QStackedWidget()
         main_hlayout.addWidget(self.stack, stretch=1)
 
@@ -84,7 +91,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.logfile_widget)
 
-        # Widget 2: JSON Editor
+        # Widget 2: JSON Explorer
         self.json_explorer_widget = JSONExplorerWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.json_explorer_widget)
 
@@ -92,12 +99,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.settings_widget)
 
+        # Standard: Hotfolder (Index 0)
+        self.stack.setCurrentIndex(0)
+
+        # Button-Klicks
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.json_editor_btn.clicked.connect(lambda: self.stack.setCurrentIndex(2))
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(3))
-
-        self.stack.setCurrentIndex(0)
 
     def toggle_debug(self):
         global DEBUG_OUTPUT
@@ -107,10 +116,9 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             DEBUG_OUTPUT = False
             self.debug_toggle_btn.setText("Debug Start")
-        debug_print_local(f"DEBUG_OUTPUT={DEBUG_OUTPUT}")
+        debug_print(f"DEBUG_OUTPUT={DEBUG_OUTPUT}")
 
     def closeEvent(self, event):
-        # Vor dem Schließen Settings speichern
         save_settings(self.settings)
         super().closeEvent(event)
 
