@@ -1,47 +1,14 @@
-// c2008 recom, Inc. All rights reserved.
-// Written by Florian Mozer 2021
-//Lesen der CSV Infos - angepasst um über alle laufen zu können
+// GRIS_Wandabbildungen_2024.jsx
+// c2025 Sven Schönauer. All rights reserved.
+// Written by Florian Mozer 2021 + Sven Schönauer 2024
+// Bilder an die Wand für Grisebach, angepasst um als Aktion über alle zu laufen.
 
-/*
-@@@BUILDINFO@@@ GRIS_C_ReadWriteCSV.jsx 1.0.0.2
-*/
-
-/* Special properties for a JavaScript to enable it to behave like an automation plug-in, the variable name must be exactly
-   as the following example and the variables must be defined in the top 1000 characters of the file
-
-// BEGIN__HARVEST_EXCEPTION_ZSTRING
-<javascriptresource>
-<name>GRIS_C_ReadWriteCSV</name>
-<category>GRIS2021_W</category>
-<menu>automate</menu>
-<enableinfo>true</enableinfo>
-<eventid>3caa3434-cb67-11d1-bc43-0060b0c2021C</eventid>
-<terminology><![CDATA[<< /Version 1
-                         /Events <<
-                          /3caa3434-cb67-11d1-bc43-0060b0c2021C [($$$/AdobePlugin/FitImageCSV/Name=GRIS_C_ReadWriteCSV) /imageReference <<
-	                       /width [($$$/AdobePlugin/FitImage/Width=width) /pixelsUnit]
-	                       /height [($$$/AdobePlugin/FitImage/Height=height) /pixelsUnit]
-	                       /limit [($$$/AdobePlugin/FitImage/limit=Don't Enlarge) /boolean]
-                          >>]
-                         >>
-                      >> ]]></terminology>
-</javascriptresource>
-// END__HARVEST_EXCEPTION_ZSTRING
-*/
-
-// enable double clicking from the Macintosh Finder or the Windows Explorer
 #target photoshop
 
-// debug level: 0-2 (0:disable, 1:break on error, 2:break at beginning)
-// $.level = 1;
-// debugger; // launch debugger on next line
-
-// on localized builds we pull the $$$/Strings from a .dat file, see documentation for more details
-$.localize = true;
-
-var isCancelled = true; // assume cancelled until actual resize occurs
-var scriptHasRun = false; // Flag, um doppelte Ausführung zu verhindern
+$.localize = false;
 var DEBUG_OUTPUT = false;
+var isCancelled = true;
+var scriptHasRun = false; // Flag, um doppelte Ausführung zu verhindern
 
 // === Hilfsfunktion zum Laden der Konfiguration ===
 function loadConfiguration() {
@@ -124,7 +91,6 @@ if (scriptHasRun) {
     scriptHasRun = true;
 
     // the main routine
-    // the FitImage object does most of the work
     try {
         // create our default params
         var sizeInfo = new SizeInfo();
@@ -137,8 +103,7 @@ if (scriptHasRun) {
         if (DialogModes.ALL == app.playbackDisplayDialogs) {
             gIP.CreateDialog();
             gIP.RunDialog();
-        }
-        else {
+        } else {
             gIP.InitVariables();
             SaveImages(sizeInfo.width.value, sizeInfo.height.value);
         }
@@ -146,11 +111,7 @@ if (scriptHasRun) {
         if (!isCancelled) {
             SaveOffParameters(sizeInfo);
         }
-    }
-
-    // Lot's of things can go wrong
-    // Give a generic alert and see if they want the details
-    catch(e) {
+    } catch (e) {
         if (DialogModes.NO != app.playbackDisplayDialogs) {
             alert(e + " : " + e.line);
         }
@@ -168,7 +129,7 @@ isCancelled ? 'cancel' : undefined;
 //////////////////////////////////////////////////////////////
 
 function SaveImages(width, height) {
-    // Funktionen importieren (enthält JSON-Parser)
+    const saveFTP = false;
     importFunctions();
 
     try {
@@ -179,139 +140,197 @@ function SaveImages(width, height) {
             alert("Loaded config: " + JSON.stringify(config));
         }
 
-        // Verwende den Pfad zur CSV-Datei aus der Konfiguration
-        var csvPath = config.csvWandFile;
+        // Prüfe, ob die Konfiguration erfolgreich geladen wurde
+        if (!config) {
+            alert("Configuration not properly loaded");
+            return true;
+        }
 
-        if (!csvPath) {
-            alert("CSV file path not specified in configuration");
+        // Verwende die Pfadangaben aus der Konfiguration
+        var pathtofiles = config.basicWandFiles;
+        if (!pathtofiles) {
+            alert("Wall files path not specified in configuration (basicWandFiles)");
             return true;
         }
 
         if (DEBUG_OUTPUT) {
-            alert("Using CSV path from config: " + csvPath);
-        }
-
-        // Das ist das #Dateiobjekt für die csv
-        var csvFile = new File(csvPath);
-
-        if (!csvFile.exists) {
-            alert("CSV file not found: " + csvPath);
-            return true;
-        }
-
-        //der Dateiname wird getrennt.
-        //4058933_Kuenstler_3021_03_abg // Demodateiname mit allem
-        // ohne
-        var filename = (app.activeDocument.name.split ("."))[0];
-        var doc = app.activeDocument;
-        var nameparts = filename.split("_");
-        var kdID = nameparts[0];
-        var kdVariant = nameparts[(nameparts.length - 1)];
-
-        if (DEBUG_OUTPUT) {
-            alert("filename: " + filename + " kdID: " + kdID + " kdVariant: " + kdVariant);
-        }
-
-        if (!(isNaN(kdVariant))) {
-            kdVariant = "";
-            //alert("noVariant")
-        } else {
-            //alert("VARIANT: "+kdVariant)
+            alert("Using wall files path from config: " + pathtofiles);
         }
 
         var oldPref = app.preferences.rulerUnits;
+        var doc = app.activeDocument;
+        var filename = (app.activeDocument.name.split("."))[0];
 
-        doc.info.headline = "";
-        doc.info.instructions = "";
+        var wid = doc.width;
+        var hei = doc.height;
 
-        var h = 0;
-        var w = 0;
-        var rand = 0;
+        const wall1dpi = 23.863;
+        const wall2dpi = 23.863;
+        const wall3dpi = 23.863;
+        const wall4dpi = 23.863;
+        const wall5dpi = 25.3992672;
+        const wall6dpi = 60.35;
 
-        // there was the try
-        csvFile.open('r');
-        var line1 = csvFile.readln();
-        if (DEBUG_OUTPUT) {
-            alert("line1: " + line1 + " from csv: " + csvPath);
-        }
+        const dpis = [23.863, 23.863, 23.863, 23.863, 25.3992672, 60.35];
+        const files = ["Waende01.psb", "Waende02.psb", "Waende03.psb", "Waende04.psb", "Waende05.psb", "Waende06.psb"];
+        const xValues = [2592, 2509, 2509, 2362, 2194, 2362];
+        const yValues = [1341, 1604, 1508, 1543, 1498, 1397];
 
-        var found = false;
-        while (!csvFile.eof) {
-            var line = csvFile.readln();
-            //alert(line);
+        const afterActions = [
+            "06_WeiterverarbeitungWand_Wand01",
+            "06_WeiterverarbeitungWand_Wand02",
+            "06_WeiterverarbeitungWand_Wand03",
+            "06_WeiterverarbeitungWand_Wand04",
+            "06_WeiterverarbeitungWand_Wand05",
+            "06_WeiterverarbeitungWand_Wand06"
+        ];
 
-            var splittedLine = line.split(";");
+        const wallSizeLimits = [
+            { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+            { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+            { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+            { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+            { minHeight: 40, minWidth: 40, maxHeight: 400, maxWidth: 500 },
+            { minHeight: 0, minWidth: 0, maxHeight: 50, maxWidth: 50 }
+        ];
 
-            if (splittedLine[0] != "") {
-                var kdIDCsV = splittedLine[0];
-                var kdVariantCSV = splittedLine[1];
-                //This is the searching and checking
-                if (kdID == kdIDCsV) {
-                    if (kdVariantCSV == "" && kdVariant == "") {
-                        if (DEBUG_OUTPUT) {
-                            alert("found in line: " + line);
-                        }
+        // Read the Size from the EXIF Headline Field.
+        var s = doc.info.headline;
+        if (s != "") {
+            if (DEBUG_OUTPUT)
+                alert("headline " + s);
+            var size = s.split("x");
+            var h = parseFloat(size[0]);
+            var b = parseFloat(size[1]);
 
-                        //  alert("found"+line);
-                        h = splittedLine[2];
-                        b = splittedLine[3];
-                        rand = splittedLine[6];
-                        found = true;
-                        //alert("h: "+ h + " b: "+ b + "rand: " + rand + ";");
-                    }
-                    if (kdVariantCSV != "") {
-                        //alert("kdVariant: "+kdVariant+ " kdVarCSV: "+kdVariantCSV);
-                        if (kdVariant == kdVariantCSV) {
-                            if (DEBUG_OUTPUT) {
-                                alert("found with variant in line: " + line);
-                            }
-
-                            //  alert("found"+line);
-                            h = splittedLine[2];
-                            b = splittedLine[3];
-                            rand = splittedLine[6];
-                            found = true;
-                            //alert("h: "+ h + " b: "+ b + "rand: " + rand + ";");
-                        }
-                    }
+            // Select a random Image of the WallImages based on size
+            var validOptions = [];
+            for (var i = 0; i < wallSizeLimits.length; i++) {
+                var limit = wallSizeLimits[i];
+                if ((h >= limit.minHeight && h <= limit.maxHeight) || (b >= limit.minWidth && b <= limit.maxWidth)) {
+                    validOptions.push(i);
                 }
             }
-        }
-        if (!found) {
-            if (DEBUG_OUTPUT) {
-                alert("Keine CSV_Info für Datei " + filename);
+            if (validOptions.length > 0) {
+                var randomIndex = Math.floor(Math.random() * validOptions.length);
+                var random = validOptions[randomIndex];
+            } else {
+                alert("No suitable wall image found for the given dimensions.");
+                return;
             }
-        }
+            var randomField = activeDocument.info.instructions;
+            if (randomField != "") {
+                random = randomField;
+            }
+            var s = "Random: " + random;
+            if (DEBUG_OUTPUT)
+                alert(s + " dpi: " + dpis[random] + " file:" + files[random]);
+            var image = activeDocument;
+            app.preferences.rulerUnits = Units.PIXELS;
 
-        csvFile.close();
-
-        //write the info to the headline.
-        if (found) {
+            // prepare the PSD
+            var layers = doc.artLayers;
             try {
-                doc.info.headline = h + "x" + b;
-                doc.info.instructions = rand;
-                if (DEBUG_OUTPUT) {
-                    alert("Info in Metadaten geschrieben: " + h + "x" + b + ", Rand: " + rand);
-                }
+                var freisteller = activeDocument.layers.getByName("Freisteller");
             } catch (e) {
-                alert("error writing in the file " + e);
+                // Verwende den Action-Ordnernamen aus der Konfiguration
+                var actionFolderName = config.actionFolderName || "Grisebach 2025";
+
+                if (DEBUG_OUTPUT) {
+                    alert("Using action folder from config: " + actionFolderName);
+                }
+
+                app.doAction("H011 Wand Alles Freistellen", actionFolderName);
+            }
+            var freisteller = activeDocument.layers.getByName("Freisteller");
+            try {
+                var freistellerWand = activeDocument.layers.getByName("Freisteller_Wand");
+            } catch (e) {
+                freisteller.name = "Freisteller_Wand";
+            }
+
+            // Verwende den Action-Ordnernamen aus der Konfiguration
+            var actionFolderName = config.actionFolderName || "Grisebach 2025";
+
+            app.doAction("70 DOM Color 2 Wand (WA)", actionFolderName);
+            if (DEBUG_OUTPUT)
+                alert("vorbereitet");
+            // Resize to the Right dpi and Scale Values;
+            image.resizeImage(new UnitValue(b, "cm"), new UnitValue(h, "cm"), dpis[random]);
+
+            // open the Randomly selected WALL image
+            var pathtoWallFile = pathtofiles + "/" + files[random];
+            var fileRef = new File(pathtoWallFile);
+            if (DEBUG_OUTPUT)
+                alert("Wandpfad:" + pathtoWallFile);
+            var wallImage = app.open(fileRef);
+
+            app.activeDocument = image;
+            image.activeLayer.duplicate(wallImage, ElementPlacement.PLACEATBEGINNING);
+            app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
+            app.activeDocument = wallImage;
+            app.activeDocument.activeLayer = activeDocument.artLayers.getByName("insertedImage");
+            var imageLayer = app.activeDocument.activeLayer;
+            MoveLayerTo(imageLayer, xValues[random], yValues[random]);
+
+            // Verwende den Action-Ordnernamen für die Nachbearbeitung
+            app.doAction(afterActions[random], actionFolderName);
+
+            //#Filename for the websave
+            var newName = filename + "_W.psd";
+            var outputFolder = config.wandFileSavePath;
+
+            if (!outputFolder) {
+                alert("Wall files save path not specified in configuration (wandFileSavePath)");
+                return true;
+            }
+
+            var outputFile = outputFolder + "/" + newName;
+
+            var webFile = new File(outputFile);
+            if (DEBUG_OUTPUT)
+                alert("save as:" + outputFile);
+
+            var psdSaveOptions = new PhotoshopSaveOptions();
+            psdSaveOptions.embedColorProfile = true;
+            psdSaveOptions.alphaChannels = true;
+            // Pfad prüfen und Verzeichnis bei Bedarf erstellen
+            if (!webFile.parent.exists) {
+                webFile.parent.create();
+            }
+
+            // Speichern mit psdSaveOptions
+            try {
+                wallImage.saveAs(webFile, psdSaveOptions, true, Extension.LOWERCASE);
+                if (DEBUG_OUTPUT)
+                    alert("File saved successfully to: " + outputFile);
+            } catch (e) {
+                alert("Fehler beim Speichern: " + e.message + " line: " + e.line);
             }
         }
-        app.preferences.rulerUnits = oldPref; // restore old prefs
-        isCancelled = false; // if get here, definitely executed
-        return false; // no error
     } catch (e) {
-        alert("Error in SaveImages: " + e + " line: " + e.line);
+        alert("Wall error saving " + e + " line: " + e.line);
+        app.preferences.rulerUnits = oldPref;
         return true;
     }
+
+    app.preferences.rulerUnits = oldPref; // restore old prefs
+    isCancelled = false;
+    try {
+        app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
+    } catch (e) {
+        // Ignoriere Fehler beim Schließen
+    }
+    return false; // no error
 }
 
+// created in
 function SaveOffParameters(sizeInfo) {
     try {
         // Wir verwenden hier ein eindeutiges ID für unsere Optionen,
         // um Konflikte mit anderen Skripten zu vermeiden
         var d = objectToDescriptor(sizeInfo, strMessage);
-        app.putCustomOptions("3caa3434-cb67-11d1-bc43-0060b0c2021C", d);
+        app.putCustomOptions("3cxa3474-ca67-14d1-bc43-0060b1c2024Q", d);
 
         // Achten Sie darauf, dass playbackParameters nur gesetzt wird,
         // wenn wirklich nötig
@@ -350,10 +369,43 @@ function importFunctions(){
     * Array.forEach - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
     */
     Array.prototype.forEach||(Array.prototype.forEach=function(r,t){var o,n;if(null==this)throw new TypeError(" this is null or not defined");var e=Object(this),i=e.length>>>0;if("function"!=typeof r)throw new TypeError(r+" is not a function");for(arguments.length>1&&(o=t),n=0;i>n;){var a;n in e&&(a=e[n],r.call(o,a,n,e)),n++}});
+    /**
+    * Array.isArray - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
+    */
+    Array.isArray||(Array.isArray=function(arg){return"[object Array]"===Object.prototype.toString.call(arg)});
+    /**
+    * Array.every - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/every
+    */
+    Array.prototype.every||(Array.prototype.every=function(callbackfn,thisArg){"use strict";var T,k;if(null==this)throw new TypeError("this is null or not defined");var O=Object(this),len=O.length>>>0;if("function"!=typeof callbackfn)throw new TypeError;for(arguments.length>1&&(T=thisArg),k=0;k<len;){var kValue;if(k in O){kValue=O[k];var testResult=callbackfn.call(T,kValue,k,O);if(!testResult)return!1}k++}return!0});
+    /**
+    * Array.filter - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter
+    */
+    Array.prototype.filter||(Array.prototype.filter=function(fun){"use strict";if(void 0===this||null===this)throw new TypeError;var t=Object(this),len=t.length>>>0;if("function"!=typeof fun)throw new TypeError;for(var res=[],thisArg=arguments.length>=2?arguments[1]:void 0,i=0;i<len;i++)if(i in t){var val=t[i];fun.call(thisArg,val,i,t)&&res.push(val)}return res});
+    /**
+    * Array.indexOf - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/indexOf
+    */
+    Array.prototype.indexOf||(Array.prototype.indexOf=function(searchElement,fromIndex){var k;if(null==this)throw new TypeError('"this" is null or not defined');var o=Object(this),len=o.length>>>0;if(0===len)return-1;var n=+fromIndex||0;if(Math.abs(n)===1/0&&(n=0),n>=len)return-1;for(k=Math.max(n>=0?n:len-Math.abs(n),0);k<len;){if(k in o&&o[k]===searchElement)return k;k++}return-1});
+    /**
+    * Array.lastIndexOf - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/lastIndexOf
+    */
+    Array.prototype.lastIndexOf||(Array.prototype.lastIndexOf=function(searchElement){"use strict";if(void 0===this||null===this)throw new TypeError;var n,k,t=Object(this),len=t.length>>>0;if(0===len)return-1;for(n=len-1,arguments.length>1&&(n=Number(arguments[1]),n!=n?n=0:0!=n&&n!=1/0&&n!=-(1/0)&&(n=(n>0||-1)*Math.floor(Math.abs(n)))),k=n>=0?Math.min(n,len-1):len-Math.abs(n);k>=0;k--)if(k in t&&t[k]===searchElement)return k;return-1});
+    /**
+    * Array.map - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map
+    */
+    Array.prototype.map||(Array.prototype.map=function(callback,thisArg){var T,A,k;if(null==this)throw new TypeError(" this is null or not defined");var O=Object(this),len=O.length>>>0;if("function"!=typeof callback)throw new TypeError(callback+" is not a function");for(arguments.length>1&&(T=thisArg),A=new Array(len),k=0;k<len;){var kValue,mappedValue;k in O&&(kValue=O[k],mappedValue=callback.call(T,kValue,k,O),A[k]=mappedValue),k++}return A});
+    /**
+    * Array.reduce - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Reduce
+    */
+    Array.prototype.reduce||(Array.prototype.reduce=function(callback){"use strict";if(null==this)throw new TypeError("Array.prototype.reduce called on null or undefined");if("function"!=typeof callback)throw new TypeError(callback+" is not a function");var value,t=Object(this),len=t.length>>>0,k=0;if(2==arguments.length)value=arguments[1];else{for(;k<len&&!(k in t);)k++;if(k>=len)throw new TypeError("Reduce of empty array with no initial value");value=t[k++]}for(;k<len;k++)k in t&&(value=callback(value,t[k],k,t));return value});
+    /**
+    * Array.some - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/some
+    */
+    Array.prototype.some||(Array.prototype.some=function(fun){"use strict";if(null==this)throw new TypeError("Array.prototype.some called on null or undefined");if("function"!=typeof fun)throw new TypeError;for(var t=Object(this),len=t.length>>>0,thisArg=arguments.length>=2?arguments[1]:void 0,i=0;i<len;i++)if(i in t&&fun.call(thisArg,t[i],i,t))return!0;return!1});
     /* jshint ignore:end */
     if (typeof($) === 'undefined') {
-        $ = {};
+    $ = {};
     }
+
     $.init = {
         // Evaluate a file and catch the exception.
         evalFile : function (path) {
@@ -373,10 +425,12 @@ function importFunctions(){
             }
         }
     };
+
     var obj = {
-        name: "<%= appName %>",
-        message: "Hello from Gizmo!"
+    name: "<%= appName %>",
+    message: "Hello from Gizmo!"
     };
+
     $.getExampleObject = JSON.stringify(obj);
     //alert("Demo Obj: "+obj);
 }
@@ -393,7 +447,7 @@ function GlobalVariables() {
     gInAlert = false;
 
     // all the strings that need to be localized
-    strTitle = localize("$$$/JavaScript/FitImage3/Title=GRIS_C_ReadWriteCSV");
+    strTitle = localize("$$$/JavaScript/FitImage3/Title=GRIS C Wand 2021");
     //strTitle = localize( "$$$/JavaScript/FitImage/Title=Fit Image" );
     strConstrainWithin = localize( "$$$/JavaScript/FitImage/ConstrainWithin=Constrain Within" );
     strTextWidth = localize("$$$/JavaScripts/FitImage/Width=&Width:");
@@ -464,10 +518,9 @@ function FitImage() {
 
         // look for last used params via Photoshop registry, getCustomOptions will throw if none exist
         try {
-            var desc = app.getCustomOptions("3caa3434-cb67-11d1-bc43-0060b0c2021C");
+            var desc = app.getCustomOptions("3cxa3474-ca67-14d1-bc43-0060b1c2024Q");
             descriptorToObject(sizeInfo, desc, strMessage);
-        }
-        catch(e) {
+        } catch(e) {
             // it's ok if we don't have any options, continue with defaults
         }
 
@@ -531,12 +584,6 @@ function FitImage() {
         // nothing for now
         d.onShow = function() {
         }
-
-        // do not allow anything except for numbers 0-9
-        //d.pAndB.info.w.e.addEventListener ('keydown', NumericEditKeyboardHandler);
-
-        // do not allow anything except for numbers 0-9
-        //d.pAndB.info.h.e.addEventListener ('keydown', NumericEditKeyboardHandler);
 
         // hit OK, do resize
         d.pAndB.buttons.okBtn.onClick = function () {
@@ -643,7 +690,7 @@ function FindDialog(inItem) {
     return w;
 }
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 // Function: objectToDescriptor
 // Usage: create an ActionDescriptor from a JavaScript Object
 // Input: JavaScript Object (o)
@@ -655,7 +702,7 @@ function FindDialog(inItem) {
 // REUSE: This routine is used in other scripts. Please update those if you
 //        modify. I am not using include or eval statements as I want these
 //        scripts self contained.
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 function objectToDescriptor (o, s, f) {
     if (undefined != f) {
         o = f(o);
@@ -696,7 +743,7 @@ function objectToDescriptor (o, s, f) {
     return d;
 }
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 // Function: descriptorToObject
 // Usage: update a JavaScript Object from an ActionDescriptor
 // Input: JavaScript Object (o), current object to update (output)
@@ -709,7 +756,7 @@ function objectToDescriptor (o, s, f) {
 // REUSE: This routine is used in other scripts. Please update those if you
 //        modify. I am not using include or eval statements as I want these
 //        scripts self contained.
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 
 function descriptorToObject (o, d, s, f) {
     var l = d.count;
@@ -759,24 +806,24 @@ function descriptorToObject (o, d, s, f) {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 // Function: SizeInfo
 // Usage: object for holding the dialog parameters
 // Input: <none>
 // Return: object holding the size info
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 function SizeInfo() {
     this.height = new UnitValue(0, "px");
     this.width = new UnitValue(0, "px");
     this.limit = false;
 }
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 // Function: NumericEditKeyboardHandler
 // Usage: Do not allow anything except for numbers 0-9
 // Input: ScriptUI keydown event
 // Return: <nothing> key is rejected and beep is sounded if invalid
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 function NumericEditKeyboardHandler (event) {
 
     try {
@@ -793,7 +840,7 @@ function NumericEditKeyboardHandler (event) {
             event.preventDefault();
 
             /*    Notify user of invalid input: make sure NOT
-               to put up an alert dialog or do anything which
+                   to put up an alert dialog or do anything which
                          requires user interaction, because that
                          interferes with preventing the 'default'
                          action for the keydown event */
@@ -888,8 +935,5 @@ function MoveLayerTo(fLayer,fX,fY) {
 
   fLayer.translate(-Position[0],-Position[1]);
 }
-function trim (strIn) {
-    var str1 = strIn.replace(/^\s+/,'')
-    return str1.replace(/\s+$/,'');
-}
+
 // End Fit Image.jsx

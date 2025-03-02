@@ -1,151 +1,189 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+ScriptRecipeWidget – ermöglicht die Konfiguration der Script › Rezept Zuordnungen.
+Hier kannst Du für jedes Script individuell den Script-Pfad, den zugehörigen JSON-Ordner,
+Basic-Wand-Files, CSV-Wand-File, Wand-File-Save-Path sowie den Action Folder Name konfigurieren.
+Die Benutzeroberfläche ähnelt der Hotfolder-Konfiguration (Dropdowns, Browse-Buttons etc.).
+"""
 
+from PyQt5 import QtWidgets, QtCore
 import os
-from PyQt5 import QtWidgets, QtCore, QtGui
-from config.script_config_manager import (
-    load_script_config,
-    save_script_config,
-    debug_print
-)
+from config.script_config_manager import load_script_config, save_script_config, debug_print
+
 
 class ScriptRecipeWidget(QtWidgets.QWidget):
-    """
-    Stellt eine Tabelle dar, in der man pro Script:
-      - Script Path
-      - JSON Folder
-      - Action Folder
-      - BasicWandFiles
-      - CSVWandFile
-      - WandFileSavePath
-    konfigurieren kann.
-    """
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        # script_config.json laden:
-        self.script_config = load_script_config(self.settings)  # dict mit Schlüssel "scripts": [...]
-        # Standard: self.script_config["scripts"] = Liste von Rezept-Objekten
+        # Lade die Skript-Konfiguration – diese wird in script_config.json gespeichert
+        self.script_config = load_script_config(self.settings)
+        if not self.script_config:
+            self.script_config = {"scripts": []}
         self.init_ui()
 
     def init_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        # Titel
+        title = QtWidgets.QLabel("Script › Rezept Zuordnung")
+        title.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(title)
 
-        # Tabelle
+        # Tabelle für die Konfiguration
         self.table = QtWidgets.QTableWidget()
         self.table.setColumnCount(6)
-        headers = [
-            "Script Path",
-            "JSON Folder",
-            "Action Folder",
-            "Basic Wand Files",
-            "CSV Wand File",
-            "Wand File Save Path"
-        ]
-        self.table.setHorizontalHeaderLabels(headers)
-
-        # Resizing + Scrollbars
+        self.table.setHorizontalHeaderLabels(
+            ["Script", "JSON Folder", "Basic Wand Files", "CSV Wand File", "Wand File Save Path", "Action Folder Name"])
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
-        self.table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
-        self.table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        # Setze Standardbreiten
+        self.table.setColumnWidth(0, 300)
+        self.table.setColumnWidth(1, 300)
+        self.table.setColumnWidth(2, 300)
+        self.table.setColumnWidth(3, 300)
+        self.table.setColumnWidth(4, 300)
+        self.table.setColumnWidth(5, 300)
+        layout.addWidget(self.table)
 
-        layout.addWidget(self.table, stretch=1)
-
-        # Buttons Add/Remove
+        # Button-Leiste zum Hinzufügen/Löschen
         btn_layout = QtWidgets.QHBoxLayout()
-        self.btn_add = QtWidgets.QPushButton("Add")
-        self.btn_remove = QtWidgets.QPushButton("Remove")
-        self.btn_save = QtWidgets.QPushButton("Script-Rezepte speichern")
-
-        self.btn_add.clicked.connect(self.add_row)
-        self.btn_remove.clicked.connect(self.remove_row)
-        self.btn_save.clicked.connect(self.save_config)
-
-        btn_layout.addWidget(self.btn_add)
-        btn_layout.addWidget(self.btn_remove)
-        btn_layout.addStretch()
-        btn_layout.addWidget(self.btn_save)
+        self.add_btn = QtWidgets.QPushButton("Add")
+        self.remove_btn = QtWidgets.QPushButton("Remove")
+        self.edit_btn = QtWidgets.QPushButton("Edit Selected")
+        btn_layout.addWidget(self.add_btn)
+        btn_layout.addWidget(self.remove_btn)
+        btn_layout.addWidget(self.edit_btn)
         layout.addLayout(btn_layout)
 
-        # Tabelle füllen
+        self.add_btn.clicked.connect(self.add_row_dialog)
+        self.remove_btn.clicked.connect(self.remove_selected_row)
+        self.edit_btn.clicked.connect(self.edit_selected_row)
+
         self.load_table()
 
     def load_table(self):
-        scripts_list = self.script_config.get("scripts", [])
-        self.table.setRowCount(len(scripts_list))
+        self.table.setRowCount(0)
+        for entry in self.script_config.get("scripts", []):
+            self.add_row(entry)
 
-        for row, recipe in enumerate(scripts_list):
-            # Script Path
-            item_script = QtWidgets.QTableWidgetItem(recipe.get("script_path", ""))
-            self.table.setItem(row, 0, item_script)
+    def add_row(self, entry):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        # Erstelle für jede Spalte ein „Path-Widget“ (Dropdown + Browse-Button)
+        script_widget = self.create_path_widget(entry.get("script_path", ""), file_mode=True, file_filter="*.jsx")
+        self.table.setCellWidget(row, 0, script_widget)
 
-            # JSON Folder
-            item_json = QtWidgets.QTableWidgetItem(recipe.get("json_folder", ""))
-            self.table.setItem(row, 1, item_json)
+        json_widget = self.create_path_widget(entry.get("json_folder", ""), file_mode=False)
+        self.table.setCellWidget(row, 1, json_widget)
 
-            # Action Folder
-            item_action = QtWidgets.QTableWidgetItem(recipe.get("actionFolderName", ""))
-            self.table.setItem(row, 2, item_action)
+        basic_widget = self.create_path_widget(entry.get("basicWandFiles", ""), file_mode=False)
+        self.table.setCellWidget(row, 2, basic_widget)
 
-            # Basic Wand Files
-            item_basic = QtWidgets.QTableWidgetItem(recipe.get("basicWandFiles", ""))
-            self.table.setItem(row, 3, item_basic)
+        csv_widget = self.create_path_widget(entry.get("csvWandFile", ""), file_mode=True, file_filter="*.csv")
+        self.table.setCellWidget(row, 3, csv_widget)
 
-            # CSV Wand File
-            item_csv = QtWidgets.QTableWidgetItem(recipe.get("csvWandFile", ""))
-            self.table.setItem(row, 4, item_csv)
+        wand_widget = self.create_path_widget(entry.get("wandFileSavePath", ""), file_mode=False)
+        self.table.setCellWidget(row, 4, wand_widget)
 
-            # Wand File Save Path
-            item_wand = QtWidgets.QTableWidgetItem(recipe.get("wandFileSavePath", ""))
-            self.table.setItem(row, 5, item_wand)
+        action_line = QtWidgets.QLineEdit(entry.get("actionFolderName", ""))
+        self.table.setCellWidget(row, 5, action_line)
 
-    def add_row(self):
-        rowcount = self.table.rowCount()
-        self.table.insertRow(rowcount)
-        # Default-Einträge
-        self.table.setItem(rowcount, 0, QtWidgets.QTableWidgetItem("Choose your script..."))
-        self.table.setItem(rowcount, 1, QtWidgets.QTableWidgetItem("Set your JSON folder..."))
-        self.table.setItem(rowcount, 2, QtWidgets.QTableWidgetItem("Grisebach 2025"))
-        self.table.setItem(rowcount, 3, QtWidgets.QTableWidgetItem(""))
-        self.table.setItem(rowcount, 4, QtWidgets.QTableWidgetItem(""))
-        self.table.setItem(rowcount, 5, QtWidgets.QTableWidgetItem(""))
+    def create_path_widget(self, path, file_mode=False, file_filter="*"):
+        """
+        Erstellt ein Widget, das einen Dropdown (mit dem Basisnamen) und einen Browse‑Button enthält.
+        Der vollständige Pfad wird als Tooltip bzw. in einem versteckten QLabel gespeichert.
+        """
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        combo = QtWidgets.QComboBox()
+        combo.setEditable(False)
+        base = os.path.basename(path) if path else "Not set"
+        combo.addItem(base)
+        layout.addWidget(combo)
+        btn = QtWidgets.QPushButton("Browse")
+        btn.setFixedWidth(100)
+        layout.addWidget(btn)
+        # Verwende ein QLabel, um den vollen Pfad zu speichern (nicht sichtbar)
+        label = QtWidgets.QLabel(path)
+        label.setVisible(False)
+        widget.label = label  # Als Eigenschaft speichern
+        layout.addWidget(label)
+        if file_mode:
+            btn.clicked.connect(lambda: self.browse_file(combo, label, file_filter))
+        else:
+            btn.clicked.connect(lambda: self.browse_folder(combo, label))
+        return widget
 
-    def remove_row(self):
-        row = self.table.currentRow()
-        if row >= 0:
+    def browse_file(self, combo, label, file_filter):
+        options = QtWidgets.QFileDialog.Options()
+        file, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select File", "", file_filter, options=options)
+        if file:
+            combo.clear()
+            combo.addItem(os.path.basename(file))
+            label.setText(file)
+
+    def browse_folder(self, combo, label):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Folder", "")
+        if folder:
+            combo.clear()
+            combo.addItem(os.path.basename(folder))
+            label.setText(folder)
+
+    def add_row_dialog(self):
+        new_entry = {
+            "script_path": "",
+            "json_folder": "",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": "",
+            "actionFolderName": ""
+        }
+        self.script_config.setdefault("scripts", []).append(new_entry)
+        self.add_row(new_entry)
+
+    def remove_selected_row(self):
+        selected = self.table.selectedIndexes()
+        if selected:
+            row = selected[0].row()
             self.table.removeRow(row)
+            if "scripts" in self.script_config and row < len(self.script_config["scripts"]):
+                self.script_config["scripts"].pop(row)
+
+    def edit_selected_row(self):
+        # Optional: Hier könnte ein Dialog zur detaillierten Bearbeitung einer Zeile geöffnet werden.
+        # Zurzeit speichern wir direkt die aktuell in den Widgets enthaltenen Werte.
+        self.save_config()
 
     def save_config(self):
-        """
-        Liest die Tabelle aus und speichert sie in script_config.json
-        """
-        rowcount = self.table.rowCount()
-        new_list = []
-        for row in range(rowcount):
-            script_path = self.get_item_text(row, 0)
-            json_folder = self.get_item_text(row, 1)
-            action_folder = self.get_item_text(row, 2)
-            basic_wand = self.get_item_text(row, 3)
-            csv_wand = self.get_item_text(row, 4)
-            wand_save = self.get_item_text(row, 5)
+        scripts = []
+        for row in range(self.table.rowCount()):
+            script_widget = self.table.cellWidget(row, 0)
+            json_widget = self.table.cellWidget(row, 1)
+            basic_widget = self.table.cellWidget(row, 2)
+            csv_widget = self.table.cellWidget(row, 3)
+            wand_widget = self.table.cellWidget(row, 4)
+            action_widget = self.table.cellWidget(row, 5)
+
+            script_path = script_widget.label.text() if hasattr(script_widget, "label") else ""
+            json_folder = json_widget.label.text() if hasattr(json_widget, "label") else ""
+            basic_wand = basic_widget.label.text() if hasattr(basic_widget, "label") else ""
+            csv_file = csv_widget.label.text() if hasattr(csv_widget, "label") else ""
+            wand_save = wand_widget.label.text() if hasattr(wand_widget, "label") else ""
+            action_folder = action_widget.text() if isinstance(action_widget, QtWidgets.QLineEdit) else ""
 
             entry = {
                 "script_path": script_path,
                 "json_folder": json_folder,
-                "actionFolderName": action_folder,
                 "basicWandFiles": basic_wand,
-                "csvWandFile": csv_wand,
-                "wandFileSavePath": wand_save
+                "csvWandFile": csv_file,
+                "wandFileSavePath": wand_save,
+                "actionFolderName": action_folder
             }
-            new_list.append(entry)
+            scripts.append(entry)
+        self.script_config["scripts"] = scripts
+        save_script_config(self.script_config)
+        debug_print("Script configuration saved.")
 
-        self.script_config["scripts"] = new_list
-        save_script_config(self.script_config, self.settings)  # Speichert in config/script_config.json
-        QtWidgets.QMessageBox.information(self, "Info", "Script-Konfiguration gespeichert.")
-
-    def get_item_text(self, row, col):
-        item = self.table.item(row, col)
-        if item is None:
-            return ""
-        return item.text().strip()
+# Ende ScriptRecipeWidget

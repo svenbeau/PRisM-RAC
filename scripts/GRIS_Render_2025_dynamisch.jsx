@@ -1,9 +1,12 @@
-// c2008 recom, Inc. All rights reserved.
-// Written by Florian Mozer 2021
-//Lesen der CSV Infos - angepasst um über alle laufen zu können
-
+// c2021 recom. All rights reserved.
+// Written by Florian Mozer & Sven Schoenauer
+// based on the ADM Fit Image by Charles A. McBrian from 1997
+// edited by Mike Hale added option to avoid resize on images already smaller than target size
+// Don't Enlarge option in Fit Image command ignored if image is not 72ppi fixed by Mike Hale
+// rebuild to do the Grisebach Derivatives by me
+// fm
 /*
-@@@BUILDINFO@@@ GRIS_C_ReadWriteCSV.jsx 1.0.0.2
+@@@BUILDINFO@@@ SuperSkript.jsx 1.2.0.0
 */
 
 /* Special properties for a JavaScript to enable it to behave like an automation plug-in, the variable name must be exactly
@@ -11,17 +14,17 @@
 
 // BEGIN__HARVEST_EXCEPTION_ZSTRING
 <javascriptresource>
-<name>GRIS_C_ReadWriteCSV</name>
-<category>GRIS2021_W</category>
+<name>Grisebach-Render-Skript-2025</name>
 <menu>automate</menu>
+<category>GRIS2025</category>
 <enableinfo>true</enableinfo>
-<eventid>3caa3434-cb67-11d1-bc43-0060b0c2021C</eventid>
+<eventid>3cax3434-cb67-12d1-bc43-0060b0a13cc1</eventid>
 <terminology><![CDATA[<< /Version 1
                          /Events <<
-                          /3caa3434-cb67-11d1-bc43-0060b0c2021C [($$$/AdobePlugin/FitImageCSV/Name=GRIS_C_ReadWriteCSV) /imageReference <<
-	                       /width [($$$/AdobePlugin/FitImage/Width=width) /pixelsUnit]
-	                       /height [($$$/AdobePlugin/FitImage/Height=height) /pixelsUnit]
-	                       /limit [($$$/AdobePlugin/FitImage/limit=Don't Enlarge) /boolean]
+                          /3cax3434-cb67-12d1-bc43-0060b0a13cc1 [(Grisebach-Render-Skript-2025) /imageReference <<
+                           /width [Breite /pixelsUnit]
+                           /height [Höhe /pixelsUnit]
+                           /limit [Limitierung /boolean]
                           >>]
                          >>
                       >> ]]></terminology>
@@ -32,16 +35,17 @@
 // enable double clicking from the Macintosh Finder or the Windows Explorer
 #target photoshop
 
+var DEBUG_OUTPUT = false;
+
 // debug level: 0-2 (0:disable, 1:break on error, 2:break at beginning)
-// $.level = 1;
+// $.level = 2;
 // debugger; // launch debugger on next line
 
 // on localized builds we pull the $$$/Strings from a .dat file, see documentation for more details
-$.localize = true;
+$.localize = false;
 
 var isCancelled = true; // assume cancelled until actual resize occurs
 var scriptHasRun = false; // Flag, um doppelte Ausführung zu verhindern
-var DEBUG_OUTPUT = false;
 
 // === Hilfsfunktion zum Laden der Konfiguration ===
 function loadConfiguration() {
@@ -124,7 +128,6 @@ if (scriptHasRun) {
     scriptHasRun = true;
 
     // the main routine
-    // the FitImage object does most of the work
     try {
         // create our default params
         var sizeInfo = new SizeInfo();
@@ -137,20 +140,15 @@ if (scriptHasRun) {
         if (DialogModes.ALL == app.playbackDisplayDialogs) {
             gIP.CreateDialog();
             gIP.RunDialog();
-        }
-        else {
+        } else {
             gIP.InitVariables();
-            SaveImages(sizeInfo.width.value, sizeInfo.height.value);
+            ResizeTheImage(sizeInfo.width.value, sizeInfo.height.value);
         }
 
         if (!isCancelled) {
             SaveOffParameters(sizeInfo);
         }
-    }
-
-    // Lot's of things can go wrong
-    // Give a generic alert and see if they want the details
-    catch(e) {
+    } catch (e) {
         if (DialogModes.NO != app.playbackDisplayDialogs) {
             alert(e + " : " + e.line);
         }
@@ -167,9 +165,22 @@ isCancelled ? 'cancel' : undefined;
 //////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////
 
-function SaveImages(width, height) {
-    // Funktionen importieren (enthält JSON-Parser)
+function ResizeTheImage(width, height) {
+    var oldPref = app.preferences.rulerUnits;
+
     importFunctions();
+
+    var originalUnit = preferences.rulerUnits;
+    preferences.rulerUnits = Units.PIXELS;
+
+    var document = app.activeDocument;
+    var filename = (app.activeDocument.name.split("."))[0];
+    var backside = checkBackside(filename);
+
+    if (backside) {
+        filename = filename.substr(0, filename.length - 2);
+        if (DEBUG_OUTPUT) alert("istRückseite: \n" + filename);
+    }
 
     try {
         // Lade die Konfiguration aus der JSON-Datei
@@ -179,152 +190,197 @@ function SaveImages(width, height) {
             alert("Loaded config: " + JSON.stringify(config));
         }
 
-        // Verwende den Pfad zur CSV-Datei aus der Konfiguration
-        var csvPath = config.csvWandFile;
-
-        if (!csvPath) {
-            alert("CSV file path not specified in configuration");
+        // Prüfe, ob die Konfiguration erfolgreich geladen wurde
+        if (!config || !config.json_folder) {
+            alert("Configuration not properly loaded. Check script_config.json");
             return true;
         }
 
+        // Verwende den Pfad zum Rezept-Ordner aus der Konfiguration
+        var recipesPath = config.json_folder;
+
         if (DEBUG_OUTPUT) {
-            alert("Using CSV path from config: " + csvPath);
+            alert("Using recipes path from config: " + recipesPath);
         }
 
-        // Das ist das #Dateiobjekt für die csv
-        var csvFile = new File(csvPath);
-
-        if (!csvFile.exists) {
-            alert("CSV file not found: " + csvPath);
+        var inFolder = new Folder(recipesPath);
+        if (!inFolder.exists) {
+            alert("Recipes folder not found: " + recipesPath);
             return true;
         }
 
-        //der Dateiname wird getrennt.
-        //4058933_Kuenstler_3021_03_abg // Demodateiname mit allem
-        // ohne
-        var filename = (app.activeDocument.name.split ("."))[0];
-        var doc = app.activeDocument;
-        var nameparts = filename.split("_");
-        var kdID = nameparts[0];
-        var kdVariant = nameparts[(nameparts.length - 1)];
+        var docSource = document.info.author;
+        var docTarget = document.info.caption;
+        var docKeywords = document.info.keywords;
 
-        if (DEBUG_OUTPUT) {
-            alert("filename: " + filename + " kdID: " + kdID + " kdVariant: " + kdVariant);
+        if (DEBUG_OUTPUT) alert("DocSource: " + docSource + " DocTarget: " + docTarget);
+
+        var keywords = "";
+        for (var i = 0; i < docKeywords.length; i++) {
+            keywords += docKeywords[i] + "; ";
         }
+        if (DEBUG_OUTPUT) alert("Keywords\n" + keywords);
 
-        if (!(isNaN(kdVariant))) {
-            kdVariant = "";
-            //alert("noVariant")
-        } else {
-            //alert("VARIANT: "+kdVariant)
-        }
+        var targetRecipe = null;
 
-        var oldPref = app.preferences.rulerUnits;
+        if (inFolder != null) {
+            var fileList = inFolder.getFiles(/\.(json|)$/i);
 
-        doc.info.headline = "";
-        doc.info.instructions = "";
+            for (var a = 0; a < fileList.length; a++) {
+                if (DEBUG_OUTPUT) alert("File " + a + ": " + fileList[a]);
+                var recipeFile = new File(fileList[a]);
+                recipeFile.open('r');
+                var recipeContent = recipeFile.read();
+                var recipe = JSON.parse(recipeContent);
 
-        var h = 0;
-        var w = 0;
-        var rand = 0;
+                if (recipe.source == docSource && recipe.target == docTarget) {
+                    if (DEBUG_OUTPUT) alert("Found the recipe for this File: \nDocSource: " + docSource + " DocTarget: " + docTarget + "\n" + fileList[a]);
+                    targetRecipe = recipe;
 
-        // there was the try
-        csvFile.open('r');
-        var line1 = csvFile.readln();
-        if (DEBUG_OUTPUT) {
-            alert("line1: " + line1 + " from csv: " + csvPath);
-        }
-
-        var found = false;
-        while (!csvFile.eof) {
-            var line = csvFile.readln();
-            //alert(line);
-
-            var splittedLine = line.split(";");
-
-            if (splittedLine[0] != "") {
-                var kdIDCsV = splittedLine[0];
-                var kdVariantCSV = splittedLine[1];
-                //This is the searching and checking
-                if (kdID == kdIDCsV) {
-                    if (kdVariantCSV == "" && kdVariant == "") {
+                    for (var i = 0; i < targetRecipe.outputs.length; i++) {
                         if (DEBUG_OUTPUT) {
-                            alert("found in line: " + line);
-                        }
-
-                        //  alert("found"+line);
-                        h = splittedLine[2];
-                        b = splittedLine[3];
-                        rand = splittedLine[6];
-                        found = true;
-                        //alert("h: "+ h + " b: "+ b + "rand: " + rand + ";");
-                    }
-                    if (kdVariantCSV != "") {
-                        //alert("kdVariant: "+kdVariant+ " kdVarCSV: "+kdVariantCSV);
-                        if (kdVariant == kdVariantCSV) {
-                            if (DEBUG_OUTPUT) {
-                                alert("found with variant in line: " + line);
-                            }
-
-                            //  alert("found"+line);
-                            h = splittedLine[2];
-                            b = splittedLine[3];
-                            rand = splittedLine[6];
-                            found = true;
-                            //alert("h: "+ h + " b: "+ b + "rand: " + rand + ";");
+                            alert("Output Folder of Matching Recipe: " + targetRecipe.outputs[i].outputFolder);
                         }
                     }
                 }
             }
-        }
-        if (!found) {
-            if (DEBUG_OUTPUT) {
-                alert("Keine CSV_Info für Datei " + filename);
+
+            if (targetRecipe == null) {
+                alert("The right combination of target and source has not been found: DocSource: " + docSource + " DocTarget: " + docTarget);
+                throw new Error("The right combination of target and source has not been found: DocSource: " + docSource + " DocTarget: " + docTarget);
             }
-        }
 
-        csvFile.close();
+            for (var i = 0; i < targetRecipe.outputs.length; i++) {
+                var currentOutput = targetRecipe.outputs[i];
 
-        //write the info to the headline.
-        if (found) {
-            try {
-                doc.info.headline = h + "x" + b;
-                doc.info.instructions = rand;
+                if (backside && !currentOutput.backside) {
+                    continue;
+                }
+
+                var documentCopy = document.duplicate();
+                var action = currentOutput.photoshopAction;
+
+                if (backside && currentOutput.backsideAction != null) {
+                    action = currentOutput.backsideAction;
+                }
+
+                // Verwende den Action-Ordnernamen aus der Konfiguration
+                var actionFolderName = config.actionFolderName || "Grisebach 2025";
+
                 if (DEBUG_OUTPUT) {
-                    alert("Info in Metadaten geschrieben: " + h + "x" + b + ", Rand: " + rand);
+                    alert("Using action folder from config: " + actionFolderName);
                 }
-            } catch (e) {
-                alert("error writing in the file " + e);
+
+                app.doAction(action, actionFolderName);
+
+                var newName = filename + "_" + currentOutput.suffix + "." + currentOutput.filetype;
+
+                if (backside && currentOutput.backsideSuffix != null) {
+                    newName = filename + "_" + currentOutput.backsideSuffix + "." + currentOutput.filetype;
+                }
+
+                var outputFolder = currentOutput.outputFolder;
+                if (DEBUG_OUTPUT) {
+                    alert("Using Output Folder from Recipe: " + outputFolder);
+                }
+
+                if (currentOutput.filetype == "jpg") {
+                    exportJpeg(documentCopy, outputFolder, newName);
+                } else if (currentOutput.filetype == "png") {
+                    exportPng(documentCopy, outputFolder, newName);
+                } else if (currentOutput.filetype == "tif") {
+                    exportTiff(documentCopy, outputFolder, newName);
+                }
+
+                documentCopy.close(SaveOptions.DONOTSAVECHANGES);
             }
         }
-        app.preferences.rulerUnits = oldPref; // restore old prefs
-        isCancelled = false; // if get here, definitely executed
-        return false; // no error
-    } catch (e) {
-        alert("Error in SaveImages: " + e + " line: " + e.line);
+    } catch(e) {
+        if (DialogModes.NO != app.playbackDisplayDialogs) {
+            var errorMessage = "ERROR: " + e + "  " + e.line;
+            if (typeof currentOutput !== 'undefined') {
+                errorMessage = "ERROR(" + currentOutput.name + " / " + currentOutput.filetype + "): " + e + "  " + e.line;
+            }
+            alert(errorMessage);
+        }
+        app.preferences.rulerUnits = oldPref;
+        throw new Error(e.line);
+        isCancelled = false;
         return true;
+    }
+    app.preferences.rulerUnits = oldPref; // restore old prefs
+    isCancelled = false; // if get here, definitely executed
+    return false; // no error
+}
+
+//Hilfsfunktionen
+function checkBackside(filename){
+    var nameParts = filename.split("_");
+    if(nameParts[nameParts.length-1]=="F"){
+        return true;
+    }
+    return false;
+}
+
+function ensureFolderExists(folderPath) {
+    var folder = new Folder(folderPath);
+    if (!folder.exists) {
+        folder.create();
+        if (DEBUG_OUTPUT) alert("Ordner erstellt: " + folder.fsName);
     }
 }
 
-function SaveOffParameters(sizeInfo) {
-    try {
-        // Wir verwenden hier ein eindeutiges ID für unsere Optionen,
-        // um Konflikte mit anderen Skripten zu vermeiden
-        var d = objectToDescriptor(sizeInfo, strMessage);
-        app.putCustomOptions("3caa3434-cb67-11d1-bc43-0060b0c2021C", d);
+function exportJpeg(document, path, filename) {
+    ensureFolderExists(path);
 
-        // Achten Sie darauf, dass playbackParameters nur gesetzt wird,
-        // wenn wirklich nötig
-        if (app.playbackDisplayDialogs != DialogModes.ALL) {
-            app.playbackDisplayDialogs = DialogModes.ALL;
-            var dd = objectToDescriptor(sizeInfo, strMessage);
-            app.playbackParameters = dd;
-        }
-    } catch(e) {
-        // Fehler beim Speichern der Parameter ignorieren
-        if (DEBUG_OUTPUT) {
-            alert("Warning: Could not save parameters: " + e);
-        }
+    var file = new File(path + "/" + filename);
+
+    var options = new JPEGSaveOptions();
+    options.embedColorProfile = true;
+    options.formatOptions = FormatOptions.STANDARDBASELINE;
+    options.matte = MatteType.NONE;
+    options.quality = 8; // Qualität von 0 bis 12, hier 8 als Beispiel
+
+    try {
+        document.saveAs(file, options, true);
+        if (DEBUG_OUTPUT) alert("JPEG als Kopie gespeichert: " + file.fsName);
+    } catch (e) {
+        alert("Fehler beim Speichern der JPEG-Datei:\n" + e.message);
+    }
+}
+
+function exportPng(document, path, filename) {
+    ensureFolderExists(path);
+
+    var file = new File(path + "/" + filename);
+
+    try {
+        var options = new PNGSaveOptions();
+        options.interlaced = false; // Kein Interlacing
+        // Die höchste Kompression erfolgt standardmäßig, da keine direkte API für den gezeigten Dialog existiert.
+
+        document.saveAs(file, options, true);
+        if (DEBUG_OUTPUT) alert("PNG mit höchster Kompression gespeichert: " + file.fsName);
+    } catch (e) {
+        alert("Fehler beim Speichern der PNG-Datei:\n" + e.message);
+    }
+}
+
+function exportTiff(document, path, filename) {
+    ensureFolderExists(path);
+
+    var file = new File(path + "/" + filename);
+
+    try {
+        var options = new TiffSaveOptions();
+        options.imageCompression = TIFFEncoding.NONE;
+        options.embedColorProfile = true;
+        options.layers = true;
+
+        document.saveAs(file, options, true);
+        if (DEBUG_OUTPUT) alert("TIFF gespeichert: " + file.fsName);
+    } catch (e) {
+        alert("Fehler beim Speichern der TIFF-Datei:\n" + e.message);
     }
 }
 
@@ -350,10 +406,43 @@ function importFunctions(){
     * Array.forEach - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
     */
     Array.prototype.forEach||(Array.prototype.forEach=function(r,t){var o,n;if(null==this)throw new TypeError(" this is null or not defined");var e=Object(this),i=e.length>>>0;if("function"!=typeof r)throw new TypeError(r+" is not a function");for(arguments.length>1&&(o=t),n=0;i>n;){var a;n in e&&(a=e[n],r.call(o,a,n,e)),n++}});
+    /**
+    * Array.isArray - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
+    */
+    Array.isArray||(Array.isArray=function(arg){return"[object Array]"===Object.prototype.toString.call(arg)});
+    /**
+    * Array.every - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/every
+    */
+    Array.prototype.every||(Array.prototype.every=function(callbackfn,thisArg){"use strict";var T,k;if(null==this)throw new TypeError("this is null or not defined");var O=Object(this),len=O.length>>>0;if("function"!=typeof callbackfn)throw new TypeError;for(arguments.length>1&&(T=thisArg),k=0;k<len;){var kValue;if(k in O){kValue=O[k];var testResult=callbackfn.call(T,kValue,k,O);if(!testResult)return!1}k++}return!0});
+    /**
+    * Array.filter - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter
+    */
+    Array.prototype.filter||(Array.prototype.filter=function(fun){"use strict";if(void 0===this||null===this)throw new TypeError;var t=Object(this),len=t.length>>>0;if("function"!=typeof fun)throw new TypeError;for(var res=[],thisArg=arguments.length>=2?arguments[1]:void 0,i=0;i<len;i++)if(i in t){var val=t[i];fun.call(thisArg,val,i,t)&&res.push(val)}return res});
+    /**
+    * Array.indexOf - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/indexOf
+    */
+    Array.prototype.indexOf||(Array.prototype.indexOf=function(searchElement,fromIndex){var k;if(null==this)throw new TypeError('"this" is null or not defined');var o=Object(this),len=o.length>>>0;if(0===len)return-1;var n=+fromIndex||0;if(Math.abs(n)===1/0&&(n=0),n>=len)return-1;for(k=Math.max(n>=0?n:len-Math.abs(n),0);k<len;){if(k in o&&o[k]===searchElement)return k;k++}return-1});
+    /**
+    * Array.lastIndexOf - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/lastIndexOf
+    */
+    Array.prototype.lastIndexOf||(Array.prototype.lastIndexOf=function(searchElement){"use strict";if(void 0===this||null===this)throw new TypeError;var n,k,t=Object(this),len=t.length>>>0;if(0===len)return-1;for(n=len-1,arguments.length>1&&(n=Number(arguments[1]),n!=n?n=0:0!=n&&n!=1/0&&n!=-(1/0)&&(n=(n>0||-1)*Math.floor(Math.abs(n)))),k=n>=0?Math.min(n,len-1):len-Math.abs(n);k>=0;k--)if(k in t&&t[k]===searchElement)return k;return-1});
+    /**
+    * Array.map - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map
+    */
+    Array.prototype.map||(Array.prototype.map=function(callback,thisArg){var T,A,k;if(null==this)throw new TypeError(" this is null or not defined");var O=Object(this),len=O.length>>>0;if("function"!=typeof callback)throw new TypeError(callback+" is not a function");for(arguments.length>1&&(T=thisArg),A=new Array(len),k=0;k<len;){var kValue,mappedValue;k in O&&(kValue=O[k],mappedValue=callback.call(T,kValue,k,O),A[k]=mappedValue),k++}return A});
+    /**
+    * Array.reduce - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Reduce
+    */
+    Array.prototype.reduce||(Array.prototype.reduce=function(callback){"use strict";if(null==this)throw new TypeError("Array.prototype.reduce called on null or undefined");if("function"!=typeof callback)throw new TypeError(callback+" is not a function");var value,t=Object(this),len=t.length>>>0,k=0;if(2==arguments.length)value=arguments[1];else{for(;k<len&&!(k in t);)k++;if(k>=len)throw new TypeError("Reduce of empty array with no initial value");value=t[k++]}for(;k<len;k++)k in t&&(value=callback(value,t[k],k,t));return value});
+    /**
+    * Array.some - from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/some
+    */
+    Array.prototype.some||(Array.prototype.some=function(fun){"use strict";if(null==this)throw new TypeError("Array.prototype.some called on null or undefined");if("function"!=typeof fun)throw new TypeError;for(var t=Object(this),len=t.length>>>0,thisArg=arguments.length>=2?arguments[1]:void 0,i=0;i<len;i++)if(i in t&&fun.call(thisArg,t[i],i,t))return!0;return!1});
     /* jshint ignore:end */
     if (typeof($) === 'undefined') {
-        $ = {};
+    $ = {};
     }
+
     $.init = {
         // Evaluate a file and catch the exception.
         evalFile : function (path) {
@@ -373,12 +462,37 @@ function importFunctions(){
             }
         }
     };
+
     var obj = {
-        name: "<%= appName %>",
-        message: "Hello from Gizmo!"
+    name: "<%= appName %>",
+    message: "Hello from Gizmo!"
     };
+
     $.getExampleObject = JSON.stringify(obj);
     //alert("Demo Obj: "+obj);
+}
+
+// created in
+function SaveOffParameters(sizeInfo) {
+    try {
+        // Wir verwenden hier ein eindeutiges ID für unsere Optionen,
+        // um Konflikte mit anderen Skripten zu vermeiden
+        var d = objectToDescriptor(sizeInfo, strMessage);
+        app.putCustomOptions("3cax3434-cb67-12d1-bc43-0060b0a13cc1", d);
+
+        // Achten Sie darauf, dass playbackParameters nur gesetzt wird,
+        // wenn wirklich nötig
+        if (app.playbackDisplayDialogs != DialogModes.ALL) {
+            app.playbackDisplayDialogs = DialogModes.ALL;
+            var dd = objectToDescriptor(sizeInfo, strMessage);
+            app.playbackParameters = dd;
+        }
+    } catch(e) {
+        // Fehler beim Speichern der Parameter ignorieren
+        if (DEBUG_OUTPUT) {
+            alert("Warning: Could not save parameters: " + e);
+        }
+    }
 }
 
 function GlobalVariables() {
@@ -393,26 +507,27 @@ function GlobalVariables() {
     gInAlert = false;
 
     // all the strings that need to be localized
-    strTitle = localize("$$$/JavaScript/FitImage3/Title=GRIS_C_ReadWriteCSV");
-    //strTitle = localize( "$$$/JavaScript/FitImage/Title=Fit Image" );
-    strConstrainWithin = localize( "$$$/JavaScript/FitImage/ConstrainWithin=Constrain Within" );
-    strTextWidth = localize("$$$/JavaScripts/FitImage/Width=&Width:");
-    strTextHeight = localize("$$$/JavaScripts/FitImage/Height=&Height:");
-    strTextPixels = localize("$$$/JavaScripts/FitImage/Pixels=pixels");
-    strButtonOK = localize("$$$/JavaScripts/FitImage/OK=OK");
-    strButtonCancel = localize("$$$/JavaScripts/FitImage/Cancel=Cancel");
-    strTextSorry = localize("$$$/JavaScripts/FitImage/Sorry=Sorry, Dialog failed");
-    strTextInvalidType = localize("$$$/JavaScripts/FitImage/InvalidType=Invalid numeric value");
-    strTextInvalidNum = localize("$$$/JavaScripts/FitImage/InvalidNum=A number between 1 and 300000 is required. Closest value inserted.");
-    strTextNeedFile = localize("$$$/JavaScripts/FitImage/NeedFile=You must have a file selected before using Fit Image");
-    strMessage = localize("$$$/JavaScripts/FitImage/Message=Fit Image action settings");
-    strMustUse = localize( "$$$/JavaScripts/ImageProcessor/MustUse=You must use Photoshop CS 2 or later to run this script!" );
-    strLimitResize = localize("$$$/JavaScripts/FitImage/Limit=Don^}t Enlarge");
+    strTitle = "Grisebach Render Skript";
+    strConstrainWithin =  "Beschränken" ;
+    strTextWidth = "&Breite:";
+    strTextHeight = "&Höhe:";
+    strTextPixels = "pixel";
+    strButtonOK = "OK";
+    strButtonCancel = "Abbrechen";
+    strTextSorry = "Sorry, hat nicht getan";
+    strTextInvalidType = "Keine Zahl";
+    strTextInvalidNum = "Es muss eine Zahl zwischen 1000 und 3000000 sein.";
+    strTextNeedFile = "Wir brauchen eine Datei";
+    strMessage = "Grisebach Aktionseinstellungen";
+    strMustUse =  "You must use Photoshop CS 2 or later to run this script!" ;
+    strLimitResize = "nicht vergrößern";
 }
 
 // the main class
 function FitImage() {
+
     this.CreateDialog = function() {
+
         // I will keep most of the important dialog items at the same level
         // and use auto layout
         // use overriding group so OK/Cancel buttons placed to right of panel
@@ -424,12 +539,12 @@ function FitImage() {
                         text: '" + strConstrainWithin +"', \
                         w: Group { orientation: 'row', alignment: 'right',\
                             s: StaticText { text:'" + strTextWidth +"' }, \
-                            e: EditText { preferredSize: [70, 20] }, \
+                            e: EditNumber { preferredSize: [70, 20] }, \
                             p: StaticText { text:'" + strTextPixels + "'} \
                         }, \
                         h: Group { orientation: 'row', alignment: 'right', \
                             s: StaticText { text:'" + strTextHeight + "' }, \
-                            e: EditText { preferredSize: [70, 20] }, \
+                            e: EditNumber { preferredSize: [70, 20] }, \
                             p: StaticText { text:'" + strTextPixels + "'} \
                         }, \
                         l: Group { orientation: 'row', alignment: 'left', \
@@ -437,8 +552,8 @@ function FitImage() {
                         } \
                     }, \
                     buttons: Group { orientation: 'column', alignment: 'top',  \
-                          okBtn: Button { text:'" + strButtonOK +"', alignment: 'fill', properties:{name:'ok'} }, \
-                          cancelBtn: Button { text:'" + strButtonCancel + "', alignment: 'fill', properties:{name:'cancel'} } \
+                        okBtn: Button { text:'" + strButtonOK +"', alignment: 'fill', properties:{name:'ok'} }, \
+                        cancelBtn: Button { text:'" + strButtonCancel + "', alignment: 'fill', properties:{name:'cancel'} } \
                     } \
                 } \
             }";
@@ -455,18 +570,24 @@ function FitImage() {
 
         d.defaultElement = d.pAndB.buttons.okBtn;
         d.cancelElement = d.pAndB.buttons.cancelBtn;
+        d.pAndB.info.w.e.minvalue = 1;
+        d.pAndB.info.w.e.maxvalue = gMaxResize;
+        d.pAndB.info.h.e.minvalue = 1;
+        d.pAndB.info.h.e.maxvalue = gMaxResize;
     } // end of CreateDialog
 
     // initialize variables of dialog
     this.InitVariables = function() {
+
         var oldPref = app.preferences.rulerUnits;
         app.preferences.rulerUnits = Units.PIXELS;
 
         // look for last used params via Photoshop registry, getCustomOptions will throw if none exist
         try {
-            var desc = app.getCustomOptions("3caa3434-cb67-11d1-bc43-0060b0c2021C");
+            var desc = app.getCustomOptions("3cax3434-cb67-12d1-bc43-0060b0a13cc1");
             descriptorToObject(sizeInfo, desc, strMessage);
         }
+
         catch(e) {
             // it's ok if we don't have any options, continue with defaults
         }
@@ -511,8 +632,8 @@ function FitImage() {
         if (DialogModes.ALL == app.playbackDisplayDialogs) {
             var d = this.dlgMain;
             d.ip = this;
-            d.pAndB.info.w.e.text = Number(w);
-            d.pAndB.info.h.e.text = Number(h);
+            d.pAndB.info.w.e.value = Number(w);
+            d.pAndB.info.h.e.value = Number(h);
             d.pAndB.info.l.c.value = sizeInfo.limit;
         }
         return true;
@@ -532,12 +653,6 @@ function FitImage() {
         d.onShow = function() {
         }
 
-        // do not allow anything except for numbers 0-9
-        //d.pAndB.info.w.e.addEventListener ('keydown', NumericEditKeyboardHandler);
-
-        // do not allow anything except for numbers 0-9
-        //d.pAndB.info.h.e.addEventListener ('keydown', NumericEditKeyboardHandler);
-
         // hit OK, do resize
         d.pAndB.buttons.okBtn.onClick = function () {
             if (gInAlert == true) {
@@ -545,11 +660,9 @@ function FitImage() {
                 return;
             }
 
-            var wText = d.pAndB.info.w.e.text;
-            var hText = d.pAndB.info.h.e.text;
             var lValue = d.pAndB.info.l.c.value;
-            var w = Number(wText);
-            var h = Number(hText);
+            var w = d.pAndB.info.w.e.value;
+            var h = d.pAndB.info.h.e.value;
             sizeInfo.limit = Boolean(lValue);
             var inputErr = false;
 
@@ -559,10 +672,10 @@ function FitImage() {
                 }
                 if (isNaN(w)) {
                     sizeInfo.width = new UnitValue(1, "px");
-                    d.pAndB.info.w.e.text = 1;
+                    d.pAndB.info.w.e.value = 1;
                 } else {
                     sizeInfo.height = new UnitValue(1, "px");
-                    d.pAndB.info.h.e.text = 1;
+                    d.pAndB.info.h.e.value = 1;
                 }
                     return false;
             }
@@ -576,31 +689,32 @@ function FitImage() {
             if (w < 1) {
                 inputErr = true;
                 sizeInfo.width = new UnitValue(1, "px");
-                d.pAndB.info.w.e.text = 1;
+                d.pAndB.info.w.e.value = 1;
             }
+
 
             if (w > gMaxResize) {
                 inputErr = true;
                 sizeInfo.width = new UnitValue(gMaxResize, "px");
-                d.pAndB.info.w.e.text = gMaxResize;
+                d.pAndB.info.w.e.value = gMaxResize;
             }
 
             if (h < 1) {
                 inputErr = true;
                 sizeInfo.height = new UnitValue(1, "px");
-                d.pAndB.info.h.e.text = 1;
+                d.pAndB.info.h.e.value = 1;
             }
 
             if (h > gMaxResize) {
                 inputErr = true;
                 sizeInfo.height = new UnitValue(gMaxResize, "px");
-                d.pAndB.info.h.e.text = gMaxResize;
+                d.pAndB.info.h.e.value = gMaxResize;
             }
 
             if (inputErr == false)  {
                 sizeInfo.width = new UnitValue(w, "px");
                 sizeInfo.height = new UnitValue(h, "px");
-                if (SaveImages(w, h)) { // the whole point
+                if (ResizeTheImage(w, h)) { // the whole point
                     // error, input or output size too small
                 }
                 d.close(true);
@@ -793,7 +907,7 @@ function NumericEditKeyboardHandler (event) {
             event.preventDefault();
 
             /*    Notify user of invalid input: make sure NOT
-               to put up an alert dialog or do anything which
+                   to put up an alert dialog or do anything which
                          requires user interaction, because that
                          interferes with preventing the 'default'
                          action for the keydown event */
@@ -825,71 +939,5 @@ function KeyIsLRArrow (event) {
 
 function KeyIsTabEnterEscape (event) {
     return event.keyName == 'Tab' || event.keyName == 'Enter' || event.keyName == 'Escape';
-}
-
-function SaveTIFF(saveFile, doc){
-tiffSaveOptions = new TiffSaveOptions();
-tiffSaveOptions.embedColorProfile = true;
-tiffSaveOptions.alphaChannels = false;
-tiffSaveOptions.layers = false;
-tiffSaveOptions.imageCompression = TIFFEncoding.NONE;
-doc.saveAs(saveFile, tiffSaveOptions, true,Extension.LOWERCASE);
-}
-function SaveJPEG(saveFile, jpegQuality, doc){
-
-if (doc.bitsPerChannel != BitsPerChannelType.EIGHT) doc.bitsPerChannel = BitsPerChannelType.EIGHT;
-jpgSaveOptions = new JPEGSaveOptions();
-jpgSaveOptions.embedColorProfile = true;
-jpgSaveOptions.formatOptions = FormatOptions.STANDARDBASELINE;
-jpgSaveOptions.matte = MatteType.NONE;
-jpgSaveOptions.quality = jpegQuality;
-doc.saveAs(saveFile, jpgSaveOptions, true,Extension.LOWERCASE);
-}
-function CheckUmlaut(testString) {
-        // Ü, ü     \u00dc, \u00fc
-        // Ä, ä     \u00c4, \u00e4
-        // Ö, ö     \u00d6, \u00f6
-        // ß        \u00df
-        var str = testString;
-        str = str.replace(/\u00e4/g, "ae")
-        str = str.replace(/\u00c4/g, "Ae")
-        str = str.replace(/\u00d6/g, "Oe")
-        str = str.replace(/\u00f6/g, "oe")
-        str = str.replace(/\u00dc/g, "Ue")
-        str = str.replace(/\u00fc/g, "ue")
-        str = str.replace(/\u00df/g, "ss")
-        return str;
-
-}
-function CheckNumbers(testString) {
-    var str = testString.split("_");
-    var retStr = testString;
-    if(str[0].length != 4){
-        retStr = "!"+retStr;
-        }
-    if(str[1].length != 2) {
-        retStr = "!"+retStr;
-        }
-    return retStr;
-    }
-
-//******************************************
-// MOVE LAYER TO
-// Author: Max Kielland
-//
-// Moves layer fLayer to the absolute
-// position fX,fY. The unit of fX and fY are
-// the same as the ruler setting.
-function MoveLayerTo(fLayer,fX,fY) {
-
-  var Position = fLayer.bounds;
-  Position[0] = fX - Position[2]/2;
-  Position[1] = fY - Position[3]/2;
-
-  fLayer.translate(-Position[0],-Position[1]);
-}
-function trim (strIn) {
-    var str1 = strIn.replace(/^\s+/,'')
-    return str1.replace(/\s+$/,'');
 }
 // End Fit Image.jsx
