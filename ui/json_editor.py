@@ -1,68 +1,84 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import json
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtGui, QtCore
+from config.config_manager import save_settings, debug_print
 
 
 class JSONEditorDialog(QtWidgets.QDialog):
     """
-    Ein einfacher JSON-Editor-Dialog.
-    Lädt den Inhalt einer JSON-Datei in ein QPlainTextEdit,
-    ermöglicht die Bearbeitung und speichert die Datei nach Validierung.
+    Ein einfacher JSON-Editor.
+    Neben der normalen Bearbeitung gibt es zwei zusätzliche Buttons:
+      - "Speichern unter": Öffnet einen Dateiauswahldialog, um die aktuelle Datei unter neuem Namen zu speichern.
+      - "Cancel": Bricht die Bearbeitung ab.
     """
 
-    def __init__(self, json_file_path, parent=None):
+    def __init__(self, file_path, parent=None):
         super().__init__(parent)
         self.setWindowTitle("JSON Editor")
-        self.resize(1200, 600)
-        self.json_file_path = json_file_path
+        self.file_path = file_path
         self.init_ui()
-        self.load_json()
+        self.load_file()
 
     def init_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
 
+        # Text-Editor (PlainTextEdit) für JSON-Inhalt
         self.text_edit = QtWidgets.QPlainTextEdit(self)
-        # Optionale Anpassungen: Schriftart, Tabstopps etc.
-        font = self.text_edit.font()
-        font.setFamily("Courier New")
-        font.setPointSize(10)
+        font = QtGui.QFont("Courier", 10)
         self.text_edit.setFont(font)
         layout.addWidget(self.text_edit)
 
-        button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel)
-        button_box.accepted.connect(self.save_json)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
+        # Buttons-Leiste
+        btn_layout = QtWidgets.QHBoxLayout()
 
-    def load_json(self):
-        try:
-            with open(self.json_file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            json_str = json.dumps(data, indent=4, ensure_ascii=False)
-            self.text_edit.setPlainText(json_str)
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Fehler", f"Fehler beim Laden der Datei:\n{e}")
+        self.save_as_btn = QtWidgets.QPushButton("Speichern unter", self)
+        self.save_as_btn.clicked.connect(self.save_as)
+        btn_layout.addWidget(self.save_as_btn)
 
-    def save_json(self):
+        self.cancel_btn = QtWidgets.QPushButton("Cancel", self)
+        self.cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(self.cancel_btn)
+
+        layout.addLayout(btn_layout)
+        self.resize(600, 400)
+
+    def load_file(self):
         try:
-            json_str = self.text_edit.toPlainText()
-            # Validierung des JSON-Formats
-            data = json.loads(json_str)
-            with open(self.json_file_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            self.accept()
+            with open(self.file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.text_edit.setPlainText(content)
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Fehler", f"Fehler beim Speichern der Datei:\n{e}")
+            QtWidgets.QMessageBox.warning(self, "Fehler", f"Fehler beim Laden der Datei:\n{e}")
+
+    def save_as(self):
+        options = QtWidgets.QFileDialog.Options()
+        new_file, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Speichern unter",
+            self.file_path,
+            "JSON Files (*.json);;Alle Dateien (*)",
+            options=options
+        )
+        if new_file:
+            try:
+                content = self.text_edit.toPlainText()
+                # Validierung: Versuche, den Text als JSON zu parsen
+                json.loads(content)
+                with open(new_file, "w", encoding="utf-8") as f:
+                    f.write(content)
+                QtWidgets.QMessageBox.information(self, "Erfolg", "Datei erfolgreich gespeichert.")
+                self.accept()
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "Fehler", f"Fehler beim Speichern:\n{e}")
 
 
 if __name__ == "__main__":
     import sys
 
     app = QtWidgets.QApplication(sys.argv)
-    # Beispiel: Pfad zur JSON-Datei (anpassen)
-    editor = JSONEditorDialog("config/GrisebachRecipes_2025_01/BeispielRezept.json")
-    if editor.exec_() == QtWidgets.QDialog.Accepted:
-        print("JSON erfolgreich gespeichert!")
-    sys.exit(app.exec_())
+    # Testweise: Öffne einen Editor für eine Test-Datei
+    dlg = JSONEditorDialog("test.json")
+    dlg.exec_()
