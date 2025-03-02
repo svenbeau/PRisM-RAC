@@ -64,7 +64,7 @@
             ],
             "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
             "additional_jsx": "",
-            "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
+            "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025_dynamisch.jsx",
             "body_visible": false
         },
         {
@@ -92,9 +92,9 @@
                 "description"
             ],
             "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
-            "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_C_ReadWriteCSV.jsx",
-            "additional_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024.jsx",
-            "body_visible": true
+            "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_ReadWriteCSV_2025.jsx",
+            "additional_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024_dynamisch.jsx",
+            "body_visible": false
         }
     ],
     "log_entries": [],
@@ -183,13 +183,6 @@
     },
     "scriptsConfig": [],
     "scriptRecipeMappings": [
-        {
-            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
-            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
-            "basicWandFiles": "",
-            "csvWandFile": "",
-            "wandFileSavePath": ""
-        },
         {
             "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024.jsx",
             "json_folder": "",

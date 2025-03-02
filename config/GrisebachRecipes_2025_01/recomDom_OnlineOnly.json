@@ -5,7 +5,7 @@
         {
             "name": "Master",
             "photoshopAction": "12 Master DOM (MA)",
-            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/01_Master",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/01_Master/",
             "suffix": "MA",
             "filetype": "jpg",
             "backside": true,
@@ -15,7 +15,7 @@
         {
             "name": "Web_Komplett",
             "photoshopAction": "23 DOM Color 2 Web Komplett (WK)",
-            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/03_Web/dynamisch/",
             "suffix": "WK",
             "filetype": "png",
             "backside": true,
@@ -25,7 +25,7 @@
         {
             "name": "Web_Ausschnitt",
             "photoshopAction": "22 DOM Color 2 Web Cropped (WC)",
-            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/03_Web/dynamisch/",
             "suffix": "WC",
             "filetype": "png",
             "backside": false
@@ -33,7 +33,7 @@
         {
             "name": "Druck-Standard",
             "photoshopAction": "42 DOM Color 2 PSOv3 (P3s)",
-            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/02_Druck",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/02_Druck/",
             "suffix": "P2s",
             "filetype": "tif",
             "backside": false
@@ -41,7 +41,7 @@
         {
             "name": "OPI",
             "photoshopAction": "80 Color 2 OPI",
-            "outputFolder": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/06_OPI_Lay",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/06_OPI_Lay/",
             "suffix": "P2s",
             "filetype": "png",
             "backside": false
