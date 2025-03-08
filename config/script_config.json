@@ -11,18 +11,26 @@
         {
             "script_path": "GRIS_ReadWriteCSV_2025.jsx",
             "json_folder": "",
+            "actionFolderName": "Grisebach 2025",
             "basicWandFiles": "",
-            "csvWandFile": "/Volumes/4TM2/Grisebach/01_dokumente/2025_02_25_GB_WBL_752_Osuagwu.csv",
-            "wandFileSavePath": "",
-            "actionFolderName": "Grisebach 2025"
+            "csvWandFile": "/Volumes/File_01/_GRIS/01_dokumente/751/A751_Wandbilderliste_1.csv",
+            "wandFileSavePath": ""
         },
         {
             "script_path": "GRIS_Wandabbildungen_2024_dynamisch.jsx",
             "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "Grisebach 2025",
             "basicWandFiles": "/Volumes/4TM2/Grisebach/06_Wand/01_Vorlagen",
             "csvWandFile": "",
-            "wandFileSavePath": "/Volumes/4TM2/Grisebach/30_Renderfiles/05_Wand/Test",
-            "actionFolderName": "Grisebach 2025"
+            "wandFileSavePath": "/Volumes/4TM2/Grisebach/30_Renderfiles/05_Wand/PSD"
+        },
+        {
+            "script_path": "SuperSkript_rcm_dynamisch.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "rcm_Referenzscan",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
         }
     ]
 }
