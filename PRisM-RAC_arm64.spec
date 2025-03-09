@@ -1,4 +1,4 @@
-# PRisM-RAC_new.spec
+# PRisM-RAC_arm64.spec
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
@@ -8,39 +8,28 @@ from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
-# Name der Anwendung
-APP_NAME = "PRisM-CC"
+# Name der Anwendung (angepasst für arm64)
+APP_NAME = "PRisM-CC_arm64"
 
 # Wrapper-Skript, das als Einstieg dient
 APP_SCRIPT = "wrapper.py"
 
 # Pfade, in denen PyInstaller nach Modulen und Ressourcen suchen soll
-# Passe die Pfade hier an deine Struktur an
 pathex = [
     os.path.abspath('.'),
-    # Falls du ein src-Verzeichnis hast, etc.:
-    # os.path.abspath('src'),
 ]
 
-# Optional: Weitere versteckte Importe suchen
-# (Beispielsweise wenn du Module per importlib lädst)
-hidden_imports = collect_submodules('some_package')  # nur Beispiel
+# Optionale versteckte Importe – hier ggf. anpassen
+hidden_imports = collect_submodules('some_package')  # Beispiel, ggf. ersetzen
 
-# Falls du weitere Daten / Ordner ins Bundle kopieren willst
-# Nutze das Schema: ( <Quelldatei-oder-Ordner>, <Zielordner-im-Bundle> )
+# Hier können zusätzliche Daten/Ordner definiert werden, die ins Bundle aufgenommen werden sollen
 datas = [
-    # Beispiel: Ganze Ordner
-    # ("Reports/*", "Reports"),
-    # ("Migration/*", "Migration"),
-    # ("images/*", "images"),
-    # ...
+    # ("assets/*", "assets"),
+    # Weitere Ordner, falls nötig.
 ]
 
-# Hier definieren wir, welche Skripte analysiert werden.
-# 'main.py' ist oft der Haupteinstieg – oder du setzt "wrapper.py" als erstes Script.
-# Du kannst noch weitere .py-Dateien angeben, falls sie direkt ausgeführt werden müssen.
 a = Analysis(
-    [APP_SCRIPT],               # als Einstieg
+    [APP_SCRIPT],
     pathex=pathex,
     binaries=[],
     datas=datas,
@@ -52,13 +41,11 @@ a = Analysis(
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
-    noarchive=False
+    noarchive=True  # WICHTIG: Keine Archivierung – so werden die .pyc-Dateien einzeln abgelegt
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Erstellung eines ausführbaren Programms (für Konsolenmode oder GUI).
-# Für macOS GUI-Anwendungen setzen wir normalerweise console=False.
 exe = EXE(
     a.scripts,
     a.binaries,
@@ -77,11 +64,11 @@ exe = EXE(
 
 app = BUNDLE(
     exe,
-    name='PRisM-CC.app',
+    name='PRisM-CC_arm64.app',
     icon='/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns',
-    bundle_identifier='com.svenbeau.prismcc',
+    bundle_identifier='com.svenbeau.prismcc.arm64',
     info_plist={
-        'CFBundleName': 'PRisM-CC',
+        'CFBundleName': 'PRisM-CC_arm64',
         'CFBundleShortVersionString': '1.0.0',
         'CFBundleVersion': '1.0.0',
         'CFBundleDevelopmentRegion': 'en',

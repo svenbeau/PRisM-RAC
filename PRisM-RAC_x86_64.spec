@@ -8,7 +8,7 @@ from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
-# Name der Anwendung
+# Name der Anwendung (angepasst für x86_64)
 APP_NAME = "PRisM-CC_x86_64"
 
 # Wrapper-Skript, das als Einstieg dient
@@ -19,13 +19,12 @@ pathex = [
     os.path.abspath('.'),
 ]
 
-# Beispiel für versteckte Importe (falls benötigt)
-hidden_imports = collect_submodules('some_package')  # nur Beispiel
+# Optional: Weitere versteckte Importe (hier nur Beispiel)
+hidden_imports = collect_submodules('some_package')
 
-# Falls du weitere Daten/Ordner ins Bundle kopieren möchtest:
+# Falls du weitere Daten/Ordner ins Bundle kopieren willst:
 datas = [
-    # ("assets/*", "assets"),
-    # Weitere Ordner, falls nötig.
+    # Beispiel: ("assets/*", "assets"),
 ]
 
 a = Analysis(
@@ -59,6 +58,7 @@ exe = EXE(
     upx=True,
     console=False,
     disable_windowed_traceback=False,
+    # icon='PRisM_Icon.icns',
 )
 
 app = BUNDLE(
