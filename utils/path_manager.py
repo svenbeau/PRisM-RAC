@@ -6,7 +6,7 @@ from pathlib import Path
 def get_app_support_dir():
     """
     Gibt den Pfad zu ~/Library/Application Support/PRisM-CC zurück
-    und legt ihn (inkl. Elternverzeichnisse) an, falls nicht vorhanden.
+    und legt ihn (inkl. aller Elternverzeichnisse) an, falls er nicht vorhanden ist.
     """
     base_path = Path(os.path.expanduser("~/Library/Application Support/PRisM-CC"))
     base_path.mkdir(parents=True, exist_ok=True)
@@ -14,6 +14,7 @@ def get_app_support_dir():
 
 def get_config_path():
     """
+    Liefert den vollständigen Pfad zur Datei:
     ~/Library/Application Support/PRisM-CC/config/script_config.json
     """
     app_support = get_app_support_dir()
@@ -23,6 +24,7 @@ def get_config_path():
 
 def get_log_path():
     """
+    Liefert den vollständigen Pfad zur Datei:
     ~/Library/Application Support/PRisM-CC/logs/global_log.json
     """
     app_support = get_app_support_dir()
@@ -32,6 +34,7 @@ def get_log_path():
 
 def get_settings_path():
     """
+    Liefert den vollständigen Pfad zur Datei:
     ~/Library/Application Support/PRisM-CC/settings.json
     """
     app_support = get_app_support_dir()

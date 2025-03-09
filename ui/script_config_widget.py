@@ -1,154 +1,162 @@
-# script_config_widget.py
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import os
-import uuid
-
-# Statt PyQt5:
 from PySide6 import QtWidgets, QtCore
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QDialog  # Korrekte Import-Schreibweise
 
-from utils.config_manager import (
-    load_settings,
-    save_settings,
-    debug_print
-)
+# Falls du debug_print oder andere Funktionen brauchst:
+from utils.config_manager import debug_print
 
 class ScriptConfigWidget(QtWidgets.QDialog):
     """
-    Beispiel-Klasse (vormals ScriptConfigDialog), jetzt in script_config_widget.py.
-    Verwaltet Skript-Konfigurationen (Skripte-Ordner, JSON-Ordner etc.).
+    Dialog zum Bearbeiten einer Skript-Konfiguration.
+    Erwartet ein Dictionary 'script_config', z.B.:
+    {
+      "id": "...",
+      "script_path": "...",
+      "json_folder": "...",
+      "actionFolderName": "...",
+      "basicWandFiles": "...",
+      "csvWandFile": "...",
+      "wandFileSavePath": "..."
+    }
+    Änderungen werden beim Klick auf OK in script_config übernommen.
     """
     def __init__(self, script_config, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Script Konfiguration bearbeiten")
-        self.resize(600, 400)
-        self.script_config = script_config
+        self.setWindowTitle("Rezept bearbeiten")
+        self.script_config = script_config  # Referenz auf das Dictionary
         self.init_ui()
+        self.load_values()
 
     def init_ui(self):
-        main_layout = QtWidgets.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         form_layout = QtWidgets.QFormLayout()
 
-        # Skripte-Ordner (Anzeige, nur Lesbar + Browse-Button)
-        self.scripts_folder_edit = QtWidgets.QLineEdit(self.script_config.get("scripts_folder", ""))
-        self.scripts_folder_edit.setReadOnly(True)
-        self.browse_scripts_folder_btn = QtWidgets.QPushButton("Browse Folder")
-        self.browse_scripts_folder_btn.setFixedWidth(100)
+        # Script Path
+        self.script_path_edit = QtWidgets.QLineEdit()
+        self.script_browse_btn = QtWidgets.QPushButton("Browse")
+        self.script_browse_btn.clicked.connect(self.browse_script)
+        script_layout = QtWidgets.QHBoxLayout()
+        script_layout.addWidget(self.script_path_edit, stretch=1)
+        script_layout.addWidget(self.script_browse_btn)
+        form_layout.addRow("Script Path:", script_layout)
 
-        scripts_folder_layout = QtWidgets.QHBoxLayout()
-        scripts_folder_layout.addWidget(self.scripts_folder_edit)
-        scripts_folder_layout.addWidget(self.browse_scripts_folder_btn)
-        form_layout.addRow("Skripte Ordner:", scripts_folder_layout)
+        # JSON Folder
+        self.json_folder_edit = QtWidgets.QLineEdit()
+        self.json_browse_btn = QtWidgets.QPushButton("Browse")
+        self.json_browse_btn.clicked.connect(self.browse_json_folder)
+        json_layout = QtWidgets.QHBoxLayout()
+        json_layout.addWidget(self.json_folder_edit, stretch=1)
+        json_layout.addWidget(self.json_browse_btn)
+        form_layout.addRow("JSON Folder:", json_layout)
 
-        # Dropdown für Skriptdateien
-        self.script_dropdown = QtWidgets.QComboBox()
-        self.script_dropdown.setEditable(False)
-        form_layout.addRow("Script:", self.script_dropdown)
+        # Action Folder Name
+        self.action_folder_edit = QtWidgets.QLineEdit()
+        form_layout.addRow("Action Folder Name:", self.action_folder_edit)
 
-        # JSON-Ordner
-        self.json_folder_edit = QtWidgets.QLineEdit(self.script_config.get("json_folder", ""))
-        self.json_folder_edit.setReadOnly(True)
-        self.browse_json_folder_btn = QtWidgets.QPushButton("Browse Folder")
-        self.browse_json_folder_btn.setFixedWidth(100)
+        # Basic Wand Files
+        self.basic_wand_edit = QtWidgets.QLineEdit()
+        self.basic_wand_btn = QtWidgets.QPushButton("Browse")
+        self.basic_wand_btn.clicked.connect(self.browse_basic_wand)
+        basic_wand_layout = QtWidgets.QHBoxLayout()
+        basic_wand_layout.addWidget(self.basic_wand_edit, stretch=1)
+        basic_wand_layout.addWidget(self.basic_wand_btn)
+        form_layout.addRow("Basic Wand Files:", basic_wand_layout)
 
-        json_folder_layout = QtWidgets.QHBoxLayout()
-        json_folder_layout.addWidget(self.json_folder_edit)
-        json_folder_layout.addWidget(self.browse_json_folder_btn)
-        form_layout.addRow("JSON Ordner:", json_folder_layout)
+        # CSV Wand File
+        self.csv_wand_edit = QtWidgets.QLineEdit()
+        self.csv_wand_btn = QtWidgets.QPushButton("Browse")
+        self.csv_wand_btn.clicked.connect(self.browse_csv_wand)
+        csv_layout = QtWidgets.QHBoxLayout()
+        csv_layout.addWidget(self.csv_wand_edit, stretch=1)
+        csv_layout.addWidget(self.csv_wand_btn)
+        form_layout.addRow("CSV Wand File:", csv_layout)
 
-        # Zusätzliche Felder
-        self.actionFolderName_edit = QtWidgets.QLineEdit(self.script_config.get("actionFolderName", ""))
-        form_layout.addRow("Action Folder Name:", self.actionFolderName_edit)
+        # Wand File Save Path
+        self.wand_save_edit = QtWidgets.QLineEdit()
+        self.wand_save_btn = QtWidgets.QPushButton("Browse")
+        self.wand_save_btn.clicked.connect(self.browse_wand_save)
+        wand_save_layout = QtWidgets.QHBoxLayout()
+        wand_save_layout.addWidget(self.wand_save_edit, stretch=1)
+        wand_save_layout.addWidget(self.wand_save_btn)
+        form_layout.addRow("Wand File Save Path:", wand_save_layout)
 
-        self.basicWandFiles_edit = QtWidgets.QLineEdit(self.script_config.get("basicWandFiles", ""))
-        form_layout.addRow("Basic Wand Files:", self.basicWandFiles_edit)
+        layout.addLayout(form_layout)
 
-        self.csvWandFile_edit = QtWidgets.QLineEdit(self.script_config.get("csvWandFile", ""))
-        form_layout.addRow("CSV Wand File:", self.csvWandFile_edit)
-
-        self.wandFileSavePath_edit = QtWidgets.QLineEdit(self.script_config.get("wandFileSavePath", ""))
-        form_layout.addRow("Wand File Save Path:", self.wandFileSavePath_edit)
-
-        main_layout.addLayout(form_layout)
-
-        # OK/Cancel-Buttons
+        # OK / Cancel
         btn_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        main_layout.addWidget(btn_box)
         btn_box.accepted.connect(self.accept)
         btn_box.rejected.connect(self.reject)
+        layout.addWidget(btn_box)
 
-        # Signale
-        self.browse_scripts_folder_btn.clicked.connect(self.browse_scripts_folder)
-        self.browse_json_folder_btn.clicked.connect(self.browse_json_folder)
+    def load_values(self):
+        """
+        Lädt die Werte aus self.script_config in die Felder.
+        """
+        self.script_path_edit.setText(self.script_config.get("script_path", ""))
+        self.json_folder_edit.setText(self.script_config.get("json_folder", ""))
+        self.action_folder_edit.setText(self.script_config.get("actionFolderName", ""))
+        self.basic_wand_edit.setText(self.script_config.get("basicWandFiles", ""))
+        self.csv_wand_edit.setText(self.script_config.get("csvWandFile", ""))
+        self.wand_save_edit.setText(self.script_config.get("wandFileSavePath", ""))
 
-        self.update_script_dropdown()
+    def accept(self):
+        """
+        Übernimmt die Werte aus den Feldern in self.script_config und schließt mit OK.
+        """
+        self.script_config["script_path"] = self.script_path_edit.text().strip()
+        self.script_config["json_folder"] = self.json_folder_edit.text().strip()
+        self.script_config["actionFolderName"] = self.action_folder_edit.text().strip()
+        self.script_config["basicWandFiles"] = self.basic_wand_edit.text().strip()
+        self.script_config["csvWandFile"] = self.csv_wand_edit.text().strip()
+        self.script_config["wandFileSavePath"] = self.wand_save_edit.text().strip()
 
-    def browse_scripts_folder(self):
-        folder = QtWidgets.QFileDialog.getExistingDirectory(
-            self, "Skripte Ordner auswählen", QtCore.QDir.homePath()
+        super().accept()
+
+    def browse_script(self):
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Script auswählen", "", "JSX Files (*.jsx);;All Files (*)"
         )
-        if folder:
-            self.scripts_folder_edit.setText(folder)
-            self.update_script_dropdown()
-
-    def update_script_dropdown(self):
-        folder = self.scripts_folder_edit.text()
-        self.script_dropdown.clear()
-        if folder and os.path.isdir(folder):
-            scripts = [f for f in os.listdir(folder) if f.lower().endswith(".jsx")]
-            scripts.sort()
-            self.script_dropdown.addItems(scripts)
-            current_script = os.path.basename(self.script_config.get("selected_jsx", ""))
-            if current_script in scripts:
-                idx = self.script_dropdown.findText(current_script)
-                self.script_dropdown.setCurrentIndex(idx)
-        else:
-            self.script_dropdown.addItem("")
+        if fname:
+            self.script_path_edit.setText(fname)
 
     def browse_json_folder(self):
-        folder = QtWidgets.QFileDialog.getExistingDirectory(
-            self, "JSON Ordner auswählen", QtCore.QDir.homePath()
-        )
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "JSON-Folder auswählen", "")
         if folder:
             self.json_folder_edit.setText(folder)
 
-    def accept(self):
-        # Übernimmt die Daten in self.script_config
-        self.script_config["scripts_folder"] = self.scripts_folder_edit.text()
-        selected_script = self.script_dropdown.currentText()
-        if self.scripts_folder_edit.text():
-            self.script_config["selected_jsx"] = os.path.join(self.scripts_folder_edit.text(), selected_script)
-        else:
-            self.script_config["selected_jsx"] = ""
-        self.script_config["json_folder"] = self.json_folder_edit.text()
-        self.script_config["actionFolderName"] = self.actionFolderName_edit.text()
-        self.script_config["basicWandFiles"] = self.basicWandFiles_edit.text()
-        self.script_config["csvWandFile"] = self.csvWandFile_edit.text()
-        self.script_config["wandFileSavePath"] = self.wandFileSavePath_edit.text()
-        super().accept()
+    def browse_basic_wand(self):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Basic Wand Ordner auswählen", "")
+        if folder:
+            self.basic_wand_edit.setText(folder)
+
+    def browse_csv_wand(self):
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, "CSV Wand File auswählen", "", "CSV Files (*.csv);;All Files (*)")
+        if fname:
+            self.csv_wand_edit.setText(fname)
+
+    def browse_wand_save(self):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Wand File Save Path auswählen", "")
+        if folder:
+            self.wand_save_edit.setText(folder)
 
 if __name__ == "__main__":
     import sys
-    app = QApplication(sys.argv)
-    # Beispiel-Testkonfiguration
+    app = QtWidgets.QApplication(sys.argv)
+    # Test
     test_config = {
-        "id": str(uuid.uuid4()),
-        "selected_jsx": "",
-        "scripts_folder": "",
-        "json_folder": "",
-        "actionFolderName": "",
-        "basicWandFiles": "",
-        "csvWandFile": "",
-        "wandFileSavePath": ""
+        "id": "1234",
+        "script_path": "/Users/xyz/SomeScript.jsx",
+        "json_folder": "/Users/xyz/jsonfolder",
+        "actionFolderName": "Grisebach 2025",
+        "basicWandFiles": "/path/to/wandfiles",
+        "csvWandFile": "/path/to/wand.csv",
+        "wandFileSavePath": "/save/path"
     }
     dlg = ScriptConfigWidget(test_config)
-    if dlg.exec():
-        print("Gespeicherte Skript-Konfiguration:")
-        print(test_config)
+    if dlg.exec_():
+        print("OK clicked, script_config now:", test_config)
     else:
-        print("Abgebrochen")
-    sys.exit(app.exec())
+        print("Cancel clicked.")
+    sys.exit(0)

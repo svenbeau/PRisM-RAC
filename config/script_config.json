@@ -31,6 +31,14 @@
             "basicWandFiles": "",
             "csvWandFile": "",
             "wandFileSavePath": ""
+        },
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/PS_Metadaten_XMP_check.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "Grisebach 2025",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
         }
     ]
 }

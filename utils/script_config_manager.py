@@ -18,14 +18,19 @@ def debug_print(msg):
     if DEBUG_OUTPUT:
         print("[DEBUG]", msg)
 
-# Bestimme den Basisordner (das Projektverzeichnis)
+# Ursprünglicher Basisordner (Projektverzeichnis):
 BASE_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
 )
 
+# Ursprüngliche, jetzt ungenutzte Konstante:
 SCRIPT_CONFIG_FILE = os.path.join(BASE_DIR, "config", "script_config.json")
 debug_print(f"BASE_DIR: {BASE_DIR}")
-debug_print(f"Script Config File will be stored at: {SCRIPT_CONFIG_FILE}")
+debug_print(f"Script Config File (UNUSED) would be: {SCRIPT_CONFIG_FILE}")
+
+# NEU: Wir verwenden get_config_path aus path_manager,
+# um ~/Library/Application Support/PRisM-CC/config/script_config.json zu erhalten.
+from utils.path_manager import get_config_path
 
 def load_script_config(settings):
     """
@@ -48,13 +53,15 @@ def load_script_config(settings):
                      einen alternativen Pfad lesen willst, könntest du hier
                      "SCRIPT_CONFIG_PATH" auswerten.
     """
-    # Optional: Schau nach, ob es in settings einen alternativen Pfad gibt:
+    # 1) Prüfe, ob in settings ein Override-Pfad steht (z.B. "SCRIPT_CONFIG_PATH").
     override_path = settings.get("SCRIPT_CONFIG_PATH", "")
     if override_path:
         config_file = override_path
         debug_print(f"Using override script_config path: {config_file}")
     else:
-        config_file = SCRIPT_CONFIG_FILE
+        # 2) Ansonsten verwenden wir den NEUEN Pfad in ~/Library/Application Support/PRisM-CC/config/
+        config_file = get_config_path()
+        debug_print(f"No override path. Using get_config_path(): {config_file}")
 
     if not os.path.isfile(config_file):
         debug_print(f"script_config.json not found at {config_file}, returning default.")
@@ -76,8 +83,11 @@ def save_script_config(data, settings):
     override_path = settings.get("SCRIPT_CONFIG_PATH", "")
     if override_path:
         config_file = override_path
+        debug_print(f"Using override script_config path for saving: {config_file}")
     else:
-        config_file = SCRIPT_CONFIG_FILE
+        # Neuer Pfad via get_config_path():
+        config_file = get_config_path()
+        debug_print(f"No override path. Saving to {config_file}")
 
     try:
         with open(config_file, "w", encoding="utf-8") as f:

@@ -17,7 +17,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PRisM-RAC")
-        self.resize(1200, 900)
+        self.resize(1500, 1200)
         self.settings = load_settings()
         self.init_ui()
 
