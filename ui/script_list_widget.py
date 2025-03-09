@@ -13,8 +13,8 @@ class ScriptListWidget(QtWidgets.QWidget):
     """
     Widget zur Verwaltung der Skript-Konfigurationen.
     Jede Zeile repräsentiert ein Skript mit den zugehörigen Einstellungen:
-      - Script (Dateiname), JSON Ordner, Action Folder, Basic Wand Files, CSV Wand File,
-        Wand File Save Path
+      - Script (Dateiname), JSON Ordner, Action Folder,
+        Basic Wand Files, CSV Wand File, Wand File Save Path
       - Buttons zum Bearbeiten und Löschen
     Änderungen in der Tabelle werden erst mit "Einstellungen speichern" dauerhaft übernommen.
     Die Daten werden in script_config.json abgelegt.
@@ -81,23 +81,30 @@ class ScriptListWidget(QtWidgets.QWidget):
         row = self.table.rowCount()
         self.table.insertRow(row)
 
-        # Spalte 0: Script (wir verwenden den Key "script_path")
+        # Spalte 0: Script (verwende "script_path")
         script_name = os.path.basename(script.get("script_path", ""))
         item_script = QtWidgets.QTableWidgetItem(script_name)
         item_script.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        # Setze die Zelle als editierbar
+        item_script.setFlags(item_script.flags() | QtCore.Qt.ItemIsEditable)
         self.table.setItem(row, 0, item_script)
 
         # Spalte 1: JSON Ordner
         json_folder = script.get("json_folder", "")
+        # Hier zeigen wir den verkürzten Pfad, aber speichern später den tatsächlichen Inhalt,
+        # falls der Benutzer die Zelle ändert, wird der neue Text übernommen.
         item_json = QtWidgets.QTableWidgetItem(self.get_short_path(json_folder))
         item_json.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        # Setze den vollen Pfad als Tooltip
         item_json.setToolTip(json_folder)
+        item_json.setFlags(item_json.flags() | QtCore.Qt.ItemIsEditable)
         self.table.setItem(row, 1, item_json)
 
         # Spalte 2: Action Folder
         action_folder = script.get("actionFolderName", "")
         item_action = QtWidgets.QTableWidgetItem(action_folder)
         item_action.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        item_action.setFlags(item_action.flags() | QtCore.Qt.ItemIsEditable)
         self.table.setItem(row, 2, item_action)
 
         # Spalte 3: Basic Wand Files
@@ -105,6 +112,7 @@ class ScriptListWidget(QtWidgets.QWidget):
         item_basic = QtWidgets.QTableWidgetItem(self.get_short_path(basic_wand))
         item_basic.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         item_basic.setToolTip(basic_wand)
+        item_basic.setFlags(item_basic.flags() | QtCore.Qt.ItemIsEditable)
         self.table.setItem(row, 3, item_basic)
 
         # Spalte 4: CSV Wand File
@@ -112,6 +120,7 @@ class ScriptListWidget(QtWidgets.QWidget):
         item_csv = QtWidgets.QTableWidgetItem(self.get_short_path(csv_wand))
         item_csv.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         item_csv.setToolTip(csv_wand)
+        item_csv.setFlags(item_csv.flags() | QtCore.Qt.ItemIsEditable)
         self.table.setItem(row, 4, item_csv)
 
         # Spalte 5: Wand File Save Path
@@ -119,6 +128,7 @@ class ScriptListWidget(QtWidgets.QWidget):
         item_wand = QtWidgets.QTableWidgetItem(self.get_short_path(wand_save))
         item_wand.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         item_wand.setToolTip(wand_save)
+        item_wand.setFlags(item_wand.flags() | QtCore.Qt.ItemIsEditable)
         self.table.setItem(row, 5, item_wand)
 
         # Spalte 6: Bearbeiten-Button
@@ -143,7 +153,7 @@ class ScriptListWidget(QtWidgets.QWidget):
         return full_path
 
     def add_script(self):
-        """Erzeugt ein neues Script-Dict und öffnet den Bearbeiten-Dialog."""
+        """Erzeugt ein neues Script-Dict, speichert es und öffnet den Bearbeiten-Dialog."""
         new_script = {
             "id": str(uuid.uuid4()),
             "script_path": "",
@@ -201,36 +211,42 @@ class ScriptListWidget(QtWidgets.QWidget):
         for row in range(row_count):
             if row < len(scripts):
                 script = scripts[row]
+                # Spalte 0: Script (script_path)
                 item_script = self.table.item(row, 0)
                 if item_script:
-                    script_value = item_script.text().strip()
-                    script["script_path"] = script_value
-                    debug_print(f"[UPDATE] Row {row} - script_path: {script_value}")
+                    value = item_script.text().strip()
+                    script["script_path"] = value
+                    debug_print(f"[UPDATE] Row {row} - script_path: {value}")
+                # Spalte 1: JSON Folder (verwende Zelleninhalt)
                 item_json = self.table.item(row, 1)
                 if item_json:
-                    json_value = item_json.text().strip()
-                    script["json_folder"] = json_value
-                    debug_print(f"[UPDATE] Row {row} - json_folder: {json_value}")
+                    value = item_json.text().strip()
+                    script["json_folder"] = value
+                    debug_print(f"[UPDATE] Row {row} - json_folder: {value}")
+                # Spalte 2: Action Folder
                 item_action = self.table.item(row, 2)
                 if item_action:
-                    action_value = item_action.text().strip()
-                    script["actionFolderName"] = action_value
-                    debug_print(f"[UPDATE] Row {row} - actionFolderName: {action_value}")
+                    value = item_action.text().strip()
+                    script["actionFolderName"] = value
+                    debug_print(f"[UPDATE] Row {row} - actionFolderName: {value}")
+                # Spalte 3: Basic Wand Files
                 item_basic = self.table.item(row, 3)
                 if item_basic:
-                    basic_value = item_basic.text().strip()
-                    script["basicWandFiles"] = basic_value
-                    debug_print(f"[UPDATE] Row {row} - basicWandFiles: {basic_value}")
+                    value = item_basic.text().strip()
+                    script["basicWandFiles"] = value
+                    debug_print(f"[UPDATE] Row {row} - basicWandFiles: {value}")
+                # Spalte 4: CSV Wand File
                 item_csv = self.table.item(row, 4)
                 if item_csv:
-                    csv_value = item_csv.text().strip()
-                    script["csvWandFile"] = csv_value
-                    debug_print(f"[UPDATE] Row {row} - csvWandFile: {csv_value}")
+                    value = item_csv.text().strip()
+                    script["csvWandFile"] = value
+                    debug_print(f"[UPDATE] Row {row} - csvWandFile: {value}")
+                # Spalte 5: Wand File Save Path
                 item_wand = self.table.item(row, 5)
                 if item_wand:
-                    wand_value = item_wand.text().strip()
-                    script["wandFileSavePath"] = wand_value
-                    debug_print(f"[UPDATE] Row {row} - wandFileSavePath: {wand_value}")
+                    value = item_wand.text().strip()
+                    script["wandFileSavePath"] = value
+                    debug_print(f"[UPDATE] Row {row} - wandFileSavePath: {value}")
         save_script_config(self.script_data)
         debug_print(f"[UPDATE] Final script_data: {self.script_data}")
         QtWidgets.QMessageBox.information(self, "Info", "Einstellungen wurden gespeichert.")
@@ -258,7 +274,7 @@ if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
     from utils.config_manager import load_settings
-    settings = load_settings()  # Diese globalen Settings werden hier nicht für scripts verwendet.
+    settings = load_settings()  # Globale Settings werden hier geladen, aber Skriptdaten kommen aus script_config.json
     widget = ScriptSettingsWidget(settings)
     widget.show()
     sys.exit(app.exec_())

@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from PySide6 import QtWidgets, QtGui
+DEBUG_OUTPUT = True
 
+def debug_print(msg):
+    if DEBUG_OUTPUT:
+        print("[DEBUG script_recipe_widget]", msg)
+
+from PySide6 import QtWidgets, QtGui
 from utils.script_config_manager import (
     load_script_config,
     save_script_config,
@@ -17,10 +22,14 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
+        debug_print("Lade script_config über load_script_config(...)")
         self.script_config = load_script_config(self.settings)  # => {"scripts": [...]}
         self.scripts_data = self.script_config.get("scripts", [])
-        # Evtl. Action-Sets einlesen:
+        debug_print(f"Anfangs scripts_data: {self.scripts_data}")
+
+        # Photoshop-Action-Sets einlesen (ggf. leer, falls Photoshop nicht erreichbar)
         self.available_action_sets = list_photoshop_action_sets()
+        debug_print(f"Action Sets ermittelt: {self.available_action_sets}")
 
         self.init_ui()
 
@@ -54,6 +63,7 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
 
         self.table.setSelectionBehavior(QtWidgets.QTableWidget.SelectRows)
         self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        # WICHTIG: Wir verhindern zwar das "direkte" Editieren, aber wir haben unsere eigenen Widgets pro Zelle
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
 
         layout.addWidget(self.table, stretch=1)
@@ -80,9 +90,12 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
         self.load_table()
 
     def load_table(self):
+        """Füllt die QTableWidget mit den Einträgen aus self.scripts_data."""
+        debug_print("load_table aufgerufen.")
         self.table.setRowCount(0)
         for entry in self.scripts_data:
             self.add_row(entry)
+        debug_print(f"Tabelle mit {len(self.scripts_data)} Einträgen gefüllt.")
 
     def add_row(self, entry):
         """
@@ -107,19 +120,19 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
         self.table.setCellWidget(row_idx, 1, json_item)
 
         # Action Folder (Dropdown der Action-Sets)
-        action_item = self.create_actionset_cell(entry.get("actionFolderName",""))
+        action_item = self.create_actionset_cell(entry.get("actionFolderName", ""))
         self.table.setCellWidget(row_idx, 2, action_item)
 
         # Basic Wand Files
-        bw_item = self.create_path_cell(entry.get("basicWandFiles",""), "Folder")
+        bw_item = self.create_path_cell(entry.get("basicWandFiles", ""), "Folder")
         self.table.setCellWidget(row_idx, 3, bw_item)
 
         # CSV Wand File
-        csv_item = self.create_path_cell(entry.get("csvWandFile",""), "File")
+        csv_item = self.create_path_cell(entry.get("csvWandFile", ""), "File")
         self.table.setCellWidget(row_idx, 4, csv_item)
 
         # Wand File SavePath
-        wfs_item = self.create_path_cell(entry.get("wandFileSavePath",""), "Folder")
+        wfs_item = self.create_path_cell(entry.get("wandFileSavePath", ""), "Folder")
         self.table.setCellWidget(row_idx, 5, wfs_item)
 
         # Actions (Edit + Remove)
@@ -149,13 +162,20 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
         combo = QtWidgets.QComboBox()
         combo.setEditable(True)
         combo.setMinimumWidth(300)
-        combo.addItem(initial_path if initial_path else "Choose script...")
+        if initial_path:
+            combo.addItem(initial_path)
+        else:
+            combo.addItem("Choose script...")
 
         browse_btn = QtWidgets.QPushButton("...")
         browse_btn.setFixedWidth(100)
 
         def on_browse():
-            path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Script auswählen", initial_path or "", "JSX Files (*.jsx);;All Files (*)")
+            path, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self, "Script auswählen",
+                initial_path or "",
+                "JSX Files (*.jsx);;All Files (*)"
+            )
             if path:
                 combo.clear()
                 combo.addItem(path)
@@ -178,20 +198,29 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
         combo = QtWidgets.QComboBox()
         combo.setEditable(True)
         combo.setMinimumWidth(300)
-        combo.addItem(initial_path if initial_path else (f"Choose {mode}..."))
+        if initial_path:
+            combo.addItem(initial_path)
+        else:
+            combo.addItem(f"Choose {mode}...")
 
         browse_btn = QtWidgets.QPushButton("...")
         browse_btn.setFixedWidth(100)
 
         def on_browse():
             if mode == "Folder":
-                folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Ordner auswählen", initial_path or "")
+                folder = QtWidgets.QFileDialog.getExistingDirectory(
+                    self, "Ordner auswählen",
+                    initial_path or ""
+                )
                 if folder:
                     combo.clear()
                     combo.addItem(folder)
                     combo.setCurrentIndex(0)
             else:
-                file, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Datei auswählen", initial_path or "")
+                file, _ = QtWidgets.QFileDialog.getOpenFileName(
+                    self, "Datei auswählen",
+                    initial_path or ""
+                )
                 if file:
                     combo.clear()
                     combo.addItem(file)
@@ -244,6 +273,7 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
             "wandFileSavePath": ""
         }
         self.scripts_data.append(new_entry)
+        debug_print(f"[ADD] Neue Script-Rezept-Zeile: {new_entry}")
         self.add_row(new_entry)
 
     def on_remove(self):
@@ -252,20 +282,26 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
         """
         row = self.table.currentRow()
         if row < 0:
+            debug_print("[REMOVE] Keine Zeile ausgewählt.")
             return
+        debug_print(f"[REMOVE] Entferne Zeile {row} aus scripts_data.")
         self.table.removeRow(row)
         if row < len(self.scripts_data):
-            self.scripts_data.pop(row)
+            removed = self.scripts_data.pop(row)
+            debug_print(f"[REMOVE] Entfernt: {removed}")
 
     def on_remove_specific(self, row):
         """
         Entfernt eine Zeile, wenn man in der Actions-Spalte auf 'Remove' klickt.
         """
         if row < 0 or row >= self.table.rowCount():
+            debug_print("[REMOVE SPECIFIC] Ungültige Zeile.")
             return
+        debug_print(f"[REMOVE SPECIFIC] Entferne Zeile {row} aus scripts_data.")
         self.table.removeRow(row)
         if row < len(self.scripts_data):
-            self.scripts_data.pop(row)
+            removed = self.scripts_data.pop(row)
+            debug_print(f"[REMOVE SPECIFIC] Entfernt: {removed}")
 
     def on_edit(self, row):
         """
@@ -273,22 +309,75 @@ class ScriptRecipeWidget(QtWidgets.QWidget):
         ähnlich wie beim Hotfolder-Edit.
         """
         if row < 0 or row >= len(self.scripts_data):
+            debug_print("[EDIT] Ungültige Zeile oder keine Zeile ausgewählt.")
             return
         entry = self.scripts_data[row]
+        debug_print(f"[EDIT] Vor Bearbeitung: {entry}")
         dlg = RecipeEditDialog(entry, self.available_action_sets, parent=self)
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.scripts_data[row] = dlg.get_data()
+            updated_data = dlg.get_data()
+            debug_print(f"[EDIT] Nach Bearbeitung: {updated_data}")
+            self.scripts_data[row] = updated_data
+            # Tabelle neu aufbauen für diese Zeile
             self.table.removeRow(row)
             self.table.insertRow(row)
             self.add_row(self.scripts_data[row])
+        else:
+            debug_print("[EDIT] Bearbeitung abgebrochen.")
 
     def on_save(self):
         """
         Speichert die aktuelle Tabelle in script_config.json.
+        ACHTUNG: Wir müssen zuerst die UI-Werte auslesen!
         """
+        self.update_scripts_from_table()
         data = {"scripts": self.scripts_data}
+        debug_print(f"[SAVE] Speichere Scripts: {data}")
         save_script_config(data, self.settings)
         QtWidgets.QMessageBox.information(self, "Info", "Script-Rezepte gespeichert.")
+
+    def update_scripts_from_table(self):
+        """
+        Liest die aktuellen Werte aus den Widgets (ComboBox etc.) in jeder Zeile
+        und überträgt sie in self.scripts_data.
+        """
+        debug_print("[UPDATE] update_scripts_from_table aufgerufen.")
+        row_count = self.table.rowCount()
+        for row in range(row_count):
+            if row < len(self.scripts_data):
+                recipe_dict = self.scripts_data[row]
+                # Spalte 0: Script
+                script_widget = self.table.cellWidget(row, 0)
+                if script_widget:
+                    combo = script_widget.findChild(QtWidgets.QComboBox)
+                    recipe_dict["script_path"] = combo.currentText().strip() if combo else ""
+                # Spalte 1: JSON Folder
+                json_widget = self.table.cellWidget(row, 1)
+                if json_widget:
+                    combo = json_widget.findChild(QtWidgets.QComboBox)
+                    recipe_dict["json_folder"] = combo.currentText().strip() if combo else ""
+                # Spalte 2: Action Folder
+                action_widget = self.table.cellWidget(row, 2)
+                if action_widget:
+                    combo = action_widget.findChild(QtWidgets.QComboBox)
+                    recipe_dict["actionFolderName"] = combo.currentText().strip() if combo else ""
+                # Spalte 3: Basic Wand Files
+                bw_widget = self.table.cellWidget(row, 3)
+                if bw_widget:
+                    combo = bw_widget.findChild(QtWidgets.QComboBox)
+                    recipe_dict["basicWandFiles"] = combo.currentText().strip() if combo else ""
+                # Spalte 4: CSV Wand File
+                csv_widget = self.table.cellWidget(row, 4)
+                if csv_widget:
+                    combo = csv_widget.findChild(QtWidgets.QComboBox)
+                    recipe_dict["csvWandFile"] = combo.currentText().strip() if combo else ""
+                # Spalte 5: Wand File SavePath
+                wfs_widget = self.table.cellWidget(row, 5)
+                if wfs_widget:
+                    combo = wfs_widget.findChild(QtWidgets.QComboBox)
+                    recipe_dict["wandFileSavePath"] = combo.currentText().strip() if combo else ""
+
+                debug_print(f"[UPDATE] Zeile {row} aktualisiert: {recipe_dict}")
 
 
 class RecipeEditDialog(QtWidgets.QDialog):
@@ -300,6 +389,7 @@ class RecipeEditDialog(QtWidgets.QDialog):
         self.setWindowTitle("Rezept bearbeiten")
         self.entry = dict(entry)  # Kopie
         self.action_sets = action_sets
+        debug_print(f"[RecipeEditDialog] init mit: {self.entry}")
         self.init_ui()
 
     def init_ui(self):
@@ -397,7 +487,9 @@ class RecipeEditDialog(QtWidgets.QDialog):
         layout.addRow(btn_box)
 
     def browse_script(self):
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Script auswählen", "", "JSX Files (*.jsx);;All Files (*)")
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Script auswählen", "", "JSX Files (*.jsx);;All Files (*)"
+        )
         if path:
             self.script_edit.clear()
             self.script_edit.addItem(path)
@@ -425,11 +517,22 @@ class RecipeEditDialog(QtWidgets.QDialog):
                 combo.setCurrentIndex(0)
 
     def get_data(self):
-        return {
-            "script_path": self.script_edit.currentText(),
-            "json_folder": self.json_edit.currentText(),
-            "actionFolderName": self.action_combo.currentText(),
-            "basicWandFiles": self.basic_edit.currentText(),
-            "csvWandFile": self.csv_edit.currentText(),
-            "wandFileSavePath": self.wand_save_edit.currentText()
+        result = {
+            "script_path": self.script_edit.currentText().strip(),
+            "json_folder": self.json_edit.currentText().strip(),
+            "actionFolderName": self.action_combo.currentText().strip(),
+            "basicWandFiles": self.basic_edit.currentText().strip(),
+            "csvWandFile": self.csv_edit.currentText().strip(),
+            "wandFileSavePath": self.wand_save_edit.currentText().strip()
         }
+        debug_print(f"[RecipeEditDialog get_data] {result}")
+        return result
+
+if __name__ == "__main__":
+    import sys
+    from utils.config_manager import load_settings
+    app = QtWidgets.QApplication(sys.argv)
+    settings = load_settings()
+    widget = ScriptRecipeWidget(settings)
+    widget.show()
+    sys.exit(app.exec_())
