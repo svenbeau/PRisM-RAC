@@ -1,41 +1,41 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+DEBUG_OUTPUT = True
+
 import os
 import uuid
 from PySide6 import QtWidgets, QtCore
-from utils.config_manager import debug_print
-# Hier importieren wir NICHT load_settings, save_settings,
-# sondern die Skript-spezifischen Funktionen:
 from utils.script_config_manager import load_script_config, save_script_config
+from utils.config_manager import debug_print
 
 class ScriptListWidget(QtWidgets.QWidget):
     """
     Widget zur Verwaltung der Skript-Konfigurationen.
-    Statt "self.settings['scripts']" verwenden wir nun "self.script_data['scripts']",
-    das aus script_config.json geladen wird.
+    Jede Zeile repräsentiert ein Skript mit den zugehörigen Einstellungen:
+      - Script (Dateiname), JSON Ordner, Action Folder, Basic Wand Files, CSV Wand File,
+        Wand File Save Path
+      - Buttons zum Bearbeiten und Löschen
+    Änderungen in der Tabelle werden erst mit "Einstellungen speichern" dauerhaft übernommen.
+    Die Daten werden in script_config.json abgelegt.
     """
-
     def __init__(self, parent=None):
         super().__init__(parent)
-        # Lädt die Skriptkonfiguration aus script_config.json
-        # Falls du "settings" noch für andere Zwecke brauchst, kannst du es hier optional reinreichen.
-        self.script_data = load_script_config({})  # {} = leeres dict als 'settings'
-        # Wir erwarten "scripts" als Liste
+        # Laden der Skriptkonfiguration aus script_config.json
+        self.script_data = load_script_config({})
         if "scripts" not in self.script_data:
             self.script_data["scripts"] = []
-
+        debug_print(f"[INIT] Initial script_data loaded: {self.script_data}")
         self.init_ui()
 
     def init_ui(self):
         main_layout = QtWidgets.QVBoxLayout(self)
 
-        # Button-Leiste
+        # Obere Button-Leiste
         btn_layout = QtWidgets.QHBoxLayout()
         self.add_btn = QtWidgets.QPushButton("Script hinzufügen")
         self.del_btn = QtWidgets.QPushButton("Script entfernen")
         self.save_btn = QtWidgets.QPushButton("Einstellungen speichern")
-
         btn_layout.addWidget(self.add_btn)
         btn_layout.addWidget(self.del_btn)
         btn_layout.addStretch()
@@ -51,7 +51,6 @@ class ScriptListWidget(QtWidgets.QWidget):
             "Wand File Save Path", "Bearbeiten", "Löschen"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
-
         self.table.setColumnWidth(0, 300)
         self.table.setColumnWidth(1, 300)
         self.table.setColumnWidth(2, 150)
@@ -60,7 +59,6 @@ class ScriptListWidget(QtWidgets.QWidget):
         self.table.setColumnWidth(5, 150)
         self.table.setColumnWidth(6, 100)
         self.table.setColumnWidth(7, 100)
-
         main_layout.addWidget(self.table)
 
         # Signalverbindungen
@@ -71,28 +69,25 @@ class ScriptListWidget(QtWidgets.QWidget):
         self.load_scripts()
 
     def load_scripts(self):
-        """
-        Lädt die Liste aus self.script_data["scripts"] und befüllt die Tabelle.
-        """
+        """Lädt die Skriptliste aus self.script_data["scripts"] und befüllt die Tabelle."""
         self.table.setRowCount(0)
         scripts = self.script_data.get("scripts", [])
+        debug_print(f"[LOAD] Loading {len(scripts)} scripts into table.")
         for script in scripts:
             self.add_script_row(script)
 
     def add_script_row(self, script):
-        """
-        Fügt eine Zeile in die Tabelle ein, basierend auf dem Dictionary 'script'.
-        """
+        """Fügt eine Zeile in die Tabelle ein, basierend auf dem Dictionary 'script'."""
         row = self.table.rowCount()
         self.table.insertRow(row)
 
-        # Spalte 0: Script (script_path)
+        # Spalte 0: Script (wir verwenden den Key "script_path")
         script_name = os.path.basename(script.get("script_path", ""))
         item_script = QtWidgets.QTableWidgetItem(script_name)
         item_script.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.table.setItem(row, 0, item_script)
 
-        # Spalte 1: JSON Folder
+        # Spalte 1: JSON Ordner
         json_folder = script.get("json_folder", "")
         item_json = QtWidgets.QTableWidgetItem(self.get_short_path(json_folder))
         item_json.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
@@ -126,19 +121,20 @@ class ScriptListWidget(QtWidgets.QWidget):
         item_wand.setToolTip(wand_save)
         self.table.setItem(row, 5, item_wand)
 
-        # Spalte 6: Edit Button
+        # Spalte 6: Bearbeiten-Button
         btn_edit = QtWidgets.QPushButton("Bearbeiten")
         btn_edit.setFixedWidth(100)
         btn_edit.clicked.connect(lambda _, r=row: self.edit_script(r))
         self.table.setCellWidget(row, 6, btn_edit)
 
-        # Spalte 7: Delete Button
+        # Spalte 7: Löschen-Button
         btn_delete = QtWidgets.QPushButton("Löschen")
         btn_delete.setFixedWidth(100)
         btn_delete.clicked.connect(lambda _, r=row: self.delete_script(r))
         self.table.setCellWidget(row, 7, btn_delete)
 
     def get_short_path(self, full_path):
+        """Gibt die letzten zwei Komponenten des Pfades zurück."""
         if not full_path:
             return ""
         parts = full_path.split(os.sep)
@@ -147,9 +143,7 @@ class ScriptListWidget(QtWidgets.QWidget):
         return full_path
 
     def add_script(self):
-        """
-        Erzeugt ein neues Script-Dict und öffnet den Bearbeiten-Dialog.
-        """
+        """Erzeugt ein neues Script-Dict und öffnet den Bearbeiten-Dialog."""
         new_script = {
             "id": str(uuid.uuid4()),
             "script_path": "",
@@ -161,82 +155,110 @@ class ScriptListWidget(QtWidgets.QWidget):
             "wandFileSavePath": ""
         }
         self.script_data.setdefault("scripts", []).append(new_script)
-        save_script_config(self.script_data)  # <-- Speichert in script_config.json
+        save_script_config(self.script_data)
+        debug_print(f"[ADD] New script added: {new_script}")
         self.load_scripts()
         self.edit_script(self.table.rowCount() - 1)
 
     def delete_script(self, row):
+        """Entfernt den Eintrag in Zeile 'row' aus der Skriptliste."""
         scripts = self.script_data.setdefault("scripts", [])
         if 0 <= row < len(scripts):
+            debug_print(f"[DEL] Deleting script at row {row}: {scripts[row]}")
             del scripts[row]
-            save_script_config(self.script_data)  # <-- Speichert in script_config.json
+            save_script_config(self.script_data)
             self.load_scripts()
 
     def delete_selected_script(self):
+        """Löscht das aktuell ausgewählte Script."""
         selected = self.table.currentRow()
         if selected >= 0:
             self.delete_script(selected)
 
     def edit_script(self, row):
+        """Öffnet den Bearbeitungsdialog (ScriptConfigWidget) für den Eintrag in Zeile 'row'."""
         scripts = self.script_data.setdefault("scripts", [])
         if 0 <= row < len(scripts):
             script_config = scripts[row]
+            debug_print(f"[EDIT] Before editing, row {row}: {script_config}")
             from script_config_widget import ScriptConfigWidget
             dlg = ScriptConfigWidget(script_config, parent=self)
             if dlg.exec_():
-                # Benutzer hat OK gedrückt -> script_config wurde aktualisiert
-                save_script_config(self.script_data)  # <-- in script_config.json
+                debug_print(f"[EDIT] After editing, row {row}: {script_config}")
+                save_script_config(self.script_data)
                 self.load_scripts()
+            else:
+                debug_print(f"[EDIT] Editing cancelled for row {row}")
 
     def update_scripts_from_table(self):
         """
-        Liest die Spalten 0..5 aus dem Tabellen-Widget und schreibt sie in self.script_data["scripts"].
-        Dann ruft save_script_config(self.script_data) auf.
+        Liest die Inhalte der Spalten 0 bis 5 aus der Tabelle aus und überträgt sie
+        in self.script_data["scripts"]. Anschließend wird gespeichert.
         """
         scripts = self.script_data.setdefault("scripts", [])
         row_count = self.table.rowCount()
+        debug_print(f"[UPDATE] Updating scripts from table, total rows: {row_count}")
         for row in range(row_count):
             if row < len(scripts):
                 script = scripts[row]
-                # Spalte 0: Script (script_path)
                 item_script = self.table.item(row, 0)
                 if item_script:
-                    script["script_path"] = item_script.text().strip()
-
-                # Spalte 1: JSON Folder
+                    script_value = item_script.text().strip()
+                    script["script_path"] = script_value
+                    debug_print(f"[UPDATE] Row {row} - script_path: {script_value}")
                 item_json = self.table.item(row, 1)
                 if item_json:
-                    script["json_folder"] = item_json.text().strip()
-
-                # Spalte 2: Action Folder
+                    json_value = item_json.text().strip()
+                    script["json_folder"] = json_value
+                    debug_print(f"[UPDATE] Row {row} - json_folder: {json_value}")
                 item_action = self.table.item(row, 2)
                 if item_action:
-                    script["actionFolderName"] = item_action.text().strip()
-
-                # Spalte 3: Basic Wand Files
+                    action_value = item_action.text().strip()
+                    script["actionFolderName"] = action_value
+                    debug_print(f"[UPDATE] Row {row} - actionFolderName: {action_value}")
                 item_basic = self.table.item(row, 3)
                 if item_basic:
-                    script["basicWandFiles"] = item_basic.text().strip()
-
-                # Spalte 4: CSV Wand File
+                    basic_value = item_basic.text().strip()
+                    script["basicWandFiles"] = basic_value
+                    debug_print(f"[UPDATE] Row {row} - basicWandFiles: {basic_value}")
                 item_csv = self.table.item(row, 4)
                 if item_csv:
-                    script["csvWandFile"] = item_csv.text().strip()
-
-                # Spalte 5: Wand File Save Path
+                    csv_value = item_csv.text().strip()
+                    script["csvWandFile"] = csv_value
+                    debug_print(f"[UPDATE] Row {row} - csvWandFile: {csv_value}")
                 item_wand = self.table.item(row, 5)
                 if item_wand:
-                    script["wandFileSavePath"] = item_wand.text().strip()
+                    wand_value = item_wand.text().strip()
+                    script["wandFileSavePath"] = wand_value
+                    debug_print(f"[UPDATE] Row {row} - wandFileSavePath: {wand_value}")
+        save_script_config(self.script_data)
+        debug_print(f"[UPDATE] Final script_data: {self.script_data}")
+        QtWidgets.QMessageBox.information(self, "Info", "Einstellungen wurden gespeichert.")
 
-        save_script_config(self.script_data)  # <-- Schreibt in script_config.json
-        debug_print("Scripts updated from table and saved to script_config.json.")
-        QtWidgets.QMessageBox.information(self, "Script-Rezepte gespeichert.", "Script-Rezepte gespeichert.")
+class ScriptSettingsWidget(QtWidgets.QWidget):
+    """
+    Kombiniertes Widget für die Skript-Konfiguration.
+    Enthält eine Kategorieüberschrift ("Script › Rezeptzuordnung") und das ScriptListWidget.
+    """
+    def __init__(self, settings, parent=None):
+        super().__init__(parent)
+        self.settings = settings
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QtWidgets.QVBoxLayout(self)
+        cat_label = QtWidgets.QLabel("Script › Rezeptzuordnung")
+        cat_label.setStyleSheet("font-weight: bold; font-size: 14pt;")
+        layout.addWidget(cat_label)
+        self.script_list = ScriptListWidget(parent=self)
+        layout.addWidget(self.script_list)
+        layout.addStretch()
 
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
-    # Falls du "settings" noch brauchst, kannst du es optional laden, aber
-    # wir verwenden jetzt script_config_manager für Skript-Daten
-    widget = ScriptListWidget(parent=None)
+    from utils.config_manager import load_settings
+    settings = load_settings()  # Diese globalen Settings werden hier nicht für scripts verwendet.
+    widget = ScriptSettingsWidget(settings)
     widget.show()
     sys.exit(app.exec_())

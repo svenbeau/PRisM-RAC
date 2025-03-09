@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+DEBUG_OUTPUT = True
+
+def debug_print(msg):
+    if DEBUG_OUTPUT:
+        print("[DEBUG]", msg)
+
 from PySide6 import QtWidgets
 from utils.script_config_manager import list_photoshop_action_sets
 
@@ -19,8 +25,8 @@ class ScriptRecipeEditDialog(QtWidgets.QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Script/Rezept bearbeiten")
-        self.recipe_data = recipe_data.copy()  # lokales Exemplar
-
+        self.recipe_data = recipe_data.copy()  # Lokale Kopie, damit Originaldaten erhalten bleiben
+        debug_print(f"Initializing ScriptRecipeEditDialog with: {self.recipe_data}")
         self.init_ui()
         self.load_values()
 
@@ -33,7 +39,7 @@ class ScriptRecipeEditDialog(QtWidgets.QDialog):
         self.script_browse_btn = QtWidgets.QPushButton("Browse")
         self.script_browse_btn.clicked.connect(self.browse_script)
         script_layout = QtWidgets.QHBoxLayout()
-        script_layout.addWidget(self.script_path_edit, stretch=1)
+        script_layout.addWidget(self.script_path_edit)
         script_layout.addWidget(self.script_browse_btn)
         form_layout.addRow("Script Path:", script_layout)
 
@@ -42,47 +48,46 @@ class ScriptRecipeEditDialog(QtWidgets.QDialog):
         self.json_browse_btn = QtWidgets.QPushButton("Browse")
         self.json_browse_btn.clicked.connect(self.browse_json_folder)
         json_layout = QtWidgets.QHBoxLayout()
-        json_layout.addWidget(self.json_folder_edit, stretch=1)
+        json_layout.addWidget(self.json_folder_edit)
         json_layout.addWidget(self.json_browse_btn)
         form_layout.addRow("JSON Folder:", json_layout)
 
         # Action Folder Name (Dropdown aus list_photoshop_action_sets)
         self.action_folder_combo = QtWidgets.QComboBox()
-        # Wir befüllen das Combo mit den Werten aus list_photoshop_action_sets()
         action_sets = list_photoshop_action_sets()
         self.action_folder_combo.addItems(action_sets)
         form_layout.addRow("Action Folder Name:", self.action_folder_combo)
 
-        # BasicWandFiles
+        # Basic Wand Files
         self.basic_wand_edit = QtWidgets.QLineEdit()
         self.basic_wand_btn = QtWidgets.QPushButton("Browse")
         self.basic_wand_btn.clicked.connect(self.browse_basic_wand)
         wand_layout = QtWidgets.QHBoxLayout()
-        wand_layout.addWidget(self.basic_wand_edit, stretch=1)
+        wand_layout.addWidget(self.basic_wand_edit)
         wand_layout.addWidget(self.basic_wand_btn)
         form_layout.addRow("Basic Wand Files:", wand_layout)
 
-        # CSVWandFile
+        # CSV Wand File
         self.csv_wand_edit = QtWidgets.QLineEdit()
         self.csv_wand_btn = QtWidgets.QPushButton("Browse")
         self.csv_wand_btn.clicked.connect(self.browse_csv_wand)
         csv_layout = QtWidgets.QHBoxLayout()
-        csv_layout.addWidget(self.csv_wand_edit, stretch=1)
+        csv_layout.addWidget(self.csv_wand_edit)
         csv_layout.addWidget(self.csv_wand_btn)
         form_layout.addRow("CSV Wand File:", csv_layout)
 
-        # WandFileSavePath
+        # Wand File Save Path
         self.wand_save_edit = QtWidgets.QLineEdit()
         self.wand_save_btn = QtWidgets.QPushButton("Browse")
         self.wand_save_btn.clicked.connect(self.browse_wand_save)
         save_layout = QtWidgets.QHBoxLayout()
-        save_layout.addWidget(self.wand_save_edit, stretch=1)
+        save_layout.addWidget(self.wand_save_edit)
         save_layout.addWidget(self.wand_save_btn)
         form_layout.addRow("Wand File Save Path:", save_layout)
 
         layout.addLayout(form_layout)
 
-        # Buttons OK / Cancel
+        # OK / Cancel Buttons
         btn_layout = QtWidgets.QHBoxLayout()
         btn_layout.addStretch()
         self.ok_btn = QtWidgets.QPushButton("OK")
@@ -96,19 +101,18 @@ class ScriptRecipeEditDialog(QtWidgets.QDialog):
     def load_values(self):
         self.script_path_edit.setText(self.recipe_data.get("script_path", ""))
         self.json_folder_edit.setText(self.recipe_data.get("json_folder", ""))
-
-        # actionFolderName ins Combo
         action_name = self.recipe_data.get("actionFolderName", "")
         idx = self.action_folder_combo.findText(action_name)
         if idx >= 0:
             self.action_folder_combo.setCurrentIndex(idx)
-
         self.basic_wand_edit.setText(self.recipe_data.get("basicWandFiles", ""))
         self.csv_wand_edit.setText(self.recipe_data.get("csvWandFile", ""))
         self.wand_save_edit.setText(self.recipe_data.get("wandFileSavePath", ""))
 
     def browse_script(self):
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Script auswählen", "", "JSX Files (*.jsx);;All Files (*)")
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Script auswählen", "", "JSX Files (*.jsx);;All Files (*)"
+        )
         if fname:
             self.script_path_edit.setText(fname)
 
@@ -123,7 +127,9 @@ class ScriptRecipeEditDialog(QtWidgets.QDialog):
             self.basic_wand_edit.setText(folder)
 
     def browse_csv_wand(self):
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, "CSV Wand File auswählen", "", "CSV Files (*.csv);;All Files (*)")
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "CSV Wand File auswählen", "", "CSV Files (*.csv);;All Files (*)"
+        )
         if fname:
             self.csv_wand_edit.setText(fname)
 
@@ -152,3 +158,23 @@ class ScriptRecipeEditDialog(QtWidgets.QDialog):
         result["csvWandFile"] = self.csv_wand_edit.text().strip()
         result["wandFileSavePath"] = self.wand_save_edit.text().strip()
         return result
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    # Testkonfiguration
+    test_config = {
+        "id": "1234",
+        "script_path": "/Users/xyz/SomeScript.jsx",
+        "json_folder": "/Users/xyz/jsonfolder",
+        "actionFolderName": "Grisebach 2025",
+        "basicWandFiles": "/path/to/wandfiles",
+        "csvWandFile": "/path/to/wand.csv",
+        "wandFileSavePath": "/save/path"
+    }
+    dlg = ScriptRecipeEditDialog(test_config)
+    if dlg.exec_():
+        print("OK clicked, script_config now:", dlg.get_data())
+    else:
+        print("Cancel clicked.")
+    sys.exit(0)
