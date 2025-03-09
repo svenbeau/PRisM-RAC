@@ -5,39 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau Pfade für App">
-      <change afterPath="$PROJECT_DIR$/PRisM-RAC_new.spec" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/config_manager.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/path_manager.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/wrapper.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/HF_Settings_Render.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/HF_Settings_Test.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/config_manager.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/hotfolder_config.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/script_config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/script_config_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PRisM-RAC_DirectoryTree.txt" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_DirectoryTree.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/script_config.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/hotfolder_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/hotfolder_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/json_editor.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_editor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/json_editor_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_editor_dialog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/json_explorer.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_explorer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/json_explorer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_explorer_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/logfile_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/logfile_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/path_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/path_config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/path_selection_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/path_selection_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/script_config_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_config_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/script_list_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_list_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/script_recipe_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/script_recipe_edit_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_edit_dialog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/script_recipe_list_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_list_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/script_recipe_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/settings_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/settings_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/log_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/log_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/config_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -385,7 +358,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741430174202</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="Umbau Pfade für App">
+      <option name="closed" value="true" />
+      <created>1741516380081</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1741516380081</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

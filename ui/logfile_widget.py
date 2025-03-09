@@ -73,7 +73,7 @@ class LogfileWidget(QtWidgets.QWidget):
             "MissingLayers", "MissingMetadata"
         ])
 
-        # WICHTIG: Spaltenbreite vom Nutzer änderbar machen
+        # Spaltenbreite vom Nutzer änderbar machen
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
         # Für horizontales Scrollen (falls die Summe der Spaltenbreiten > Widgetbreite)
         self.table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
@@ -108,6 +108,11 @@ class LogfileWidget(QtWidgets.QWidget):
     def populate_table(self, log_entries):
         self.table.setRowCount(0)
         for entry in log_entries:
+            # Sicherstellen, dass entry ein Dictionary ist
+            if not isinstance(entry, dict):
+                debug_print(f"Überspringe Eintrag (kein Dict): {entry}")
+                continue
+
             row_position = self.table.rowCount()
             self.table.insertRow(row_position)
 
@@ -212,7 +217,6 @@ class LogfileWidget(QtWidgets.QWidget):
             data.append(row_data)
 
         try:
-            import csv
             with open(path, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.writer(csvfile, delimiter=";")
                 writer.writerows(data)
@@ -225,4 +229,4 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     widget = LogfileWidget(settings={})
     widget.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

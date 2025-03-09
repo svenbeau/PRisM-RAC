@@ -1,5 +1,8 @@
-.
 ├── ./PRisM-RAC_DirectoryTree.txt
+├── ./PRisM-RAC_new.spec
+├── ./PRisM_Icon.ai
+├── ./PRisM_Icon.icns
+├── ./PRisM_Icon.png
 ├── ./README.md
 ├── ./assets
 │   ├── ./assets/close_list.png
@@ -41,20 +44,16 @@
 │   ├── ./config/GrisebachRecipes_2025_01
 │   │   ├── ./config/GrisebachRecipes_2025_01/bartsch_OnlineOnly.json
 │   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_BoYinRa.json
 │   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_Moderne.json
 │   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json
 │   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_19JH.json
 │   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_Moderne.json
 │   │   └── ./config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json
-│   ├── ./config/HF_Settings_Render.json
-│   ├── ./config/HF_Settings_Test.json
 │   ├── ./config/JSX_Config
 │   │   └── ./config/JSX_Config/GB_Config_Render.json
 │   ├── ./config/__init__.py
-│   ├── ./config/config_manager.py
-│   ├── ./config/hotfolder_config.json
-│   ├── ./config/script_config.json
-│   └── ./config/script_config_manager.py
+│   └── ./config/script_config.json
 ├── ./dynamic_jsx_generator.py
 ├── ./hotfolder
 ├── ./hotfolder_monitor.py
@@ -64,15 +63,17 @@
 │   └── ./logs/global_log.json
 ├── ./main.py
 ├── ./requirements.txt
-├── ./script_config.json
 ├── ./scripts
 │   ├── ./scripts/AnalyseLayersAndMetadata.jsx
 │   ├── ./scripts/GRIS_C_ReadWriteCSV.jsx
 │   ├── ./scripts/GRIS_ReadWriteCSV_2025.jsx
 │   ├── ./scripts/GRIS_Render_2025.jsx
+│   ├── ./scripts/GRIS_Render_2025_dynamisch.jsx
 │   ├── ./scripts/GRIS_Wandabbildungen_2024.jsx
+│   ├── ./scripts/GRIS_Wandabbildungen_2024_dynamisch.jsx
 │   ├── ./scripts/PS_Metadaten_XMP_check.jsx
-│   └── ./scripts/ProcessFile.applescript
+│   ├── ./scripts/ProcessFile.applescript
+│   └── ./scripts/SuperSkript_rcm_dynamisch.jsx
 ├── ./settings.json
 ├── ./temp
 │   └── ./temp/generated_script_4067424_Boemmels_3705_06_F.tif.jsx
@@ -81,6 +82,7 @@
 │   ├── ./ui/hotfolder_config.py
 │   ├── ./ui/hotfolder_widget.py
 │   ├── ./ui/json_editor.py
+│   ├── ./ui/json_editor_dialog.py
 │   ├── ./ui/json_explorer.py
 │   ├── ./ui/json_explorer_widget.py
 │   ├── ./ui/logfile_widget.py
@@ -89,12 +91,19 @@
 │   ├── ./ui/main_window.py
 │   ├── ./ui/path_config.py
 │   ├── ./ui/path_selection_widget.py
-│   ├── ./ui/script_config_dialog.py
+│   ├── ./ui/script_config_widget.py
 │   ├── ./ui/script_list_widget.py
 │   ├── ./ui/script_recipe_config.py
+│   ├── ./ui/script_recipe_edit_dialog.py
+│   ├── ./ui/script_recipe_list_widget.py
 │   ├── ./ui/script_recipe_widget.py
 │   └── ./ui/settings_widget.py
-└── ./utils
-    ├── ./utils/log_exporter.py
-    ├── ./utils/log_manager.py
-    └── ./utils/utils.py
+├── ./utils
+│   ├── ./utils/__init__.py
+│   ├── ./utils/config_manager.py
+│   ├── ./utils/log_exporter.py
+│   ├── ./utils/log_manager.py
+│   ├── ./utils/path_manager.py
+│   ├── ./utils/script_config_manager.py
+│   └── ./utils/utils.py
+└── ./wrapper.py

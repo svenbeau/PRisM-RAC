@@ -87,7 +87,7 @@ class ConfigManager:
 
 
 #
-# ========== Existierende Top-Level-Funktionen für Settings (aus früherer Anpassung) ==========
+# ========== Existierende Top-Level-Funktionen für Settings ==========
 #
 
 def load_settings():
@@ -126,36 +126,34 @@ def debug_print(msg):
 
 
 #
-# ========== NEU: Diese beiden Funktionen ergänzen wir, um den ImportError zu beheben. ==========
+# ========== Aktualisierte Funktionen für Recent Paths ==========
 #
 
-def get_recent_dirs():
+def get_recent_dirs(category):
     """
-    Liest die Liste der 'recent_dirs' aus settings.json (wenn vorhanden)
-    und gibt sie als Liste zurück.
-    """
-    settings = load_settings()
-    return settings.get("recent_dirs", [])
-
-
-def update_recent_dirs(new_dir):
-    """
-    Aktualisiert die 'recent_dirs' in settings.json, damit
-    z.B. zuletzt genutzte Verzeichnisse gespeichert werden.
-
-    Konkrete Logik kannst du anpassen:
-    - Du könntest begrenzen, wie viele Pfade du speicherst.
-    - Du könntest Duplikate entfernen etc.
+    Liest aus 'settings.json' unter dem Schlüssel "recent_paths" (als Dictionary)
+    die Liste der zuletzt verwendeten Verzeichnisse für die gegebene Kategorie.
+    Falls für die Kategorie nichts vorhanden ist, wird als Fallback [os.path.expanduser("~")] zurückgegeben.
+    Beispielkategorien: "monitor", "success", "fault", "logfiles"
     """
     settings = load_settings()
-    recent = settings.get("recent_dirs", [])
+    recent_paths = settings.get("recent_paths", {})
+    return recent_paths.get(category, [os.path.expanduser("~")])
 
-    # Beispielhafte Logik: füge den Pfad hinzu, wenn er nicht vorhanden ist
-    if new_dir not in recent:
-        recent.insert(0, new_dir)
 
-        # Option: Begrenze auf 10 Einträge (nur ein Beispiel)
-        recent = recent[:10]
-
-    settings["recent_dirs"] = recent
+def update_recent_dirs(category, new_dir):
+    """
+    Aktualisiert die Liste der zuletzt verwendeten Verzeichnisse für die angegebene Kategorie in 'settings.json'.
+    Wenn new_dir noch nicht in der Liste vorhanden ist, wird er an den Anfang der Liste eingefügt.
+    Die Liste wird auf maximal 10 Einträge begrenzt.
+    Anschließend werden die aktualisierten Einstellungen gespeichert.
+    """
+    settings = load_settings()
+    recent_paths = settings.get("recent_paths", {})
+    current_list = recent_paths.get(category, [])
+    if new_dir not in current_list:
+        current_list.insert(0, new_dir)
+        current_list = current_list[:10]
+    recent_paths[category] = current_list
+    settings["recent_paths"] = recent_paths
     save_settings(settings)
