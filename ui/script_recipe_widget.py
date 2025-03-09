@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtGui
 
-from config.script_config_manager import (
+from utils.script_config_manager import (
     load_script_config,
     save_script_config,
-    list_photoshop_action_sets,
-    debug_print
+    list_photoshop_action_sets
 )
 
 class ScriptRecipeWidget(QtWidgets.QWidget):

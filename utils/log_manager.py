@@ -1,77 +1,87 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# utils/log_manager.py
 
 import os
 import json
 from datetime import datetime
-from utils.utils import debug_print
+from utils.path_manager import get_log_path
 
-LOGFILE_PATH = os.path.join("logs", "global_log.json")
-
-def _ensure_log_structure():
-    """
-    Stellt sicher, dass global_log.json existiert und die folgende Struktur besitzt:
-    {
-      "log_counter": 1,
-      "entries": []
-    }
-    Gibt das geladene Dictionary zurück.
-    """
-    if not os.path.exists(LOGFILE_PATH):
-        os.makedirs(os.path.dirname(LOGFILE_PATH), exist_ok=True)
-        initial_data = {
-            "log_counter": 1,
+class LogManager:
+    def __init__(self):
+        self.log_file_path = get_log_path()
+        self.log_data = {
+            "log_counter": 0,
             "entries": []
         }
-        with open(LOGFILE_PATH, "w", encoding="utf-8") as f:
-            json.dump(initial_data, f, indent=4, ensure_ascii=False)
-        return initial_data
-    else:
+        self.load_log()
+
+    def load_log(self):
+        if os.path.exists(self.log_file_path):
+            try:
+                with open(self.log_file_path, "r", encoding="utf-8") as f:
+                    self.log_data = json.load(f)
+            except Exception as e:
+                print(f"Error reading log file {self.log_file_path}: {e}")
+        else:
+            self.save_log()
+
+    def save_log(self):
         try:
-            with open(LOGFILE_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if "log_counter" not in data or "entries" not in data:
-                data = {"log_counter": 1, "entries": []}
+            with open(self.log_file_path, "w", encoding="utf-8") as f:
+                json.dump(self.log_data, f, indent=4, ensure_ascii=False)
         except Exception as e:
-            debug_print(f"Fehler beim Laden von {LOGFILE_PATH}: {e}")
-            data = {"log_counter": 1, "entries": []}
-        return data
+            print(f"Error saving log file {self.log_file_path}: {e}")
 
-def load_global_log() -> list:
-    """
-    Lädt die Einträge aus global_log.json und gibt die Liste zurück.
-    """
-    data = _ensure_log_structure()
-    return data.get("entries", [])
+    def add_entry(self, filename, metadata, check_type, status, applied_script, details):
+        self.log_data["log_counter"] += 1
+        entry_id = f"{self.log_data['log_counter']:07d}"
+        new_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "filename": filename,
+            "metadata": metadata,
+            "checkType": check_type,
+            "status": status,
+            "applied_script": applied_script,
+            "details": details,
+            "id": entry_id
+        }
+        self.log_data["entries"].append(new_entry)
+        self.save_log()
 
-def save_global_log(data: dict):
-    """
-    Speichert das gesamte Log-Dictionary (log_counter und entries) in global_log.json.
-    """
-    os.makedirs(os.path.dirname(LOGFILE_PATH), exist_ok=True)
-    try:
-        with open(LOGFILE_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
-        debug_print("Globales Log gespeichert.")
-    except Exception as e:
-        debug_print(f"Fehler beim Speichern des globalen Logs: {e}")
+    def get_all_entries(self):
+        return self.log_data.get("entries", [])
 
-def append_log_entry(entry: dict):
+    def get_log_counter(self):
+        return self.log_data.get("log_counter", 0)
+
+    def find_entries_by_filename(self, filename):
+        return [entry for entry in self.log_data.get("entries", []) if entry["filename"] == filename]
+
+    def clear_log(self):
+        self.log_data["log_counter"] = 0
+        self.log_data["entries"] = []
+        self.save_log()
+
+    def remove_entry_by_id(self, entry_id):
+        entries = self.log_data.get("entries", [])
+        filtered_entries = [e for e in entries if e["id"] != entry_id]
+        self.log_data["entries"] = filtered_entries
+        self.save_log()
+
+
+#
+# === NEUE Top-Level-Funktionen, um den Import-Fehler zu beheben ===
+#
+def load_global_log():
     """
-    Fügt einen neuen Eintrag hinzu. Die fortlaufende 7-stellige ID wird basierend auf log_counter vergeben.
+    Lädt den kompletten globalen Log (log_data) mittels einer
+    LogManager-Instanz und gibt diesen zurück.
     """
-    data = _ensure_log_structure()
-    counter = data.get("log_counter", 1)
-    entry["id"] = str(counter).zfill(7)  # z. B. "0000001"
-    data["log_counter"] = counter + 1
-    data["entries"].append(entry)
-    save_global_log(data)
-    debug_print(f"Neuer Eintrag angehängt: ID={entry['id']}")
+    lm = LogManager()
+    return lm.log_data
 
 def reset_global_log():
     """
-    Setzt das globale Log zurück: log_counter = 1 und entries = [].
+    Setzt den globalen Log zurück, indem clear_log() aufgerufen wird.
     """
-    new_data = {"log_counter": 1, "entries": []}
-    save_global_log(new_data)
-    debug_print("Globales Logfile zurückgesetzt.")
+    lm = LogManager()
+    lm.clear_log()

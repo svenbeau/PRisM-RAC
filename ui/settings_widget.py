@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtCore, QtGui
 from ui.script_recipe_widget import ScriptRecipeWidget
 
 class SettingsWidget(QtWidgets.QWidget):

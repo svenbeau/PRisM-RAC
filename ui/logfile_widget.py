@@ -4,7 +4,7 @@
 import os
 import csv
 from datetime import datetime
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtCore, QtGui
 from utils.log_manager import load_global_log, reset_global_log
 from utils.utils import debug_print
 

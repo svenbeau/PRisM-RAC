@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import json
-from PyQt5 import QtWidgets, QtGui, QtCore
-from config.config_manager import save_settings, debug_print
+from PySide6 import QtWidgets, QtGui
+from utils.config_manager import save_settings, debug_print
 
 
 class JSONEditorDialog(QtWidgets.QDialog):

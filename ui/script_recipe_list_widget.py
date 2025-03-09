@@ -11,8 +11,7 @@ konfiguriert werden können.
 Die Funktionalität entspricht weitgehend der Hotfolder‑Konfiguration.
 """
 
-import os
-from PyQt5 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore
 
 
 class ScriptRecipeListWidget(QtWidgets.QWidget):
@@ -227,7 +226,7 @@ class ScriptRecipeListWidget(QtWidgets.QWidget):
     def save_config(self):
         """Speichert die aktuellen Rezept-Konfigurationen über den script_config_manager."""
         config_data = self.get_config_data()
-        from config.script_config_manager import save_script_config, debug_print
+        from utils.script_config_manager import save_script_config, debug_print
         save_script_config(config_data)
         debug_print("Script configuration saved.")
 

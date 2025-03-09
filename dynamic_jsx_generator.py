@@ -3,7 +3,7 @@
 import os
 import json
 import tempfile
-from config.config_manager import get_resource_path, debug_print
+from utils.config_manager import get_resource_path, debug_print
 
 DEBUG_OUTPUT = True
 def debug_print_local(msg):

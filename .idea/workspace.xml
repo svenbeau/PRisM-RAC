@@ -4,14 +4,40 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau zu globaler Konfiguration">
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_22_02_25,_21_19_[Changes]/shelved.patch" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_22_02_25,_21_19_[Changes]1/shelved.patch" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_22_02_25__21_19__Changes_.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_22_02_25__21_19__Changes_1.xml" beforeDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau Pfade für App">
+      <change afterPath="$PROJECT_DIR$/PRisM-RAC_new.spec" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/config_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/path_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/wrapper.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/script_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/script_config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/HF_Settings_Render.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/HF_Settings_Test.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/config_manager.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/hotfolder_config.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/script_config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/script_config_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/script_config.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/hotfolder_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/hotfolder_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/json_editor.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_editor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/json_editor_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_editor_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/json_explorer.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_explorer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/json_explorer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/json_explorer_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/logfile_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/logfile_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/path_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/path_config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/path_selection_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/path_selection_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/script_config_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_config_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/script_list_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_list_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/script_recipe_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/script_recipe_edit_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_edit_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/script_recipe_list_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_list_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/script_recipe_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/settings_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/settings_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/log_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/log_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,23 +82,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
-    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
-    &quot;Python.script_config_manager.executor&quot;: &quot;Run&quot;,
-    &quot;Python.settings_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.start.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;stable-v9&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.hotfolder_config.executor": "Run",
+    "Python.hotfolder_monitor.executor": "Run",
+    "Python.json_editor.executor": "Run",
+    "Python.json_explorer.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.main_window.executor": "Run",
+    "Python.script_config_manager.executor": "Run",
+    "Python.settings_widget.executor": "Run",
+    "Python.start.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "stable-v10",
+    "settings.editor.selected.configurable": "preferences.lookFeel"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/utils" />
@@ -351,7 +377,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740948871170</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL-00033" summary="Umbau Pfade für App">
+      <option name="closed" value="true" />
+      <created>1741430174202</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1741430174202</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -360,6 +394,7 @@
     <MESSAGE value="Samsatg Abend - Contentcheck funktioniert" />
     <MESSAGE value="Mit JSON-Edit und Wandbild-Script" />
     <MESSAGE value="Umbau zu globaler Konfiguration" />
-    <option name="LAST_COMMIT_MESSAGE" value="Umbau zu globaler Konfiguration" />
+    <MESSAGE value="Umbau Pfade für App" />
+    <option name="LAST_COMMIT_MESSAGE" value="Umbau Pfade für App" />
   </component>
 </project>

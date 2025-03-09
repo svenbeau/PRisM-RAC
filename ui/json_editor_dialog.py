@@ -9,7 +9,7 @@ Ermöglicht das Bearbeiten einer JSON-Datei mit den Optionen
 import os
 import json
 import re
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtCore, QtGui
 
 
 class JSONHighlighter(QtGui.QSyntaxHighlighter):

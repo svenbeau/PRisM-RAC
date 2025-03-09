@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from PyQt5 import QtWidgets, QtCore
+from PySide6 import QtWidgets
 import os
-from config.config_manager import get_resource_path, update_resource_path, debug_print, save_settings, load_settings
+from utils.config_manager import get_resource_path, update_resource_path, debug_print, save_settings, load_settings
 
 class PathConfigDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
@@ -50,7 +50,7 @@ class PathConfigDialog(QtWidgets.QDialog):
 
 if __name__ == "__main__":
     import sys
-    from PyQt5.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
     app = QApplication(sys.argv)
     dlg = PathConfigDialog()
     if dlg.exec_():

@@ -3,8 +3,8 @@
 
 import os
 import uuid
-from PyQt5 import QtWidgets, QtCore, QtGui
-from config.config_manager import load_settings, save_settings, debug_print
+from PySide6 import QtWidgets, QtCore
+from utils.config_manager import load_settings, save_settings, debug_print
 
 class ScriptListWidget(QtWidgets.QWidget):
     """
@@ -146,8 +146,8 @@ class ScriptListWidget(QtWidgets.QWidget):
         scripts = self.settings.get("scripts", [])
         if 0 <= row < len(scripts):
             script_config = scripts[row]
-            from script_config_dialog import ScriptConfigDialog
-            dlg = ScriptConfigDialog(script_config, parent=self)
+            from script_config_widget import ScriptConfigWidget
+            dlg = ScriptConfigWidget(script_config, parent=self)
             if dlg.exec_():
                 save_settings(self.settings)
                 self.load_scripts()

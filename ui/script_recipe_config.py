@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import uuid
-import json
-from PyQt5 import QtWidgets, QtCore
-from config.config_manager import debug_print, save_settings, load_settings
+from PySide6 import QtWidgets
+from utils.config_manager import debug_print, save_settings, load_settings
 
 class ScriptRecipeConfigDialog(QtWidgets.QDialog):
     """

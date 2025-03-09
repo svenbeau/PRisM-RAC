@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-from PyQt5 import QtWidgets, QtCore, QtGui
-from config.config_manager import save_settings, load_settings, debug_print
+from PySide6 import QtWidgets, QtCore, QtGui
+from utils.config_manager import save_settings, load_settings, debug_print
 from ui.hotfolder_config import HotfolderConfigDialog
 from hotfolder_monitor import HotfolderMonitor
 

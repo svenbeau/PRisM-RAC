@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import os
-import json
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtCore
 
 # Wir verwenden den EditorDialog aus dem bisherigen json_explorer.py – bitte stelle sicher, dass diese Datei vorhanden ist!
 from ui.json_explorer import JSONEditorDialog
-from config.config_manager import save_settings, debug_print
+from utils.config_manager import save_settings, debug_print
 from ui.json_editor_dialog import JSONEditorDialog
 
 class JSONExplorerWidget(QtWidgets.QWidget):

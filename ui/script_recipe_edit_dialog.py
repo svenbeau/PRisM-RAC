@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-from PyQt5 import QtWidgets, QtCore
-from config.script_config_manager import debug_print, list_photoshop_action_sets
+from PySide6 import QtWidgets
+from utils.script_config_manager import list_photoshop_action_sets
 
 class ScriptRecipeEditDialog(QtWidgets.QDialog):
     def __init__(self, recipe_data: dict, parent=None):
