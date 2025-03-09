@@ -89,13 +89,6 @@
 │   ├── ./ui/logs
 │   │   └── ./ui/logs/global_log.json
 │   ├── ./ui/main_window.py
-│   ├── ./ui/path_config.py
-│   ├── ./ui/path_selection_widget.py
-│   ├── ./ui/script_config_widget.py
-│   ├── ./ui/script_list_widget.py
-│   ├── ./ui/script_recipe_config.py
-│   ├── ./ui/script_recipe_edit_dialog.py
-│   ├── ./ui/script_recipe_list_widget.py
 │   ├── ./ui/script_recipe_widget.py
 │   └── ./ui/settings_widget.py
 ├── ./utils
