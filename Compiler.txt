@@ -1,0 +1,5 @@
+# Für arm64
+pyinstaller PRisM-RAC_arm64.spec
+
+# Für x86_64
+pyinstaller PRisM-RAC_x86_64.spec

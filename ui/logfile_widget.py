@@ -155,7 +155,7 @@ class LogfileWidget(QtWidgets.QWidget):
 
     def apply_filter(self):
         filtered = []
-        start_date = self.start_date_edit.date().toPyDate()
+        start_date = self.start_date_edit.date().toPython()
         end_date = self.end_date_edit.date().toPyDate()
         search_text = self.search_edit.text().strip().lower()
         search_terms = [term.strip() for term in search_text.split(",") if term.strip()] if search_text else []

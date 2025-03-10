@@ -5,10 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau Pfade für App">
+      <change afterPath="$PROJECT_DIR$/Compiler.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PRisM-RAC_x86_64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_x86_64.spec" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/temp/generated_script_4067424_Boemmels_3705_06_F.tif.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/logfile_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/logfile_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/wrapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/wrapper.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -428,7 +431,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741544388492</updated>
     </task>
-    <option name="localTasksCounter" value="43" />
+    <task id="LOCAL-00043" summary="Umbau Pfade für App">
+      <option name="closed" value="true" />
+      <created>1741545678055</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1741545678055</updated>
+    </task>
+    <option name="localTasksCounter" value="44" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

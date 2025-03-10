@@ -19,12 +19,14 @@ pathex = [
     os.path.abspath('.'),
 ]
 
-# Optional: Weitere versteckte Importe (hier nur Beispiel)
-hidden_imports = collect_submodules('some_package')
+# Optionale versteckte Importe – hier ggf. anpassen
+hidden_imports = []  # Entferne den collect_submodules Aufruf, wenn das Paket nicht existiert
 
-# Falls du weitere Daten/Ordner ins Bundle kopieren willst:
+# Hier definieren wir die Assets-Ordner und andere Daten, die ins Bundle aufgenommen werden
 datas = [
-    # Beispiel: ("assets/*", "assets"),
+    ("assets", "assets"),  # Füge das komplette assets-Verzeichnis hinzu
+    ("scripts", "scripts"),  # Füge auch das scripts-Verzeichnis hinzu
+    ("config", "config"),   # Füge auch das config-Verzeichnis hinzu
 ]
 
 a = Analysis(
@@ -46,11 +48,10 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
+    pyz,  # Wichtig: Stelle sicher, dass pyz hier enthalten ist
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
+    [],  # Leere Liste hier
+    exclude_binaries=True,  # Wichtig: Verwende exclude_binaries=True
     name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
@@ -61,8 +62,19 @@ exe = EXE(
     # icon='PRisM_Icon.icns',
 )
 
-app = BUNDLE(
+coll = COLLECT(
     exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name=APP_NAME,
+)
+
+app = BUNDLE(
+    coll,  # Verwende coll statt exe
     name='PRisM-CC_x86_64.app',
     icon='/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns',
     bundle_identifier='com.svenbeau.prismcc.x86_64',

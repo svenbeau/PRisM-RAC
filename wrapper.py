@@ -1,37 +1,26 @@
 # wrapper.py
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-import sys
 import os
+import sys
+import importlib
+import importlib.util
+
 
 def main():
-    """
-    Diese Funktion ruft das eigentliche 'main.py' auf
-    oder eine andere Hauptfunktion deines Programms.
-    """
-    # Ermitteln, wo sich das entpackte Verzeichnis befindet,
-    # wenn wir in einer gefrorenen PyInstaller-Umgebung sind.
-    if getattr(sys, 'frozen', False):
-        base_path = sys._MEIPASS
-    else:
-        base_path = os.path.dirname(os.path.abspath(__file__))
+    # Debug-Ausgabe hinzufügen
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    print(f"[DEBUG] BASE_DIR: {base_dir}")
 
-    # Füge base_path zum sys.path hinzu, damit Python Module aus dem entpackten Verzeichnis findet
-    if base_path not in sys.path:
-        sys.path.insert(0, base_path)
+    config_path = os.path.join(base_dir, "config", "script_config.json")
+    print(f"[DEBUG] Script Config File (UNUSED) would be: {config_path}")
 
-    # Beispiel: main.py importieren und starten
     try:
+        # Versuche, das main-Modul zu importieren und die run-Funktion auszuführen
         import main
-        main.run()  # Falls deine main.py eine Funktion run() o.Ä. hat
-    except ImportError as e:
-        print("Konnte 'main.py' nicht finden oder importieren.", e)
+        main.run()
+    except Exception as e:
+        print(f"Fehler beim Ausführen von main: {e}")
         sys.exit(1)
-    except Exception as ex:
-        print("Fehler beim Ausführen von main:", ex)
-        sys.exit(2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

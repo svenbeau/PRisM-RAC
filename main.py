@@ -13,6 +13,7 @@ from ui.settings_widget import SettingsWidget
 
 DEBUG_OUTPUT = True
 
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -35,15 +36,32 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Logo (linksbündig, 200x21px)
         logo_label = QtWidgets.QLabel()
-        logo_path = os.path.join("assets", "logo.png")
-        if os.path.exists(logo_path):
-            pixmap = QtGui.QPixmap(logo_path)
-            pixmap = pixmap.scaled(200, 21, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-            logo_label.setPixmap(pixmap)
-        else:
-            logo_label.setText("LOGO")
-        top_bar.addWidget(logo_label, alignment=QtCore.Qt.AlignLeft)
+        # Verbesserte Pfadsuche für das Logo
+        logo_paths = [
+            os.path.join("assets", "logo.png"),  # Relativer Pfad
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png"),  # Absoluter Pfad vom Skript
+            os.path.join(os.path.dirname(sys.executable), "assets", "logo.png"),  # Pfad vom Executable
+            os.path.join(os.path.abspath("."), "assets", "logo.png"),  # Aktuelles Arbeitsverzeichnis
+        ]
 
+        logo_found = False
+        for logo_path in logo_paths:
+            if os.path.exists(logo_path):
+                debug_print(f"Logo gefunden unter: {logo_path}")
+                pixmap = QtGui.QPixmap(logo_path)
+                pixmap = pixmap.scaled(200, 21, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+                logo_label.setPixmap(pixmap)
+                logo_found = True
+                break
+
+        if not logo_found:
+            debug_print("Logo konnte nicht gefunden werden. Gesuchte Pfade:")
+            for path in logo_paths:
+                debug_print(f" - {path}")
+            logo_label.setText("LOGO")
+
+        # Diese Zeilen sind wichtig für das Layout!
+        top_bar.addWidget(logo_label, alignment=QtCore.Qt.AlignLeft)
         top_bar.addStretch()
 
         # Debug-Button
@@ -120,12 +138,31 @@ class MainWindow(QtWidgets.QMainWindow):
         save_settings(self.settings)
         super().closeEvent(event)
 
+
 def main():
     app = QtWidgets.QApplication(sys.argv)
     # Hier wird MainWindow ohne zusätzliche Argumente instanziiert:
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
+
+
+def run():
+    """
+    Diese Funktion wird vom Wrapper aufgerufen und startet die Anwendung.
+    Sie dient als Einstiegspunkt für die kompilierte Version.
+    """
+    print("PRisM-RAC wird gestartet...")
+
+    try:
+        app = QtWidgets.QApplication(sys.argv)
+        win = MainWindow()
+        win.show()
+        return app.exec()
+    except Exception as e:
+        print(f"Fehler beim Starten der Anwendung: {e}")
+        return 1
+
 
 if __name__ == "__main__":
     main()
