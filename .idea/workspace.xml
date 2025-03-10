@@ -5,13 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau Pfade für App">
-      <change afterPath="$PROJECT_DIR$/Compiler.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PRisM-RAC_x86_64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_x86_64.spec" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/logfile_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/logfile_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/wrapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/wrapper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/log_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/log_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,23 +52,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
-    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
-    &quot;Python.script_config_manager.executor&quot;: &quot;Run&quot;,
-    &quot;Python.settings_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.start.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;stable-v10&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.hotfolder_config.executor": "Run",
+    "Python.hotfolder_monitor.executor": "Run",
+    "Python.json_editor.executor": "Run",
+    "Python.json_explorer.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.main_window.executor": "Run",
+    "Python.script_config_manager.executor": "Run",
+    "Python.settings_widget.executor": "Run",
+    "Python.start.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "stable-v11",
+    "settings.editor.selected.configurable": "preferences.lookFeel"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/utils" />
@@ -439,7 +435,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741545678055</updated>
     </task>
-    <option name="localTasksCounter" value="44" />
+    <task id="LOCAL-00044" summary="Umbau Pfade für App">
+      <option name="closed" value="true" />
+      <created>1741604130699</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1741604130699</updated>
+    </task>
+    <option name="localTasksCounter" value="45" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
