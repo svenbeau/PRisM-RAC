@@ -14,19 +14,6 @@ from utils.log_manager import add_log_entry, load_global_log
 
 DEBUG_OUTPUT = True
 
-# Testglobaler Logeintrag einfügen und anschließend den Loginhalt auslesen
-test_entry = {
-    "timestamp": "2025-03-06T12:00:00",
-    "event": "MonitorStart",
-    "message": "Monitor für Render wurde gestartet."
-}
-add_log_entry(test_entry)
-debug_print("Testlogeintrag hinzugefügt.")
-global_log = load_global_log()
-debug_print(f"Global log entries after test: {global_log}")
-print("Global log entries after test:", global_log)
-
-
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()

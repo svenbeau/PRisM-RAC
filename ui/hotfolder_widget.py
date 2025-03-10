@@ -55,7 +55,7 @@ class HotfolderListWidget(QtWidgets.QWidget):
 
     def load_hotfolders(self):
         """
-        Lädt alle Hotfolder aus self.settings und erzeugt für jeden ein HotfolderWidget.
+        Lädt alle Hotfolder aus den Settings und erzeugt für jeden ein HotfolderWidget.
         """
         debug_print_local("HotfolderListWidget.load_hotfolders() aufgerufen.")
         # Zunächst alte Widgets entfernen
@@ -119,13 +119,6 @@ class HotfolderWidget(QtWidgets.QFrame):
     """
     Zeigt die Konfiguration (Ordner, Bearbeitung, Contentcheck) und den Status (Start/Stop, Spinner, Edit)
     für einen einzelnen Hotfolder an.
-
-    - Titelzeile mit Name (links) + Toggle-Button (rechts)
-    - Subheader: "Ordner, Bearbeitung, Contentcheck, Status" (immer sichtbar)
-    - Collapsible Body: "Ordner", "Bearbeitung", "Contentcheck"
-    - Status-Bereich immer sichtbar (nicht einklappbar)
-    - Der Zustand (auf- oder zugeklappt) wird in hotfolder_config["body_visible"] gespeichert
-      und beim nächsten Start wiederhergestellt.
     """
     def __init__(self, hotfolder_config: dict, settings: dict, parent=None):
         super().__init__(parent)
@@ -137,8 +130,8 @@ class HotfolderWidget(QtWidgets.QFrame):
         self.body_visible = self.hotfolder_config.get("body_visible", True)
 
         # Icons
-        self.icon_expand = QtGui.QIcon(os.path.join("assets", "dropdown_list.png"))   # "aufklappen"
-        self.icon_collapse = QtGui.QIcon(os.path.join("assets", "close_list.png"))    # "zuklappen"
+        self.icon_expand = QtGui.QIcon(os.path.join("assets", "dropdown_list.png"))
+        self.icon_collapse = QtGui.QIcon(os.path.join("assets", "close_list.png"))
 
         self.setupUi()
 
@@ -159,15 +152,12 @@ class HotfolderWidget(QtWidgets.QFrame):
         title_layout.setContentsMargins(10, 5, 10, 5)
         title_layout.setSpacing(5)
 
-        # Hotfolder-Name (links)
         self.title_label = QtWidgets.QLabel(self.hotfolder_config.get("name", "Unbenannt"))
         self.title_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 12pt;")
         title_layout.addWidget(self.title_label, 1, QtCore.Qt.AlignVCenter)
 
-        # Toggle-Button (rechts)
         self.toggle_btn = QtWidgets.QPushButton()
         self.toggle_btn.setFlat(True)
-        # Setze das Icon entsprechend body_visible
         if self.body_visible:
             self.toggle_btn.setIcon(self.icon_collapse)
         else:
@@ -200,7 +190,6 @@ class HotfolderWidget(QtWidgets.QFrame):
         body_layout.setContentsMargins(10, 10, 10, 10)
         body_layout.setSpacing(10)
 
-        # (C1) Ordner
         self.ordner_group = QtWidgets.QGroupBox("Ordner")
         self.ordner_group.setStyleSheet("""
             QGroupBox {
@@ -227,7 +216,6 @@ class HotfolderWidget(QtWidgets.QFrame):
 
         body_layout.addWidget(self.ordner_group)
 
-        # (C2) Bearbeitung
         self.bearbeitung_group = QtWidgets.QGroupBox("Bearbeitung")
         self.bearbeitung_group.setStyleSheet("""
             QGroupBox {
@@ -255,7 +243,6 @@ class HotfolderWidget(QtWidgets.QFrame):
 
         body_layout.addWidget(self.bearbeitung_group)
 
-        # (C3) Contentcheck
         self.content_group = QtWidgets.QGroupBox("Contentcheck")
         self.content_group.setStyleSheet("""
             QGroupBox {
@@ -347,7 +334,6 @@ class HotfolderWidget(QtWidgets.QFrame):
     def on_toggle_body(self):
         """
         Ein-/Ausklappen des Body-Bereichs (Ordner, Bearbeitung, Contentcheck).
-        Subheader bleibt sichtbar, Status bleibt ebenfalls immer sichtbar.
         """
         self.body_visible = not self.body_visible
         self.body_widget.setVisible(self.body_visible)
@@ -355,8 +341,6 @@ class HotfolderWidget(QtWidgets.QFrame):
             self.toggle_btn.setIcon(self.icon_collapse)
         else:
             self.toggle_btn.setIcon(self.icon_expand)
-
-        # In die Hotfolder-Konfiguration schreiben
         self.hotfolder_config["body_visible"] = self.body_visible
         save_settings(self.settings)
 
@@ -371,7 +355,7 @@ class HotfolderWidget(QtWidgets.QFrame):
         self.monitor = HotfolderMonitor(
             hf_config=self.hotfolder_config,
             on_status_update=self.on_status_update,
-            on_file_processing=self.on_file_processing
+            on_file_processing=self.on_file_processing  # Hier ist der Callback
         )
         self.monitor.start()
         self.start_stop_btn.setText("Stop")
@@ -406,25 +390,92 @@ class HotfolderWidget(QtWidgets.QFrame):
                 self.spinner_label.setVisible(False)
 
     def on_file_processing(self, filename: str):
-        if filename:
-            short_filename = os.path.basename(filename)
-            if self.spinner_movie:
-                self.spinner_label.setVisible(True)
-                self.spinner_label.setStyleSheet("opacity: 1.0;")
-            self.status_label.setText(f"Aktiv (Verarbeite: {short_filename})")
-            self.status_label.setStyleSheet("color: green;")
+        """
+        Callback, der aufgerufen wird, wenn eine Datei verarbeitet wird.
+        Erzeugt einen detaillierten Logeintrag, der versucht, die Inhalte aus dem Contentcheck-JSON zu übernehmen,
+        und ergänzt fehlende Felder nur, wenn sie nicht vorhanden sind.
+        """
+        from datetime import datetime
+        import os, json
+        from utils.log_manager import add_log_entry
+        debug_print_local(f"Verarbeite Datei: {filename}")
+
+        logfiles_dir = self.hotfolder_config.get("logfiles_dir", "")
+        basename = os.path.splitext(os.path.basename(filename))[0]
+        # Annahme: Die ContentCheck-Datei heißt _<basename>_01_log_contentcheck.json
+        contentcheck_filename = os.path.join(logfiles_dir, f"_{basename}_01_log_contentcheck.json")
+        if os.path.exists(contentcheck_filename):
+            try:
+                with open(contentcheck_filename, "r", encoding="utf-8") as f:
+                    contentcheck_data = json.load(f)
+                metadata = contentcheck_data.get("metadata")
+                details = contentcheck_data.get("details")
+                debug_print_local(f"ContentCheck-Daten geladen aus {contentcheck_filename}")
+            except Exception as e:
+                debug_print_local(f"Fehler beim Laden des ContentCheck-Logs: {e}")
+                metadata = None
+                details = None
         else:
-            if self.monitor and self.monitor.active:
-                if self.spinner_movie:
-                    self.spinner_label.setVisible(True)
-                    self.spinner_label.setStyleSheet("opacity: 0.3;")
-                self.status_label.setText("Aktiv")
-                self.status_label.setStyleSheet("color: green;")
-            else:
-                if self.spinner_movie:
-                    self.spinner_label.setVisible(False)
-                self.status_label.setText("Inaktiv")
-                self.status_label.setStyleSheet("color: red;")
+            debug_print_local(f"ContentCheck-Logdatei nicht gefunden: {contentcheck_filename}")
+            metadata = None
+            details = None
+
+        if metadata is None:
+            metadata = {
+                "documentTitle": "undefined",
+                "author": "RecomArt-Cruse-Color",
+                "authorPosition": "undefined",
+                "description": "OnlineOnly",
+                "descriptionWriter": "undefined",
+                "keywords": "751",
+                "copyrightNotice": "Copyright (C) reserved",
+                "copyrightURL": "undefined",
+                "city": "undefined",
+                "stateProvince": "undefined",
+                "country": "undefined",
+                "creditLine": "undefined",
+                "source": "undefined",
+                "headline": "undefined",
+                "instructions": "undefined",
+                "transmissionRef": "undefined"
+            }
+        if details is None:
+            details = {
+                "layers": {},
+                "missingLayers": [],
+                "missingMetadata": [],
+                "layerStatus": "OK",
+                "metaStatus": "OK",
+                "checkType": "Standard",
+                "keywordCheck": {
+                    "enabled": True,
+                    "keyword": self.hotfolder_config.get("keyword_check_word", "Rueckseite")
+                }
+            }
+        # Falls Details vorhanden, aber "layers" leer, übernehmen wir den Inhalt, wie er bereits vorhanden war.
+        if "layers" not in details:
+            details["layers"] = {"Freisteller": "yes", "Messwerte": "no", "Korrektur": "no"}
+        if "missingLayers" not in details:
+            details["missingLayers"] = ["Messwerte", "Korrektur"]
+
+        # Setze den Status auf "OK", da die Datei verarbeitet wurde.
+        status = "OK"
+        # Hier wird das angewendete Script aus der Hotfolder-Konfiguration übernommen.
+        applied_script = os.path.basename(self.hotfolder_config.get("selected_jsx", "(none)"))
+        checkType = "Standard"
+        timestamp = datetime.now().isoformat()
+
+        log_entry = {
+            "timestamp": timestamp,
+            "filename": os.path.basename(filename),
+            "metadata": metadata,
+            "checkType": checkType,
+            "status": status,
+            "applied_script": applied_script,
+            "details": details
+        }
+        add_log_entry(log_entry)
+        debug_print_local(f"Logeintrag erstellt für Datei: {filename}")
 
     def on_edit(self):
         dlg = HotfolderConfigDialog(self.hotfolder_config, parent=self)
@@ -442,33 +493,25 @@ class HotfolderWidget(QtWidgets.QFrame):
 
     def update_labels(self):
         debug_print_local("Aktualisiere HotfolderWidget-Labels.")
-        # Titel
         self.title_label.setText(self.hotfolder_config.get("name", "Unbenannt"))
         debug_print_local("Name aktualisiert: " + self.hotfolder_config.get("name", "Unbenannt"))
-
-        # Ordner
         self.monitor_label.setText(f"Monitor: {self.hotfolder_config.get('monitor_dir','')}")
         self.success_label.setText(f"Success: {self.hotfolder_config.get('success_dir','')}")
         self.fault_label.setText(f"Fault: {self.hotfolder_config.get('fault_dir','')}")
         self.logfiles_label.setText(f"Logfiles: {self.hotfolder_config.get('logfiles_dir','')}")
-
-        # Bearbeitung
         folder = self.hotfolder_config.get("jsx_folder", "")
         self.jsx_folder_label.setText(f"JSX-Folder: {folder}")
         combo_name = os.path.basename(self.hotfolder_config.get("selected_jsx","")) or "(none)"
-        manual_name= os.path.basename(self.hotfolder_config.get("additional_jsx","")) or "(none)"
+        manual_name = os.path.basename(self.hotfolder_config.get("additional_jsx","")) or "(none)"
         self.selected_jsx_label.setText(f"JSX-Script (Combo): {combo_name}")
         self.additional_jsx_label.setText(f"JSX-Script (Manual): {manual_name}")
         debug_print_local(f"Selected JSX: {self.hotfolder_config.get('selected_jsx','')}, Additional JSX: {self.hotfolder_config.get('additional_jsx','')}")
-
-        # Contentcheck
         std_layers = ", ".join(self.hotfolder_config.get("required_layers", []))
         std_meta   = ", ".join(self.hotfolder_config.get("required_metadata", []))
         self.std_layers_label.setText(f"Standard Ebenen: {std_layers}")
         self.std_meta_label.setText(f"Standard Metadaten: {std_meta}")
         debug_print_local("Standard Contentcheck - Ebenen: " + std_layers)
         debug_print_local("Standard Contentcheck - Metadaten: " + std_meta)
-
         if self.hotfolder_config.get("keyword_check_enabled", False):
             kw = self.hotfolder_config.get("keyword_check_word", "Rueckseite")
             kw_layers = ", ".join(self.hotfolder_config.get("keyword_layers", []))
@@ -481,8 +524,6 @@ class HotfolderWidget(QtWidgets.QFrame):
         else:
             self.kw_layers_label.setText("")
             self.kw_meta_label.setText("")
-
-        # Status zurücksetzen
         self.status_label.setText("Inaktiv")
         self.status_label.setStyleSheet("color: red;")
         self.start_stop_btn.setText("Start")

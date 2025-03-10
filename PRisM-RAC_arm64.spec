@@ -9,7 +9,7 @@ from PyInstaller.utils.hooks import collect_submodules
 block_cipher = None
 
 # Name der Anwendung (angepasst für arm64)
-APP_NAME = "PRisM-CC_arm64"
+APP_NAME = "PRisM-CC"
 
 # Wrapper-Skript, das als Einstieg dient
 APP_SCRIPT = "wrapper.py"
@@ -75,11 +75,11 @@ coll = COLLECT(
 
 app = BUNDLE(
     coll,
-    name='PRisM-CC_arm64.app',
+    name='PRisM-CC.app',
     icon='/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns',
     bundle_identifier='com.svenbeau.prismcc.arm64',
     info_plist={
-        'CFBundleName': 'PRisM-CC_arm64',
+        'CFBundleName': 'PRisM-CC',
         'CFBundleShortVersionString': '1.0.0',
         'CFBundleVersion': '1.0.0',
         'CFBundleDevelopmentRegion': 'en',
