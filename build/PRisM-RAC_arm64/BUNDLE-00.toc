@@ -1,0 +1,3 @@
+([('PRisM-CC',
+   '/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/dist/PRisM-CC',
+   'EXECUTABLE')],)

@@ -8,7 +8,7 @@ from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
-# Name der Anwendung (angepasst für arm64)
+# Name der Anwendung
 APP_NAME = "PRisM-CC"
 
 # Wrapper-Skript, das als Einstieg dient
@@ -19,14 +19,15 @@ pathex = [
     os.path.abspath('.'),
 ]
 
-# Optionale versteckte Importe – hier ggf. anpassen
+# Optionale versteckte Importe
 hidden_imports = []
 
-# Hier definieren wir die Assets-Ordner und andere Daten, die ins Bundle aufgenommen werden
+# Hier definieren wir die Assets-Ordner und andere Daten
 datas = [
-    ("assets", "assets"),  # Füge das komplette assets-Verzeichnis hinzu
-    ("scripts", "scripts"),  # Füge auch das scripts-Verzeichnis hinzu
-    ("config", "config"),   # Füge auch das config-Verzeichnis hinzu
+    ("assets", "assets"),
+    ("scripts", "scripts"),
+    ("config", "config"),
+    ("jsx_templates", "jsx_templates"),  # Wichtig: JSX-Templates einschließen
 ]
 
 a = Analysis(
@@ -47,11 +48,14 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# Ändere auf One-File-Modus
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
@@ -59,22 +63,10 @@ exe = EXE(
     upx=True,
     console=False,
     disable_windowed_traceback=False,
-    # icon='PRisM_Icon.icns',
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name=APP_NAME,
 )
 
 app = BUNDLE(
-    coll,
+    exe,
     name='PRisM-CC.app',
     icon='/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns',
     bundle_identifier='com.svenbeau.prismcc.arm64',

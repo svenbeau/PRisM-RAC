@@ -1,54 +1,108 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# dynamic_jsx_generator.py
 import os
-import json
+import sys
 import tempfile
-from utils.config_manager import get_resource_path, debug_print
+import json
+from utils.config_manager import debug_print, load_settings
 
-DEBUG_OUTPUT = True
-def debug_print_local(msg):
-    if DEBUG_OUTPUT:
-        print("[DEBUG]", msg)
 
-def generate_hybrid_jsx(hf_config: dict, template_path: str = None) -> str:
+# Hilfsfunktion, um Templates aus verschiedenen Pfaden zu finden
+def find_template_file(template_name):
     """
-       Liest das JSX-Template, ersetzt die Platzhalter mit den in hf_config definierten
-       required_layers, required_metadata und logfiles_dir und gibt den Pfad zur temporären Datei zurück.
-
-       Falls kein Template-Pfad übergeben wurde, wird der relative Pfad aus dem Konfigurationsmanager verwendet.
-       """
-
-    # Falls kein Template-Pfad übergeben wurde, verwende den relativen Pfad aus dem Konfigurationsmanager
-    if not template_path:
-        template_path = os.path.join(get_resource_path("jsx_templates"), "contentcheck_template.jsx")
-    if not os.path.exists(template_path):
-        raise FileNotFoundError(f"JSX-Template nicht gefunden: {template_path}")
-    with open(template_path, "r", encoding="utf-8") as f:
-        jsx_template = f.read()
-    # Hole die aus der Hotfolder-Konfiguration übergebenen Werte
-    required_layers = hf_config.get("required_layers", [])
-    required_metadata = hf_config.get("required_metadata", [])
-    logfiles_dir = hf_config.get("logfiles_dir", "")
-    # Ersetze die Platzhalter – hier wird logFolderPath als JSON‑String (in Anführungszeichen) gesetzt
-    layers_str = json.dumps(required_layers)
-    metadata_str = json.dumps(required_metadata)
-    logfiles_str = json.dumps(logfiles_dir.replace("\\", "/"))
-    jsx_code = jsx_template
-    jsx_code = jsx_code.replace("/*PYTHON_INSERT_LAYERS*/", layers_str)
-    jsx_code = jsx_code.replace("/*PYTHON_INSERT_METADATA*/", metadata_str)
-    jsx_code = jsx_code.replace("/*PYTHON_INSERT_LOGFOLDER*/", logfiles_str)
-    debug_print_local("Generierter JSX-Code:")
-    debug_print_local(jsx_code)
-    tmp_dir = tempfile.gettempdir()
-    tmp_path = os.path.join(tmp_dir, "dynamic_contentcheck.jsx")
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.write(jsx_code)
-    debug_print_local(f"Hybrid-JSX-Skript erzeugt: {tmp_path}")
-    return tmp_path
-
-def generate_jsx_script(hf_config: dict, target_filename: str) -> str:
+    Sucht nach Template-Dateien an verschiedenen möglichen Speicherorten
+    und gibt den ersten gefundenen Pfad zurück.
     """
-    Erzeugt das temporäre JSX-Skript anhand der Hotfolder-Konfiguration.
-    """
-    template_path = os.path.join(get_resource_path("jsx_templates"), "contentcheck_template.jsx")
-    return generate_hybrid_jsx(hf_config, template_path)
+    # Laden der Einstellungen, um den konfigurierten Pfad zu erhalten
+    settings = load_settings()
+
+    # Liste der möglichen Pfade, in denen das Template gefunden werden könnte
+    possible_paths = []
+
+    # 1. Konfigurierter Pfad in den Einstellungen
+    if settings and "resource_paths" in settings and "jsx_templates" in settings["resource_paths"]:
+        configured_path = os.path.join(settings["resource_paths"]["jsx_templates"], template_name)
+        possible_paths.append(configured_path)
+
+    # 2. PyInstaller Pfad (wenn kompiliert)
+    if hasattr(sys, '_MEIPASS'):
+        pyinstaller_path = os.path.join(sys._MEIPASS, "jsx_templates", template_name)
+        possible_paths.append(pyinstaller_path)
+
+    # 3. Relativer Pfad zum Skript
+    script_relative_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jsx_templates", template_name)
+    possible_paths.append(script_relative_path)
+
+    # 4. Relativer Pfad zum Arbeitsverzeichnis
+    working_dir_path = os.path.join(os.getcwd(), "jsx_templates", template_name)
+    possible_paths.append(working_dir_path)
+
+    # 5. Einfacher relativer Pfad
+    simple_relative_path = os.path.join("jsx_templates", template_name)
+    possible_paths.append(simple_relative_path)
+
+    # Debug-Ausgaben
+    debug_print(f"Suche nach Template: {template_name}")
+    for path in possible_paths:
+        debug_print(f"  Prüfe Pfad: {path}")
+        if os.path.exists(path):
+            debug_print(f"  Template gefunden unter: {path}")
+            return path
+
+    # Wenn kein Pfad funktioniert hat
+    debug_print(f"FEHLER: Template {template_name} konnte nicht gefunden werden!")
+    debug_print("Suchpfade waren:")
+    for path in possible_paths:
+        debug_print(f"  - {path}")
+
+    return None
+
+
+def create_contentcheck_jsx(layers, metadata_fields, keyword_check=None):
+    """Erstellt ein dynamisches JSX-Skript für den Contentcheck basierend auf den übergebenen Parametern."""
+    try:
+        # Lade die Template-Datei mit der neuen Hilfsfunktion
+        base_jsx_path = find_template_file("contentcheck_template.jsx")
+
+        if not base_jsx_path:
+            debug_print("Fehler: Base JSX script not found")
+            return None
+
+        with open(base_jsx_path, 'r', encoding='utf-8') as f:
+            template = f.read()
+
+        # Rest des Codes bleibt unverändert...
+
+        # Konvertiere die Layer und Metadata-Felder in JavaScript-Arrays
+        layers_js = json.dumps(layers)
+        metadata_js = json.dumps(metadata_fields)
+
+        # Ersetze die Platzhalter im Template
+        template = template.replace("__REQUIRED_LAYERS__", layers_js)
+        template = template.replace("__REQUIRED_METADATA__", metadata_js)
+
+        # Füge optionale Keyword-Check-Funktionalität hinzu, wenn angegeben
+        if keyword_check and isinstance(keyword_check, dict):
+            keyword_enabled = "true" if keyword_check.get("enabled", False) else "false"
+            keyword = json.dumps(keyword_check.get("keyword", ""))
+            keyword_layers = json.dumps(keyword_check.get("layers", []))
+            keyword_metadata = json.dumps(keyword_check.get("metadata", []))
+
+            template = template.replace("__KEYWORD_CHECK_ENABLED__", keyword_enabled)
+            template = template.replace("__KEYWORD_CHECK_WORD__", keyword)
+            template = template.replace("__KEYWORD_CHECK_LAYERS__", keyword_layers)
+            template = template.replace("__KEYWORD_CHECK_METADATA__", keyword_metadata)
+        else:
+            template = template.replace("__KEYWORD_CHECK_ENABLED__", "false")
+            template = template.replace("__KEYWORD_CHECK_WORD__", '""')
+            template = template.replace("__KEYWORD_CHECK_LAYERS__", "[]")
+            template = template.replace("__KEYWORD_CHECK_METADATA__", "[]")
+
+        # Erstelle eine temporäre JSX-Datei
+        temp_jsx = tempfile.NamedTemporaryFile(suffix='.jsx', delete=False)
+        temp_jsx.write(template.encode('utf-8'))
+        temp_jsx.close()
+
+        return temp_jsx.name
+    except Exception as e:
+        debug_print(f"Fehler beim Erstellen des dynamischen JSX-Skripts: {e}")
+        return None
