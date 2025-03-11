@@ -5,32 +5,21 @@ import os
 import uuid
 import json
 
-# Hier importieren wir PySide6, damit QtWidgets/QtCore bekannt sind
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtCore import Qt, Signal
-# Wenn du z. B. Icons verwendest:
-# from PySide6.QtGui import QIcon
-
-# Falls du im __main__-Testlauf QApp brauchst:
 from PySide6.QtWidgets import QApplication
 
-from utils.config_manager import (
-    load_settings,
-    save_settings,
-    get_recent_dirs,
-    update_recent_dirs
-)
-
-DEBUG_OUTPUT = True
-def debug_print(msg):
-    if DEBUG_OUTPUT:
-        print("[DEBUG]", msg)
+# Für Recent Paths nutzen wir weiterhin die alten Funktionen
+from utils.config_manager import get_recent_dirs, update_recent_dirs
+# Neu: Wir verwenden den separaten Manager für Hotfolder-Konfigurationen
+from utils.hotfolder_config import HotfolderConfigManager, debug_print
 
 class HotfolderConfigDialog(QtWidgets.QDialog):
     """
-    Dialog zum Bearbeiten eines einzelnen Hotfolders (per Referenz).
-    Identifikation erfolgt über 'id' statt über den Namen.
-    Die Änderungen werden nur einmal gespeichert – kein doppeltes Überschreiben.
+    Dialog zum Bearbeiten eines einzelnen Hotfolders.
+    Die Identifikation erfolgt über 'id' und die Änderungen
+    werden über den HotfolderConfigManager in der separaten
+    hotfolder_config.json gespeichert.
     """
     def __init__(self, hotfolder_data: dict, parent=None):
         super().__init__(parent)
@@ -41,14 +30,13 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.hotfolder = hotfolder_data
         debug_print("HotfolderConfigDialog init: " + str(self.hotfolder))
 
-        self.current_config = load_settings()
-        # recent_paths wird nun verwendet – falls keine Einträge vorhanden sind, liefern wir einen Fallback
-        self.recent_dirs = self.current_config.setdefault("recent_paths", {
-            "monitor": [os.path.expanduser("~")],
-            "success": [os.path.expanduser("~")],
-            "fault": [os.path.expanduser("~")],
-            "logfiles": [os.path.expanduser("~")]
-        })
+        # Für Recent Paths nutzen wir weiterhin die allgemeinen Settings
+        self.recent_dirs = {
+            "monitor": get_recent_dirs("monitor"),
+            "success": get_recent_dirs("success"),
+            "fault": get_recent_dirs("fault"),
+            "logfiles": get_recent_dirs("logfiles")
+        }
         self.init_ui()
 
     def init_ui(self):
@@ -57,15 +45,12 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         # (A) Formulardaten
         form_layout = QtWidgets.QFormLayout()
 
-        # ID (nur zur Information)
         self.id_label = QtWidgets.QLabel(self.hotfolder.get("id", "NO-ID"))
         form_layout.addRow("ID:", self.id_label)
 
-        # Name
         self.name_edit = QtWidgets.QLineEdit(self.hotfolder.get("name", "Neuer Hotfolder"))
         form_layout.addRow("Name:", self.name_edit)
 
-        # Hauptpfad
         self.path_edit = QtWidgets.QLineEdit(self.hotfolder.get("path", ""))
         self.browse_main_btn = QtWidgets.QPushButton("Browse")
         main_path_layout = QtWidgets.QHBoxLayout()
@@ -164,7 +149,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
             self.meta_checks[meta] = cb
         meta_group.setLayout(meta_layout)
         std_layout.addWidget(meta_group)
-
         main_layout.addWidget(self.standard_contentcheck_group)
 
         # (C) Keyword-basierter Contentcheck
@@ -219,16 +203,15 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         jsx_folder_layout.addWidget(self.browse_jsx_folder_btn)
         main_layout.addLayout(jsx_folder_layout)
 
-        # ComboBox-Skript -> "selected_jsx"
         self.jsx_combo = QtWidgets.QComboBox()
         self.jsx_combo.setEditable(True)
-        self.populate_jsx_combo()  # Füllt die ComboBox mit .jsx-Dateien
+        self.populate_jsx_combo()
         jsx_combo_layout = QtWidgets.QHBoxLayout()
         jsx_combo_layout.addWidget(QtWidgets.QLabel("JSX-Script Auswahl:"))
         jsx_combo_layout.addWidget(self.jsx_combo)
         main_layout.addLayout(jsx_combo_layout)
 
-        # (E) Zusätzliches JSX (manuelles Skript) -> "additional_jsx"
+        # (E) Zusätzliches JSX (manuelles Skript)
         self.additional_jsx_edit = QtWidgets.QLineEdit(self.hotfolder.get("additional_jsx", ""))
         self.jsx_browse_btn = QtWidgets.QPushButton("JSX durchsuchen")
         add_jsx_layout = QtWidgets.QHBoxLayout()
@@ -237,7 +220,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         add_jsx_layout.addWidget(self.jsx_browse_btn)
         main_layout.addLayout(add_jsx_layout)
 
-        # *** NEUE BUTTONS FÜR SPEICHERN/LADEN ***
+        # NEUE BUTTONS FÜR SPEICHERN/LADEN
         btn_save_load_layout = QtWidgets.QHBoxLayout()
         self.btn_save_config = QtWidgets.QPushButton("Konfiguration speichern")
         self.btn_load_config = QtWidgets.QPushButton("Konfiguration laden")
@@ -258,10 +241,8 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.browse_logfiles_btn.clicked.connect(lambda: self.browse_folder("logfiles"))
         self.jsx_browse_btn.clicked.connect(self.browse_jsx_file)
         self.browse_jsx_folder_btn.clicked.connect(self.browse_jsx_folder)
-
         btn_box.accepted.connect(self.save_and_close)
         btn_box.rejected.connect(self.reject)
-
         self.btn_save_config.clicked.connect(self.save_configuration_to_file)
         self.btn_load_config.clicked.connect(self.load_configuration_from_file)
 
@@ -272,7 +253,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
             for filename in os.listdir(folder):
                 if filename.lower().endswith(".jsx"):
                     self.jsx_combo.addItem(filename)
-        # Falls in "selected_jsx" bereits ein Skript hinterlegt ist, wähle es aus
         selected_jsx_path = self.hotfolder.get("selected_jsx", "")
         if selected_jsx_path:
             base_script = os.path.basename(selected_jsx_path)
@@ -300,7 +280,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
                 self.fault_combo.setCurrentText(folder)
             elif folder_type == "logfiles":
                 self.logfiles_combo.setCurrentText(folder)
-            update_recent_dirs(self.recent_dirs, folder)
+            update_recent_dirs(folder_type, folder)
 
     def browse_jsx_file(self):
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -319,7 +299,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
 
     def save_and_close(self):
         debug_print("Vor save_and_close - Hotfolder war: " + str(self.hotfolder))
-        # 1) Basisdaten
         self.hotfolder["name"] = self.name_edit.text()
         self.hotfolder["path"] = self.path_edit.text()
         self.hotfolder["monitor_dir"] = self.monitor_combo.currentText()
@@ -327,18 +306,15 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.hotfolder["fault_dir"] = self.fault_combo.currentText()
         self.hotfolder["logfiles_dir"] = self.logfiles_combo.currentText()
 
-        # 2) Standard-Contentcheck
         self.hotfolder["contentcheck_enabled"] = self.standard_contentcheck_group.isChecked()
         self.hotfolder["required_layers"] = [layer for layer, cb in self.layer_checks.items() if cb.isChecked()]
         self.hotfolder["required_metadata"] = [meta for meta, cb in self.meta_checks.items() if cb.isChecked()]
 
-        # 3) Keyword-Contentcheck
         self.hotfolder["keyword_check_enabled"] = self.keyword_check_group.isChecked()
         self.hotfolder["keyword_check_word"] = self.keyword_edit.text()
         self.hotfolder["keyword_layers"] = [layer for layer, cb in self.keyword_layer_checks.items() if cb.isChecked()]
         self.hotfolder["keyword_metadata"] = [meta for meta, cb in self.keyword_meta_checks.items() if cb.isChecked()]
 
-        # 4) JSX
         self.hotfolder["jsx_folder"] = self.jsx_folder_edit.text()
         selected_script = self.jsx_combo.currentText().strip()
         if selected_script and selected_script != "(none)":
@@ -349,28 +325,20 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.hotfolder["additional_jsx"] = manual_script
 
         debug_print("In save_and_close - Hotfolder neu: " + str(self.hotfolder))
-        # 5) Sicherstellen, dass der Hotfolder eine ID besitzt
         if not self.hotfolder.get("id"):
             new_id = str(uuid.uuid4())
             self.hotfolder["id"] = new_id
             debug_print("Keine ID vorhanden. Neue ID: " + new_id)
 
-        # 6) In globale settings.json übernehmen
-        settings_data = load_settings()
-        hotfolders_list = settings_data.setdefault("hotfolders", [])
-        current_id = self.hotfolder["id"]
-        found_idx = -1
-        for i, hf in enumerate(hotfolders_list):
-            if hf.get("id") == current_id:
-                found_idx = i
-                break
-        if found_idx >= 0:
-            debug_print(f"Ersetze alten Eintrag an Index {found_idx} durch: {self.hotfolder}")
-            hotfolders_list[found_idx] = self.hotfolder
+        # Speichern über den HotfolderConfigManager
+        hf_manager = HotfolderConfigManager()
+        existing = hf_manager.get_hotfolder_by_id(self.hotfolder["id"])
+        if existing:
+            debug_print(f"Ersetze alten Eintrag für ID {self.hotfolder['id']}.")
+            hf_manager.update_hotfolder(self.hotfolder["id"], self.hotfolder)
         else:
-            debug_print("Kein Hotfolder mit dieser ID gefunden; hänge neuen an.")
-            hotfolders_list.append(self.hotfolder)
-        save_settings(settings_data)
+            debug_print("Kein Hotfolder mit dieser ID gefunden; füge neuen hinzu.")
+            hf_manager.add_hotfolder(self.hotfolder)
         debug_print("Hotfolder-Konfiguration gespeichert/aktualisiert.")
         self.accept()
 
@@ -384,9 +352,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         return os.path.expanduser("~")
 
     def save_configuration_to_file(self):
-        """
-        Exportiert die aktuelle Hotfolder-Konfiguration als JSON in eine Datei.
-        """
         self.update_hotfolder_from_fields()
         options = QtWidgets.QFileDialog.Options()
         default_name = "HF_Settings_" + self.hotfolder.get("name", "").strip() + ".json"
@@ -404,9 +369,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
                 QtWidgets.QMessageBox.critical(self, "Fehler", f"Fehler beim Speichern: {e}")
 
     def load_configuration_from_file(self):
-        """
-        Lädt eine Hotfolder-Konfiguration aus einer JSON-Datei und aktualisiert die Felder.
-        """
         options = QtWidgets.QFileDialog.Options()
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(
             self, "Konfiguration laden", "", "JSON Files (*.json)", options=options
@@ -422,9 +384,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
                 QtWidgets.QMessageBox.critical(self, "Fehler", f"Fehler beim Laden: {e}")
 
     def update_hotfolder_from_fields(self):
-        """
-        Schreibt sämtliche Felder in self.hotfolder (bevor wir extern speichern).
-        """
         self.hotfolder["name"] = self.name_edit.text()
         self.hotfolder["path"] = self.path_edit.text()
         self.hotfolder["monitor_dir"] = self.monitor_combo.currentText()
@@ -447,9 +406,6 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.hotfolder["additional_jsx"] = self.additional_jsx_edit.text().strip()
 
     def update_fields_from_hotfolder(self):
-        """
-        Aktualisiert die Dialog-Felder anhand der in self.hotfolder gespeicherten Daten.
-        """
         self.id_label.setText(self.hotfolder.get("id", "NO-ID"))
         self.name_edit.setText(self.hotfolder.get("name", "Neuer Hotfolder"))
         self.path_edit.setText(self.hotfolder.get("path", ""))

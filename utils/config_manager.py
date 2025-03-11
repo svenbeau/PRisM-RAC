@@ -1,94 +1,6 @@
-# utils/config_manager.py
-
 import os
 import json
-import uuid
-from utils.path_manager import get_config_path, get_settings_path
-
-
-class ConfigManager:
-    def __init__(self):
-        # Bisheriger Verweis auf script_config.json
-        self.config_file = get_config_path()
-        self.data = {
-            "hotfolders": []
-        }
-        self.load_config()
-
-    def load_config(self):
-        try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, "r", encoding="utf-8") as f:
-                    self.data = json.load(f)
-            else:
-                self.save_config()
-        except Exception as e:
-            print(f"Error loading config file {self.config_file}: {e}")
-
-    def save_config(self):
-        try:
-            with open(self.config_file, "w", encoding="utf-8") as f:
-                json.dump(self.data, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"Error saving config file {self.config_file}: {e}")
-
-    def get_hotfolders(self):
-        return self.data.get("hotfolders", [])
-
-    def add_hotfolder(self, hotfolder):
-        self.data.setdefault("hotfolders", []).append(hotfolder)
-        self.save_config()
-
-    def remove_hotfolder(self, hotfolder_id):
-        hotfolders = self.data.get("hotfolders", [])
-        new_list = [hf for hf in hotfolders if hf.get("id") != hotfolder_id]
-        self.data["hotfolders"] = new_list
-        self.save_config()
-
-    def update_hotfolder(self, hotfolder_id, updated_data):
-        hotfolders = self.data.get("hotfolders", [])
-        for hf in hotfolders:
-            if hf.get("id") == hotfolder_id:
-                hf.update(updated_data)
-                break
-        self.save_config()
-
-    def get_hotfolder_by_id(self, hotfolder_id):
-        hotfolders = self.data.get("hotfolders", [])
-        for hf in hotfolders:
-            if hf.get("id") == hotfolder_id:
-                return hf
-        return None
-
-    def generate_hotfolder_id(self):
-        return str(uuid.uuid4())
-
-    def export_hotfolders(self, export_path):
-        try:
-            hotfolders = self.data.get("hotfolders", [])
-            with open(export_path, "w", encoding="utf-8") as f:
-                json.dump(hotfolders, f, indent=4, ensure_ascii=False)
-            print("Hotfolders exported successfully.")
-        except Exception as e:
-            print(f"Error exporting hotfolders to {export_path}: {e}")
-
-    def import_hotfolders(self, import_path):
-        try:
-            if os.path.exists(import_path):
-                with open(import_path, "r", encoding="utf-8") as f:
-                    hotfolders = json.load(f)
-                self.data["hotfolders"] = hotfolders
-                self.save_config()
-                print("Hotfolders imported successfully.")
-            else:
-                print(f"Import file not found: {import_path}")
-        except Exception as e:
-            print(f"Error importing hotfolders from {import_path}: {e}")
-
-
-#
-# ========== Existierende Top-Level-Funktionen für Settings ==========
-#
+from utils.path_manager import get_settings_path
 
 def load_settings():
     """
@@ -104,7 +16,6 @@ def load_settings():
             debug_print(f"Error reading settings.json: {e}")
     return {}
 
-
 def save_settings(data):
     """
     Speichert das Dict 'data' in 'settings.json'
@@ -117,17 +28,11 @@ def save_settings(data):
     except Exception as e:
         debug_print(f"Error saving settings.json: {e}")
 
-
 def debug_print(msg):
     """
     Einfacher Debug-Print, kann nach Bedarf angepasst werden.
     """
     print(f"[DEBUG] {msg}")
-
-
-#
-# ========== Aktualisierte Funktionen für Recent Paths ==========
-#
 
 def get_recent_dirs(category):
     """
@@ -139,7 +44,6 @@ def get_recent_dirs(category):
     settings = load_settings()
     recent_paths = settings.get("recent_paths", {})
     return recent_paths.get(category, [os.path.expanduser("~")])
-
 
 def update_recent_dirs(category, new_dir):
     """

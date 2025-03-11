@@ -1,5 +1,3 @@
-# utils/path_manager.py
-
 import os
 from pathlib import Path
 
@@ -39,3 +37,13 @@ def get_settings_path():
     """
     app_support = get_app_support_dir()
     return str(app_support / "settings.json")
+
+def get_hotfolder_config_path():
+    """
+    Liefert den vollständigen Pfad zur Datei:
+    ~/Library/Application Support/PRisM-CC/config/hotfolder_config.json
+    """
+    app_support = get_app_support_dir()
+    config_dir = app_support / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return str(config_dir / "hotfolder_config.json")
