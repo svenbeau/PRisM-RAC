@@ -17,7 +17,7 @@ DEBUG_OUTPUT = True
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PRisM-RAC")
+        self.setWindowTitle("PRisM-CC")
         self.resize(1200, 900)
         self.settings = load_settings()
         self.init_ui()

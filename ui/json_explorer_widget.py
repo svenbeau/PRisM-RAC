@@ -4,26 +4,22 @@
 import os
 from PySide6 import QtWidgets, QtCore
 
-# Wir verwenden den EditorDialog aus dem bisherigen json_explorer.py – bitte stelle sicher, dass diese Datei vorhanden ist!
 from ui.json_explorer import JSONEditorDialog
-from utils.config_manager import save_settings, debug_print
 from ui.json_editor_dialog import JSONEditorDialog
+from utils.config_manager import get_recent_json_dirs, update_recent_json_dirs
 
 class JSONExplorerWidget(QtWidgets.QWidget):
     """
     Ein Widget, das:
-      - Über ein Dropdown die zuletzt verwendeten Ordner anzeigt
+      - Über ein Dropdown die zuletzt verwendeten Ordner (für JSON-Dateien) anzeigt
       - Zusätzlich einen 'Browse'-Button bereitstellt, um per QFileDialog einen neuen Ordner auszuwählen
       - In diesem Ordner alle JSON-Dateien auflistet
       - Per Doppelklick oder "Öffnen"-Button einen JSONEditorDialog öffnet
     """
-    def __init__(self, settings, parent=None):
+    def __init__(self, settings=None, parent=None):
         super().__init__(parent)
-        self.settings = settings
-        # Wir gehen davon aus, dass in settings der Schlüssel "recent_dirs" enthalten ist
-        self.recent_dirs = self.settings.get("recent_dirs", [])
-        if not self.recent_dirs:
-            self.recent_dirs = [QtCore.QDir.homePath()]
+        # Speichere das Settings-Dict (falls übergeben) oder ein leeres
+        self.settings = settings or {}
         self.current_folder = None
         self.init_ui()
 
@@ -32,10 +28,10 @@ class JSONExplorerWidget(QtWidgets.QWidget):
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(5)
 
-        # Oberer Bereich: Dropdown-Menü für Ordner und ein Browse-Button
+        # Oberer Bereich: Dropdown-Menü für Ordner + Browse-Button
         folder_layout = QtWidgets.QHBoxLayout()
         self.folder_combo = QtWidgets.QComboBox(self)
-        self.folder_combo.addItems(self.recent_dirs)
+        self.refresh_folder_combo()
         self.folder_combo.currentIndexChanged.connect(self.load_file_list)
         folder_layout.addWidget(self.folder_combo, stretch=1)
 
@@ -61,28 +57,33 @@ class JSONExplorerWidget(QtWidgets.QWidget):
 
         self.load_file_list()
 
-    def browse_for_folder(self):
+    def refresh_folder_combo(self):
         """
-        Öffnet einen Dateiauswahldialog, um einen neuen Ordner auszuwählen.
-        Wird ein Ordner ausgewählt, wird dieser in das Dropdown (an erster Stelle) eingefügt und
-        die Liste der JSON-Dateien neu geladen.
+        Lädt die aktuelle Liste der JSON-Verzeichnisse und befüllt das ComboBox-Menü.
         """
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Ordner auswählen", self.folder_combo.currentText())
-        if folder:
-            if folder not in self.recent_dirs:
-                self.recent_dirs.insert(0, folder)
-                self.folder_combo.insertItem(0, folder)
-                self.folder_combo.setCurrentIndex(0)
-            else:
-                idx = self.folder_combo.findText(folder)
-                self.folder_combo.setCurrentIndex(idx)
+        self.folder_combo.clear()
+        dirs = get_recent_json_dirs()
+        for d in dirs:
+            self.folder_combo.addItem(d)
 
-            self.settings["recent_dirs"] = self.recent_dirs
-            save_settings(self.settings)
+    def browse_for_folder(self):
+        # Start im aktuell ausgewählten Ordner oder Home
+        start_dir = self.folder_combo.currentText() or QtCore.QDir.homePath()
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Ordner auswählen", start_dir)
+        if folder:
+            update_recent_json_dirs(folder)
+            self.refresh_folder_combo()
+            idx = self.folder_combo.findText(folder)
+            if idx >= 0:
+                self.folder_combo.setCurrentIndex(idx)
             self.load_file_list()
+        else:
+            QtWidgets.QMessageBox.warning(self, "Warnung", "Kein gültiger Ordner ausgewählt.")
 
     def load_file_list(self):
-        """Lädt die JSON-Dateien aus dem aktuell ausgewählten Ordner."""
+        """
+        Lädt die JSON-Dateien aus dem aktuell ausgewählten Ordner und zeigt sie in self.file_list an.
+        """
         folder = self.folder_combo.currentText()
         self.current_folder = folder
         self.file_list.clear()
@@ -94,19 +95,23 @@ class JSONExplorerWidget(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Warnung", "Kein gültiger Ordner ausgewählt.")
 
     def open_selected_file(self):
-        """Öffnet den JSONEditorDialog für die ausgewählte JSON-Datei."""
+        """
+        Öffnet den JSONEditorDialog für die ausgewählte JSON-Datei.
+        """
         selected_items = self.file_list.selectedItems()
         if not selected_items:
             return
         filename = selected_items[0].text()
         full_path = os.path.join(self.current_folder, filename)
-        editor = JSONEditorDialog(full_path, parent=self)
-        editor.exec_()
+        if os.path.isfile(full_path):
+            editor = JSONEditorDialog(full_path, parent=self)
+            editor.exec_()
+        else:
+            QtWidgets.QMessageBox.warning(self, "Fehler", f"Datei nicht gefunden:\n{full_path}")
 
     def on_back(self):
         """
-        Optional: Wenn "Zurück" gedrückt wird, kann der Eltern-Widget-Index gesetzt werden.
-        Hier wird beispielsweise der QStackedWidget-Index auf 0 gesetzt.
+        Beispiel-Funktion: Wechselt im übergeordneten QStackedWidget zurück auf einen anderen Index.
         """
         parent_widget = self.parent()
         while parent_widget and not isinstance(parent_widget, QtWidgets.QStackedWidget):
@@ -115,10 +120,10 @@ class JSONExplorerWidget(QtWidgets.QWidget):
             parent_widget.setCurrentIndex(0)
 
 if __name__ == "__main__":
-    # Zum Testen des Widgets (direktes Ausführen)
     import sys
     app = QtWidgets.QApplication(sys.argv)
-    test_settings = {"recent_dirs": [os.path.expanduser("~")]}
-    widget = JSONExplorerWidget(test_settings)
+    # Beispiel: Wir simulieren ein Settings-Dict
+    test_settings = {}
+    widget = JSONExplorerWidget(settings=test_settings)
     widget.show()
     sys.exit(app.exec_())

@@ -1,0 +1,31 @@
+{
+    "id": "b0d16093-e9e4-4885-a5b9-484bab97e98e",
+    "name": "01 Grisebach Render",
+    "path": "/Volumes/File_01/__Hotfolder/_Render",
+    "monitor_dir": "/Volumes/File_01/__Hotfolder/_Render/01_Monitor",
+    "success_dir": "/Volumes/File_01/__Hotfolder/_Render/02_Success",
+    "fault_dir": "/Volumes/File_01/__Hotfolder/_Render/03_Fault",
+    "logfiles_dir": "/Volumes/File_01/__Hotfolder/_Render/04_Logfiles",
+    "contentcheck_enabled": true,
+    "required_layers": [
+        "Freisteller",
+        "Messwerte",
+        "Korrektur"
+    ],
+    "required_metadata": [
+        "author",
+        "description",
+        "keywords"
+    ],
+    "keyword_check_enabled": true,
+    "keyword_check_word": "Rueckseite",
+    "keyword_layers": [],
+    "keyword_metadata": [
+        "author",
+        "description"
+    ],
+    "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+    "additional_jsx": "",
+    "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025_dynamisch.jsx",
+    "body_visible": false
+}
