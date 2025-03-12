@@ -1,0 +1,9 @@
+{
+    "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025_dynamisch.jsx",
+    "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+    "actionFolderName": "Grisebach 2025",
+    "basicWandFiles": "Choose Folder...",
+    "csvWandFile": "",
+    "wandFileSavePath": "Choose Folder...",
+    "name": "01-Grisebach-Render"
+}

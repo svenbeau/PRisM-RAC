@@ -1,0 +1,9 @@
+{
+    "script_path": "GRIS_ReadWriteCSV_2025.jsx",
+    "json_folder": "Choose Folder...",
+    "actionFolderName": "Grisebach 2025",
+    "basicWandFiles": "Choose Folder...",
+    "csvWandFile": "/Volumes/File_01/_GRIS/01_dokumente/751/A751_Wandbilderliste_1_check2.csv",
+    "wandFileSavePath": "Choose Folder...",
+    "name": "02-Grisebach-CSV-WBL"
+}
