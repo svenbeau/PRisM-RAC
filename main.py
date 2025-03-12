@@ -10,7 +10,9 @@ from ui.hotfolder_widget import HotfolderListWidget
 from ui.logfile_widget import LogfileWidget
 from ui.json_explorer_widget import JSONExplorerWidget
 from ui.settings_widget import SettingsWidget
-from utils.log_manager import add_log_entry, load_global_log
+
+# Import ScriptRecipeListWidget
+from ui.script_recipe_list_widget import ScriptRecipeListWidget
 
 DEBUG_OUTPUT = True
 
@@ -30,20 +32,17 @@ class MainWindow(QtWidgets.QMainWindow):
         main_vlayout.setContentsMargins(5, 5, 5, 5)
         main_vlayout.setSpacing(5)
 
-        # Obere Leiste: Logo links, Debug-Button rechts
+        # (A) Obere Leiste: Logo links, Debug-Button rechts
         top_bar = QtWidgets.QHBoxLayout()
         top_bar.setContentsMargins(10, 5, 10, 5)
 
-        # Logo (linksbündig, 200x21px)
         logo_label = QtWidgets.QLabel()
-        # Verbesserte Pfadsuche für das Logo
         logo_paths = [
-            os.path.join("assets", "logo.png"),  # Relativer Pfad
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png"),  # Absoluter Pfad vom Skript
-            os.path.join(os.path.dirname(sys.executable), "assets", "logo.png"),  # Pfad vom Executable
-            os.path.join(os.path.abspath("."), "assets", "logo.png"),  # Aktuelles Arbeitsverzeichnis
+            os.path.join("assets", "logo.png"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png"),
+            os.path.join(os.path.dirname(sys.executable), "assets", "logo.png"),
+            os.path.join(os.path.abspath("."), "assets", "logo.png"),
         ]
-
         logo_found = False
         for logo_path in logo_paths:
             if os.path.exists(logo_path):
@@ -53,18 +52,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 logo_label.setPixmap(pixmap)
                 logo_found = True
                 break
-
         if not logo_found:
             debug_print("Logo konnte nicht gefunden werden. Gesuchte Pfade:")
             for path in logo_paths:
                 debug_print(f" - {path}")
             logo_label.setText("LOGO")
 
-        # Diese Zeilen sind wichtig für das Layout!
         top_bar.addWidget(logo_label, alignment=QtCore.Qt.AlignLeft)
         top_bar.addStretch()
 
-        # Debug-Button
         self.debug_toggle_btn = QtWidgets.QPushButton("Debug Stop")
         self.debug_toggle_btn.setCheckable(True)
         self.debug_toggle_btn.setChecked(True)
@@ -73,29 +69,45 @@ class MainWindow(QtWidgets.QMainWindow):
 
         main_vlayout.addLayout(top_bar)
 
-        # Hauptbereich (horizontal): Links Buttons, rechts StackedWidget
+        # (B) Hauptbereich (horizontal): Links Buttons, rechts StackedWidget
         main_hlayout = QtWidgets.QHBoxLayout()
         main_vlayout.addLayout(main_hlayout, stretch=1)
 
-        # Linke Buttons
         left_widget = QtWidgets.QWidget()
         left_vlayout = QtWidgets.QVBoxLayout(left_widget)
         left_vlayout.setContentsMargins(5, 5, 5, 5)
 
+        # === NEUE REIHENFOLGE ===
+        # 1) Hotfolder
         self.hotfolder_btn = QtWidgets.QPushButton("Hotfolder")
-        self.logfile_btn = QtWidgets.QPushButton("Logfile")
+
+        # 2) Script › Rezept
+        self.script_recipe_btn = QtWidgets.QPushButton("Script › Rezept")
+
+        # 3) JSON-Editor
         self.json_editor_btn = QtWidgets.QPushButton("JSON-Editor")
+
+        # 4) Einstellungen
         self.settings_btn = QtWidgets.QPushButton("Einstellungen")
 
+        # 5) FTP-Transfer
+        self.ftp_transfer_btn = QtWidgets.QPushButton("FTP-Transfer")
+
+        # 6) Logfile (optional)
+        self.logfile_btn = QtWidgets.QPushButton("Logfile")
+
+        # Füge sie in genau dieser Reihenfolge ins Layout ein:
         left_vlayout.addWidget(self.hotfolder_btn)
-        left_vlayout.addWidget(self.logfile_btn)
+        left_vlayout.addWidget(self.script_recipe_btn)
         left_vlayout.addWidget(self.json_editor_btn)
         left_vlayout.addWidget(self.settings_btn)
-        left_vlayout.addStretch()
+        left_vlayout.addWidget(self.ftp_transfer_btn)
+        left_vlayout.addWidget(self.logfile_btn)
 
+        left_vlayout.addStretch()
         main_hlayout.addWidget(left_widget, stretch=0)
 
-        # Rechter Bereich: StackedWidget
+        # Rechter Bereich: QStackedWidget
         self.stack = QtWidgets.QStackedWidget()
         main_hlayout.addWidget(self.stack, stretch=1)
 
@@ -103,9 +115,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hotfolder_list_widget = HotfolderListWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.hotfolder_list_widget)
 
-        # Widget 1: Logfile
-        self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
-        self.stack.addWidget(self.logfile_widget)
+        # Widget 1: ScriptRecipeListWidget
+        self.script_recipe_list_widget = ScriptRecipeListWidget(self.settings, parent=self.stack)
+        self.stack.addWidget(self.script_recipe_list_widget)
 
         # Widget 2: JSON Explorer
         self.json_explorer_widget = JSONExplorerWidget(self.settings, parent=self.stack)
@@ -115,14 +127,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.settings_widget)
 
+        # Widget 4: FTP-Transfer (Platzhalter)
+        self.ftp_transfer_widget = QtWidgets.QWidget()
+        ftp_layout = QtWidgets.QVBoxLayout(self.ftp_transfer_widget)
+        label_ftp = QtWidgets.QLabel("Hier könnte dein FTP-Transfer-Widget stehen...")
+        ftp_layout.addWidget(label_ftp)
+        self.stack.addWidget(self.ftp_transfer_widget)
+
+        # Widget 5: Logfile
+        self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
+        self.stack.addWidget(self.logfile_widget)
+
         # Standard: Hotfolder (Index 0)
         self.stack.setCurrentIndex(0)
 
-        # Button-Klicks
+        # (C) Button-Klicks => passender Stack-Index
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
-        self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
+        self.script_recipe_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.json_editor_btn.clicked.connect(lambda: self.stack.setCurrentIndex(2))
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(3))
+        self.ftp_transfer_btn.clicked.connect(lambda: self.stack.setCurrentIndex(4))
+        self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
 
     def toggle_debug(self):
         global DEBUG_OUTPUT
@@ -138,20 +163,14 @@ class MainWindow(QtWidgets.QMainWindow):
         save_settings(self.settings)
         super().closeEvent(event)
 
-
 def main():
     app = QtWidgets.QApplication(sys.argv)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
 
-
 def run():
-    """
-    Diese Funktion wird vom Wrapper aufgerufen und startet die Anwendung.
-    Sie dient als Einstiegspunkt für die kompilierte Version.
-    """
-    print("PRisM-RAC wird gestartet...")
+    print("PRisM-CC wird gestartet...")
     try:
         app = QtWidgets.QApplication(sys.argv)
         win = MainWindow()
@@ -160,7 +179,6 @@ def run():
     except Exception as e:
         print(f"Fehler beim Starten der Anwendung: {e}")
         return 1
-
 
 if __name__ == "__main__":
     main()

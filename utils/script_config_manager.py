@@ -1,158 +1,101 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Script Config Manager for PRisM-RAC.
-Handles loading and saving script_config.json in the config/ folder.
-Optionally can list Photoshop Action Sets via ExtendScript.
-"""
-
 import os
 import json
-import subprocess
-import sys
-
-DEBUG_OUTPUT = True
-
-def debug_print(msg):
-    if DEBUG_OUTPUT:
-        print("[DEBUG]", msg)
-
-# Ursprünglicher Basisordner (Projektverzeichnis):
-BASE_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")
-)
-
-# Ursprüngliche, jetzt ungenutzte Konstante:
-SCRIPT_CONFIG_FILE = os.path.join(BASE_DIR, "config", "script_config.json")
-debug_print(f"BASE_DIR: {BASE_DIR}")
-debug_print(f"Script Config File (UNUSED) would be: {SCRIPT_CONFIG_FILE}")
-
-# NEU: Wir verwenden get_config_path aus path_manager,
-# um ~/Library/Application Support/PRisM-CC/config/script_config.json zu erhalten.
+import uuid
 from utils.path_manager import get_config_path
 
-def load_script_config(settings):
+DEBUG_OUTPUT = True
+def debug_print(msg):
+    if DEBUG_OUTPUT:
+        print("[DEBUG script_config_manager]", msg)
+
+class ScriptConfigManager:
     """
-    Lädt die script_config.json. Falls nicht vorhanden, gibt es ein Grundgerüst zurück.
-    Die Einträge liegen üblicherweise in data["scripts"], z. B.:
-    {
-      "scripts": [
-        {
-          "script_path": "...",
-          "json_folder": "...",
-          "actionFolderName": "...",
-          "basicWandFiles": "...",
-          "csvWandFile": "...",
-          "wandFileSavePath": "..."
-        }
-      ]
-    }
-
-    settings (dict): Falls du aus den allgemeinen Einstellungen (settings.json)
-                     einen alternativen Pfad lesen willst, könntest du hier
-                     "SCRIPT_CONFIG_PATH" auswerten.
+    Verwalten von Script-Konfigurationen (script_config.json).
+    Jeder Eintrag besitzt eine 'id', damit wir analog zu Hotfoldern
+    Update und Remove auf Basis der ID durchführen können.
     """
-    # 1) Prüfe, ob in settings ein Override-Pfad steht (z.B. "SCRIPT_CONFIG_PATH").
-    override_path = settings.get("SCRIPT_CONFIG_PATH", "")
-    if override_path:
-        config_file = override_path
-        debug_print(f"Using override script_config path: {config_file}")
-    else:
-        # 2) Ansonsten verwenden wir den NEUEN Pfad in ~/Library/Application Support/PRisM-CC/config/
-        config_file = get_config_path()
-        debug_print(f"No override path. Using get_config_path(): {config_file}")
+    def __init__(self):
+        self.config_file = self._get_script_config_path()
+        self.data = {"scripts": []}
+        self.load_data()
 
-    if not os.path.isfile(config_file):
-        debug_print(f"script_config.json not found at {config_file}, returning default.")
-        return {"scripts": []}
+    def _get_script_config_path(self):
+        """
+        Gibt den Pfad zurück zu ~/Library/Application Support/PRisM-CC/config/script_config.json
+        """
+        return get_config_path()  # Falls du denselben Pfad wie hotfolder_config.json nutzt,
+                                  # aber eben 'script_config.json' als Dateinamen
 
-    try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        debug_print("Script Config loaded successfully.")
-        return data
-    except Exception as e:
-        debug_print(f"Error loading script_config from {config_file}: {e}")
-        return {"scripts": []}
-
-def save_script_config(data, settings):
-    """
-    Speichert das Dictionary data in script_config.json (oder Override).
-    """
-    override_path = settings.get("SCRIPT_CONFIG_PATH", "")
-    if override_path:
-        config_file = override_path
-        debug_print(f"Using override script_config path for saving: {config_file}")
-    else:
-        # Neuer Pfad via get_config_path():
-        config_file = get_config_path()
-        debug_print(f"No override path. Saving to {config_file}")
-
-    try:
-        with open(config_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
-        debug_print("Script configuration saved.")
-    except Exception as e:
-        debug_print(f"Error saving script_config.json: {e}")
-
-
-# Optional: ExtendScript-Aufruf, um Photoshop-Action-Sets auszulesen.
-def list_photoshop_action_sets():
-    """
-    Ruft ein ExtendScript-Snippet auf, das die vorhandenen ActionSets in Photoshop
-    ausliest und als JSON-String zurückgibt.
-    Gibt eine Python-Liste mit Strings zurück, z.B. ["Grisebach 2025", "Standard Actions", ...].
-    """
-    jsx_code = r'''
-#target photoshop
-
-function getActionSetsJSON() {
-    // Polyfill falls JSON fehlt:
-    if (typeof JSON === 'undefined') {
-        // minimaler Polyfill
-        JSON = {};
-        JSON.stringify = function(obj){/*...*/ return "[\"Custom Actions\"]";}; 
-        // Falls man in Photoshop 2025 ggf. modernere JSON-Features hat, kann man das weglassen
-    }
-
-    var sets = [];
-    var count = app.actionSets.length;
-    for (var i = 0; i < count; i++) {
-        sets.push(app.actionSets[i].name);
-    }
-    return JSON.stringify(sets);
-}
-
-var result = getActionSetsJSON();
-$.writeln(result);
-'''
-    try:
-        import tempfile
-        tmp_jsx = tempfile.NamedTemporaryFile(delete=False, suffix=".jsx", mode="w", encoding="utf-8")
-        tmp_jsx.write(jsx_code)
-        tmp_jsx.close()
-
-        safe_path = tmp_jsx.name.replace('"','\\"')
-        apple_script = f'''tell application "Adobe Photoshop 2025"
-    do javascript "{safe_path}"
-end tell
-'''
-        result = subprocess.run(["osascript", "-e", apple_script],
-                                capture_output=True, text=True, timeout=10)
-        stdout = result.stdout.strip()
-        stderr = result.stderr.strip()
-        debug_print(f"list_photoshop_action_sets stdout: {stdout}")
-        debug_print(f"list_photoshop_action_sets stderr: {stderr}")
-        if result.returncode != 0:
-            debug_print(f"Error in list_photoshop_action_sets, rc={result.returncode}")
-        # Versuch, stdout als JSON zu interpretieren:
-        import json
-        sets_list = json.loads(stdout)
-        if isinstance(sets_list, list):
-            return sets_list
+    def load_data(self):
+        """Lädt das JSON aus script_config.json."""
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, "r", encoding="utf-8") as f:
+                    self.data = json.load(f)
+                # Falls 'scripts' fehlt, legen wir eine leere Liste an
+                if "scripts" not in self.data:
+                    self.data["scripts"] = []
+            except Exception as e:
+                debug_print(f"Fehler beim Laden von {self.config_file}: {e}")
+                self.data = {"scripts": []}
         else:
-            return []
-    except Exception as e:
-        debug_print(f"Exception in list_photoshop_action_sets: {e}")
-        return ["Grisebach 2025","Standard Actions","Custom Actions"]
+            # Falls die Datei nicht existiert, legen wir sie an
+            self.save_data()
+
+    def save_data(self):
+        """Speichert self.data in script_config.json."""
+        try:
+            with open(self.config_file, "w", encoding="utf-8") as f:
+                json.dump(self.data, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            debug_print(f"Fehler beim Speichern von {self.config_file}: {e}")
+
+    def get_scripts(self):
+        """Gibt die Liste aller Scripts zurück."""
+        return self.data.get("scripts", [])
+
+    def get_script_by_id(self, script_id):
+        """Liefert das Script-Dict mit passender ID oder None."""
+        for s in self.data.get("scripts", []):
+            if s.get("id") == script_id:
+                return s
+        return None
+
+    def add_script(self, script_dict):
+        """
+        Fügt ein neues Script-Dict hinzu. Falls keine 'id' vorhanden ist,
+        erzeugen wir eine. Speichert anschließend.
+        """
+        if not script_dict.get("id"):
+            script_dict["id"] = str(uuid.uuid4())
+            debug_print(f"add_script: Keine ID vorhanden, neu erzeugt: {script_dict['id']}")
+        self.data.setdefault("scripts", []).append(script_dict)
+        self.save_data()
+        debug_print(f"Script mit ID={script_dict['id']} hinzugefügt.")
+
+    def update_script(self, script_id, updated_dict):
+        """
+        Aktualisiert ein Script mit passender ID, wenn vorhanden.
+        Falls nicht gefunden, wird nichts angelegt.
+        """
+        scripts = self.data.get("scripts", [])
+        for i, s in enumerate(scripts):
+            if s.get("id") == script_id:
+                scripts[i] = updated_dict
+                debug_print(f"Script mit ID={script_id} aktualisiert.")
+                self.save_data()
+                return
+        debug_print(f"update_script: Kein Script mit ID={script_id} gefunden. Keine Aktualisierung erfolgt.")
+
+    def remove_script(self, script_id):
+        """
+        Entfernt das Script mit der passenden ID.
+        """
+        old_len = len(self.data.get("scripts", []))
+        self.data["scripts"] = [s for s in self.data.get("scripts", []) if s.get("id") != script_id]
+        new_len = len(self.data["scripts"])
+        self.save_data()
+        debug_print(f"remove_script: ID={script_id}, entfernt: {old_len - new_len} Eintrag(e).")
