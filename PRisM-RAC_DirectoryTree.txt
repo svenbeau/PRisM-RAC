@@ -1,3 +1,4 @@
+PRisM-RAC
 ├── ./Compiler.txt
 ├── ./PRisM-RAC_DirectoryTree.txt
 ├── ./PRisM-RAC_arm64.spec
@@ -116,6 +117,11 @@
 ├── ./temp
 ├── ./ui
 │   ├── ./ui/__init__.py
+│   ├── ./ui/ftp_plan_dialog.py
+│   ├── ./ui/ftp_plan_widget.py
+│   ├── ./ui/ftp_schedule_widget.py
+│   ├── ./ui/ftp_server_manager_dialog.py
+│   ├── ./ui/ftp_transfer_widget.py
 │   ├── ./ui/hotfolder_config.py
 │   ├── ./ui/hotfolder_widget.py
 │   ├── ./ui/json_editor.py
@@ -129,14 +135,22 @@
 │   ├── ./ui/script_recipe_dialog.py
 │   ├── ./ui/script_recipe_list_widget.py
 │   ├── ./ui/script_recipe_widget.py
-│   └── ./ui/settings_widget.py
+│   ├── ./ui/settings_widget.py
+│   ├── ./ui/transfer_plan_dialog.py
+│   ├── ./ui/transfer_plan_list_widget.py
+│   └── ./ui/transfer_plan_widget.py
 ├── ./utils
 │   ├── ./utils/__init__.py
 │   ├── ./utils/config_manager.py
+│   ├── ./utils/ftp_manager.py
 │   ├── ./utils/hotfolder_config.py
 │   ├── ./utils/log_exporter.py
 │   ├── ./utils/log_manager.py
 │   ├── ./utils/path_manager.py
+│   ├── ./utils/prism_scheduled_transfer.py
 │   ├── ./utils/script_config_manager.py
+│   ├── ./utils/smtp_test.py
+│   ├── ./utils/transfer_plan_config_manager.py
+│   ├── ./utils/transfer_plan_manager.py
 │   └── ./utils/utils.py
 └── ./wrapper.py
