@@ -290,3 +290,13 @@ def save_smtp_settings(data):
     except Exception as e:
         debug_print(f"Error saving {SMTP_SETTINGS_FILE}: {e}")
 
+#
+# ========== NEU: Pfad für Transfer-Info (mail_transfer_info.json) ==========
+#
+def get_mail_transfer_info_path():
+    """
+    Gibt den Pfad zu mail_transfer_info.json zurück und legt den Ordner bei Bedarf an.
+    """
+    path = os.path.expanduser("~/Library/Application Support/PRisM-CC/mail_transfer_info.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
