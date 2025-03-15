@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
 import json
 from utils.path_manager import get_settings_path
@@ -163,11 +166,13 @@ def update_recent_json_dirs(new_dir):
     save_settings(settings)
 
 #
-# ========== SMTP-Einstellungen (Optional) ==========
+# ========== SMTP-Einstellungen (derzeit in settings.json) ==========
 #
 def get_smtp_settings():
     """
-    Gibt ein Dictionary mit SMTP-Einstellungen zurück.
+    Gibt ein Dictionary mit SMTP-Einstellungen zurück, das in settings.json steht.
+    Falls du SMTP in eine separate Datei auslagern möchtest, kannst du stattdessen
+    load_smtp_settings() (siehe unten) verwenden.
     """
     settings = load_settings()
     smtp_conf = settings.get("smtp_settings", {})
@@ -242,3 +247,46 @@ def save_ftp_servers(servers):
     os.makedirs(os.path.dirname(FTP_SERVERS_FILE), exist_ok=True)
     with open(FTP_SERVERS_FILE, "w", encoding="utf-8") as f:
         json.dump(servers, f, indent=2)
+
+#
+# ========== NEU: SMTP-Einstellungen in separater Datei smtp_settings.json (optional) ==========
+#
+SMTP_SETTINGS_FILE = os.path.expanduser("~/Library/Application Support/PRisM-CC/smtp_settings.json")
+
+def load_smtp_settings():
+    """
+    Lädt die SMTP-Einstellungen aus smtp_settings.json.
+    Wenn die Datei nicht existiert oder defekt ist, werden Default-Werte zurückgegeben.
+    """
+    if not os.path.exists(SMTP_SETTINGS_FILE):
+        return {
+            "enabled": False,
+            "host": "",
+            "port": 587,
+            "user": "",
+            "notify_email": ""
+        }
+    try:
+        with open(SMTP_SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        debug_print(f"Error reading {SMTP_SETTINGS_FILE}: {e}")
+        return {
+            "enabled": False,
+            "host": "",
+            "port": 587,
+            "user": "",
+            "notify_email": ""
+        }
+
+def save_smtp_settings(data):
+    """
+    Speichert die SMTP-Einstellungen in smtp_settings.json.
+    """
+    os.makedirs(os.path.dirname(SMTP_SETTINGS_FILE), exist_ok=True)
+    try:
+        with open(SMTP_SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        debug_print(f"Error saving {SMTP_SETTINGS_FILE}: {e}")
+

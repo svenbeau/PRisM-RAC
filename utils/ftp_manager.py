@@ -25,10 +25,9 @@ except ImportError:
 import ftplib  # Für (S)FTP (Plain FTP)
 
 from utils.config_manager import (
-    get_smtp_settings,
-    get_ftp_transfer_log_path,  # Neuer Logfile-Pfad
-    load_settings,
-    save_settings,
+    load_settings,            # Für FTP-Einstellungen (settings.json)
+    load_smtp_settings,       # NEU: SMTP aus smtp_settings.json
+    get_ftp_transfer_log_path,
     debug_print
 )
 
@@ -45,19 +44,17 @@ class FTPManager:
       - Logging in ftptransfer_log.json (JSON)
       - E-Mail/Notification bei Fehler
       - ggf. Timestamp-Erhaltung
-      - NEU: Setzt encoding='latin-1' für FTP, um Sonderzeichen zu dekodieren.
-      - NEU: Erhöhte Timeout-Werte (30 sec beim Connect, 60 sec beim Download).
-      - NEU: Remote-Verzeichnis erstellen, um 426-Fehler zu vermeiden.
-      - NEU: Methoden zum Erstellen, Umbenennen und Löschen von Remote-Dateien/Ordnern.
+      - Remote-Verzeichnis erstellen (ensure_remote_directory)
+      - Methoden zum Erstellen, Umbenennen, Löschen von Remote-Dateien/Ordnern
     """
 
     def __init__(self):
+        # 1) FTP-Einstellungen => aus settings.json
         self.settings = load_settings()
         self.ftp_protocol = self.settings.get("ftp_protocol", "ftp")  # "ftp" oder "sftp"
         self.host = self.settings.get("ftp_host", "")
         self.user = self.settings.get("ftp_user", "")
         self.password = None
-        # Standard-Port: 21 für FTP, 22 für SFTP
         self.port = 21
         if self.ftp_protocol == "sftp":
             self.port = 22
@@ -65,12 +62,14 @@ class FTPManager:
         self.versioning_mode = self.settings.get("versioning_mode", "mirror")
         self.keep_timestamp = self.settings.get("keep_timestamp", False)
 
-        smtp_conf = get_smtp_settings()
+        # 2) SMTP-Einstellungen => aus smtp_settings.json
+        smtp_conf = load_smtp_settings()  # <-- statt get_smtp_settings()
         self.smtp_enabled = smtp_conf.get("enabled", False)
         self.smtp_host = smtp_conf.get("host", "")
         self.smtp_port = smtp_conf.get("port", 587)
         self.smtp_user = smtp_conf.get("user", "")
-        self.smtp_pass_key = smtp_conf.get("pass_key", "")
+        # pass_key ist hier optional; wir holen das Passwort später aus dem Keyring
+        # Falls du pass_key in smtp_settings.json haben willst, könntest du es hier abrufen
         self.notify_email = smtp_conf.get("notify_email", "")
 
     def _load_password_from_keyring(self):
@@ -85,15 +84,13 @@ class FTPManager:
     def connect(self):
         """Baut je nach Protocol (FTP oder SFTP) eine Verbindung auf."""
         self._load_password_from_keyring()
-
         debug_print(f"Versuche {self.ftp_protocol.upper()}-Connect zu {self.host}:{self.port}, user={self.user}")
 
         if self.ftp_protocol == "ftp":
             self.conn = ftplib.FTP()
-            self.conn.connect(self.host, self.port, timeout=30)  # Timeout 30 sec
+            self.conn.connect(self.host, self.port, timeout=30)
             self.conn.login(self.user, self.password)
             self.conn.set_pasv(True)
-            # Setze das Socket-Timeout nach dem Login auf 30 sec
             if hasattr(self.conn, "sock") and self.conn.sock:
                 self.conn.sock.settimeout(30)
             self.conn.encoding = "latin-1"
@@ -121,11 +118,9 @@ class FTPManager:
             debug_print("Verbindung geschlossen.")
 
     def ensure_remote_directory(self, remote_dir):
-        """
-        Stellt sicher, dass das Remote-Verzeichnis existiert.
-        Falls nicht, wird es rekursiv erstellt.
-        """
+        """Stellt sicher, dass das Remote-Verzeichnis existiert (rekursiv)."""
         if self.ftp_protocol == "ftp":
+            import ftplib
             try:
                 self.conn.cwd(remote_dir)
             except ftplib.error_perm:
@@ -140,7 +135,8 @@ class FTPManager:
                             self.conn.mkd(cwd)
                         except Exception as e:
                             debug_print(f"Fehler beim Erstellen des Ordners {cwd}: {e}")
-        elif self.ftp_protocol == "sftp":
+        else:
+            # sftp
             try:
                 self.conn.chdir(remote_dir)
             except IOError:
@@ -154,12 +150,7 @@ class FTPManager:
                         self.conn.mkdir(cwd)
 
     def _listdir_ftp(self, remote_path):
-        """
-        Listet Dateien/Ordner auf remote_path via FTP.
-        Gibt eine Liste von (name, is_dir, size, mod_time_str) zurück.
-        """
         items = []
-
         def parse_line(line):
             parts = line.split()
             if len(parts) < 9:
@@ -169,12 +160,11 @@ class FTPManager:
             is_dir = line.startswith("d")
             mod_time_str = f"{parts[5]} {parts[6]} {parts[7]}"
             items.append((name, is_dir, size, mod_time_str))
-
         self.conn.retrlines(f"LIST {remote_path}", parse_line)
         return items
 
     def _listdir_sftp(self, remote_path):
-        sftp = self.conn  # paramiko.SFTPClient
+        sftp = self.conn
         filelist = []
         for f in sftp.listdir_attr(remote_path):
             name = f.filename
@@ -206,7 +196,7 @@ class FTPManager:
                 pass
 
     def _upload_file_sftp(self, local_path, remote_path):
-        sftp = self.conn  # paramiko.SFTPClient
+        sftp = self.conn
         sftp.put(local_path, remote_path)
         if self.keep_timestamp:
             atime = os.path.getatime(local_path)
@@ -232,9 +222,7 @@ class FTPManager:
         except Exception:
             pass
 
-        # Sicherstellen, dass das Remote-Verzeichnis existiert
         self.ensure_remote_directory(remote_dir)
-
         if self.ftp_protocol == "ftp":
             self._upload_file_ftp(local_path, remote_path)
         else:
@@ -245,10 +233,8 @@ class FTPManager:
     def download_file(self, remote_path, local_dir):
         filename = os.path.basename(remote_path)
         local_path = os.path.join(local_dir, filename)
-
         if self.ftp_protocol == "ftp":
             try:
-                # Timeout für den Download erhöhen (auf 60 sec)
                 if hasattr(self.conn, "sock") and self.conn.sock:
                     old_timeout = self.conn.sock.gettimeout()
                     self.conn.sock.settimeout(60)
@@ -279,7 +265,6 @@ class FTPManager:
                     entries = json.load(lf)
             except:
                 entries = []
-
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         last_index = 0
         for e in entries:
@@ -292,7 +277,6 @@ class FTPManager:
                     pass
         new_index = last_index + 1
         idx_str = f"{new_index:07d}"
-
         new_entry = {
             "index": idx_str,
             "timestamp": now_str,
@@ -301,15 +285,16 @@ class FTPManager:
             "target": target
         }
         entries.append(new_entry)
-
         os.makedirs(os.path.dirname(logfile_path), exist_ok=True)
         with open(logfile_path, "w", encoding="utf-8") as lf:
             json.dump(entries, lf, indent=2)
 
     def send_failure_notification(self, error_message):
+        # macOS-Notification
         if platform.system() == "Darwin" and pync is not None:
             pync.notify(f"FTP-Transfer fehlgeschlagen: {error_message}", title="PRisM-RAC")
 
+        # SMTP-Fehlermeldung
         if self.smtp_enabled and self.notify_email:
             smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
             if smtp_pass is None:
@@ -332,7 +317,6 @@ class FTPManager:
     # --- Neue Methoden für Remote File Management ---
 
     def mkdir_remote(self, remote_path):
-        """Erstellt ein Remote-Verzeichnis."""
         if self.ftp_protocol == "ftp":
             try:
                 self.conn.mkd(remote_path)
@@ -347,7 +331,6 @@ class FTPManager:
             raise TransferError("Unbekanntes Protokoll")
 
     def rename_remote(self, old_path, new_path):
-        """Benennt eine Remote-Datei oder einen Ordner um."""
         if self.ftp_protocol == "ftp":
             try:
                 self.conn.rename(old_path, new_path)
@@ -362,7 +345,6 @@ class FTPManager:
             raise TransferError("Unbekanntes Protokoll")
 
     def delete_remote_file(self, remote_path):
-        """Löscht eine Remote-Datei."""
         if self.ftp_protocol == "ftp":
             try:
                 self.conn.delete(remote_path)
@@ -377,7 +359,6 @@ class FTPManager:
             raise TransferError("Unbekanntes Protokoll")
 
     def delete_remote_directory(self, remote_path):
-        """Löscht ein Remote-Verzeichnis."""
         if self.ftp_protocol == "ftp":
             try:
                 self.conn.rmd(remote_path)

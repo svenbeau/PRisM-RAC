@@ -10,7 +10,9 @@ from utils.config_manager import (
     debug_print,
     load_settings,
     save_settings,
-    load_ftp_servers
+    load_ftp_servers,
+    load_smtp_settings,
+    save_smtp_settings
 )
 from utils.ftp_manager import FTPManager, TransferError
 from ui.ftp_server_manager_dialog import FtpServerManagerDialog
@@ -68,7 +70,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
       - "Saved Servers"-Dropdown (aus ftp_servers.json)
       - Buttons: Refresh, Up, Neuer Ordner, Umbenennen, Löschen, Upload, Download
       - Lokaler RootPath "/Volumes" (auf macOS) als Ausgangspunkt – der aktuelle lokale Zielpfad wird über Klick in der TreeView aktualisiert.
-      - Interaktive Abfrage bei Dateikonflikten (Überschreiben, Suffix oder Abbrechen)
+      - Interaktive Abfrage bei Dateikonflikt (Überschreiben, Suffix oder Abbrechen)
 
       **Hinweis:**
       Aktuell werden nur Dateien transferiert. Verzeichnisse (Ordner) werden übersprungen –
@@ -77,7 +79,12 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # 1) FTP-Einstellungen: laden wir weiterhin aus settings.json
         self.settings = load_settings()
+
+        # 2) SMTP-Einstellungen: laden wir jetzt aus smtp_settings.json
+        self.smtp_settings = load_smtp_settings()
+
         self.ftp = None
         self.current_remote_path = "/"
         self.remote_items_all = []
@@ -178,12 +185,12 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
         main_layout.addWidget(smtp_group)
 
-        smtp_conf = self.settings.get("smtp_settings", {})
-        self.smtp_enabled_check.setChecked(smtp_conf.get("enabled", False))
-        self.smtp_host_edit.setText(smtp_conf.get("host", ""))
-        self.smtp_port_spin.setValue(smtp_conf.get("port", 587))
-        self.smtp_user_edit.setText(smtp_conf.get("user", ""))
-        self.notify_email_edit.setText(smtp_conf.get("notify_email", ""))
+        # 3) SMTP-Werte (neu: aus self.smtp_settings)
+        self.smtp_enabled_check.setChecked(self.smtp_settings.get("enabled", False))
+        self.smtp_host_edit.setText(self.smtp_settings.get("host", ""))
+        self.smtp_port_spin.setValue(self.smtp_settings.get("port", 587))
+        self.smtp_user_edit.setText(self.smtp_settings.get("user", ""))
+        self.notify_email_edit.setText(self.smtp_settings.get("notify_email", ""))
 
         line = QtWidgets.QFrame()
         line.setFrameShape(QtWidgets.QFrame.HLine)
@@ -223,7 +230,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.local_view.setRootIndex(self.local_proxy.mapFromSource(index_volumes))
         self.local_view.setColumnWidth(0, 250)
         self.local_view.setSortingEnabled(True)
-        # Hier SelectionMode Extended für Mehrfachauswahl setzen
         self.local_view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.local_view.clicked.connect(self.on_local_item_clicked)
 
@@ -249,14 +255,11 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.remote_list.setColumnCount(4)
         self.remote_list.setHeaderLabels(["Name", "Size", "Kind", "Modified"])
         self.remote_list.setSortingEnabled(True)
-        # Feste Spaltenbreite für Spalte 0 (Name) auf 400 Pixel
         self.remote_list.setColumnWidth(0, 400)
-        # Mehrfache Auswahl aktivieren
         self.remote_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.remote_list.itemDoubleClicked.connect(self.enter_remote_dir)
         right_layout.addWidget(self.remote_list, stretch=1)
 
-        # Zusätzliche Buttons für Remote-Verwaltung
         rm_btn_layout = QtWidgets.QHBoxLayout()
         self.new_folder_btn = QtWidgets.QPushButton("Neuer Ordner")
         self.new_folder_btn.clicked.connect(self.create_remote_folder)
@@ -691,6 +694,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
     # ----------------------------------------
     def save_settings_slot(self):
         debug_print("save_settings_slot() aufgerufen")
+        # 1) FTP-Einstellungen => in self.settings (settings.json)
         self.settings["ftp_protocol"] = self.protocol_combo.currentText()
         self.settings["ftp_host"] = self.host_edit.text().strip()
         self.settings["ftp_user"] = self.user_edit.text().strip()
@@ -705,18 +709,20 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.settings["keep_timestamp"] = self.keep_ts_check.isChecked()
         self.settings["versioning_mode"] = self.version_combo.currentText()
 
-        smtp_conf = {
-            "enabled": self.smtp_enabled_check.isChecked(),
-            "host": self.smtp_host_edit.text().strip(),
-            "port": self.smtp_port_spin.value(),
-            "user": self.smtp_user_edit.text().strip(),
-            "notify_email": self.notify_email_edit.text().strip()
-        }
-        self.settings["smtp_settings"] = smtp_conf
-
         debug_print("save_settings_slot(): save_settings(self.settings)")
         save_settings(self.settings)
 
+        # 2) SMTP-Einstellungen => in self.smtp_settings (smtp_settings.json)
+        self.smtp_settings["enabled"] = self.smtp_enabled_check.isChecked()
+        self.smtp_settings["host"] = self.smtp_host_edit.text().strip()
+        self.smtp_settings["port"] = self.smtp_port_spin.value()
+        self.smtp_settings["user"] = self.smtp_user_edit.text().strip()
+        self.smtp_settings["notify_email"] = self.notify_email_edit.text().strip()
+
+        debug_print("save_settings_slot(): save_smtp_settings(self.smtp_settings)")
+        save_smtp_settings(self.smtp_settings)
+
+        # 3) Passwörter in den Keyring
         current_user = self.user_edit.text().strip()
         new_pass = self.pass_edit.text().strip()
         if new_pass and current_user:
