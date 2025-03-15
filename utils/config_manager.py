@@ -161,3 +161,84 @@ def update_recent_json_dirs(new_dir):
         settings["recent_json_dirs"].insert(0, new_dir)
         settings["recent_json_dirs"] = settings["recent_json_dirs"][:10]
     save_settings(settings)
+
+#
+# ========== SMTP-Einstellungen (Optional) ==========
+#
+def get_smtp_settings():
+    """
+    Gibt ein Dictionary mit SMTP-Einstellungen zurück.
+    """
+    settings = load_settings()
+    smtp_conf = settings.get("smtp_settings", {})
+    return {
+        "enabled": smtp_conf.get("enabled", False),
+        "host": smtp_conf.get("host", ""),
+        "port": smtp_conf.get("port", 25),
+        "user": smtp_conf.get("user", ""),
+        "pass_key": smtp_conf.get("pass_key", ""),
+        "notify_email": smtp_conf.get("notify_email", "")
+    }
+
+#
+# ========== Pfad für FTP-Log (ftptransfer_log.json) ==========
+#
+def get_ftp_transfer_log_path():
+    """
+    Gibt den Pfad zu ftptransfer_log.json zurück und legt den Ordner an, falls nötig.
+    """
+    log_file = os.path.expanduser("~/Library/Application Support/PRisM-CC/ftptransfer_log.json")
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    return log_file
+
+#
+# ========== Backup-Pläne für ftp_schedule_widget ==========
+#
+BACKUP_PLANS_FILE = os.path.expanduser("~/Library/Application Support/PRisM-CC/backup_plans.json")
+
+def load_all_backup_plans():
+    """
+    Lädt das gesamte Array aus backup_plans.json.
+    Gibt [] zurück, wenn nichts vorhanden oder Datei defekt.
+    """
+    if not os.path.exists(BACKUP_PLANS_FILE):
+        return []
+    try:
+        with open(BACKUP_PLANS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_all_backup_plans(plans):
+    """
+    Überschreibt backup_plans.json mit dem übergebenen Array 'plans'.
+    """
+    os.makedirs(os.path.dirname(BACKUP_PLANS_FILE), exist_ok=True)
+    with open(BACKUP_PLANS_FILE, "w", encoding="utf-8") as f:
+        json.dump(plans, f, indent=2)
+
+#
+# ========== FTP-Servers in eigener Datei (ftp_servers.json) ==========
+#
+FTP_SERVERS_FILE = os.path.expanduser("~/Library/Application Support/PRisM-CC/ftp_servers.json")
+
+def load_ftp_servers():
+    """
+    Lädt die Liste der FTP-Server aus ftp_servers.json.
+    Gibt eine Liste von Dictionaries zurück.
+    """
+    if not os.path.exists(FTP_SERVERS_FILE):
+        return []
+    try:
+        with open(FTP_SERVERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_ftp_servers(servers):
+    """
+    Speichert die Liste der FTP-Server in ftp_servers.json.
+    """
+    os.makedirs(os.path.dirname(FTP_SERVERS_FILE), exist_ok=True)
+    with open(FTP_SERVERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(servers, f, indent=2)

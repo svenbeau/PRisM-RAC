@@ -5,18 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Script - Rezept Ansicht neu">
+      <change afterPath="$PROJECT_DIR$/ui/ftp_schedule_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/ftp_server_manager_dialog.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/ftp_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/prism_scheduled_transfer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Compiler.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Compiler.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/Analysis-00.toc" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/Analysis-00.toc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/EXE-00.toc" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/EXE-00.toc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PKG-00.toc" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PKG-00.toc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PRisM-CC.pkg" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PRisM-CC.pkg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PYZ-00.pyz" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PYZ-00.pyz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PYZ-00.toc" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PYZ-00.toc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/base_library.zip" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/base_library.zip" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/xref-PRisM-RAC_arm64.html" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/xref-PRisM-RAC_arm64.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/PRisM-CC" beforeDir="false" afterPath="$PROJECT_DIR$/dist/PRisM-CC" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/PRisM-CC.app/Contents/MacOS/PRisM-CC" beforeDir="false" afterPath="$PROJECT_DIR$/dist/PRisM-CC.app/Contents/MacOS/PRisM-CC" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/config_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,6 +47,9 @@
     &quot;accountId&quot;: &quot;ad371093-4476-432a-86de-3f00b33e749b&quot;
   }
 }</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/main.py" root0="FORCE_HIGHLIGHTING" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
@@ -61,25 +61,25 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
-    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.hotfolder_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_explorer_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
-    &quot;Python.script_config_manager.executor&quot;: &quot;Run&quot;,
-    &quot;Python.settings_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.start.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;stable-v14&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.hotfolder_config.executor": "Run",
+    "Python.hotfolder_monitor.executor": "Run",
+    "Python.hotfolder_widget.executor": "Run",
+    "Python.json_editor.executor": "Run",
+    "Python.json_explorer.executor": "Run",
+    "Python.json_explorer_widget.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.main_window.executor": "Run",
+    "Python.script_config_manager.executor": "Run",
+    "Python.settings_widget.executor": "Run",
+    "Python.start.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "stable-v15",
+    "settings.editor.selected.configurable": "preferences.lookFeel"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/utils" />
@@ -101,14 +101,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00006" summary="Contentcheck funktioniert">
-      <option name="closed" value="true" />
-      <created>1740238911411</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1740238911411</updated>
     </task>
     <task id="LOCAL-00007" summary="Contentcheck funktioniert">
       <option name="closed" value="true" />
@@ -494,7 +486,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741944662325</updated>
     </task>
-    <option name="localTasksCounter" value="55" />
+    <task id="LOCAL-00055" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1742021079544</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1742021079544</updated>
+    </task>
+    <option name="localTasksCounter" value="56" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

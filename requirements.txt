@@ -9,4 +9,7 @@ seaborn>=0.11.1
 watchdog>=2.1.6
 PySide6
 pyinstaller
+keyring
 ## PyQt6>=6.4.0 pip uninstall PyQt6
+
+##pip install -r requirements.txt

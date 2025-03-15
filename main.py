@@ -10,9 +10,11 @@ from ui.hotfolder_widget import HotfolderListWidget
 from ui.logfile_widget import LogfileWidget
 from ui.json_explorer_widget import JSONExplorerWidget
 from ui.settings_widget import SettingsWidget
-
-# Import ScriptRecipeListWidget
+from ui.ftp_transfer_widget import FtpTransferWidget  # ECHTES Widget
 from ui.script_recipe_list_widget import ScriptRecipeListWidget
+
+# NEU: Import FtpScheduleWidget
+from ui.ftp_schedule_widget import FtpScheduleWidget
 
 DEBUG_OUTPUT = True
 
@@ -77,24 +79,16 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout = QtWidgets.QVBoxLayout(left_widget)
         left_vlayout.setContentsMargins(5, 5, 5, 5)
 
-        # === NEUE REIHENFOLGE ===
-        # 1) Hotfolder
+        # === Reihenfolge ===
         self.hotfolder_btn = QtWidgets.QPushButton("Hotfolder")
-
-        # 2) Script › Rezept
         self.script_recipe_btn = QtWidgets.QPushButton("Script › Rezept")
-
-        # 3) JSON-Editor
         self.json_editor_btn = QtWidgets.QPushButton("JSON-Editor")
-
-        # 4) Einstellungen
         self.settings_btn = QtWidgets.QPushButton("Einstellungen")
-
-        # 5) FTP-Transfer
         self.ftp_transfer_btn = QtWidgets.QPushButton("FTP-Transfer")
-
-        # 6) Logfile (optional)
         self.logfile_btn = QtWidgets.QPushButton("Logfile")
+
+        # NEU: Transfer-Pläne
+        self.plan_btn = QtWidgets.QPushButton("Transfer-Pläne")
 
         # Füge sie in genau dieser Reihenfolge ins Layout ein:
         left_vlayout.addWidget(self.hotfolder_btn)
@@ -103,6 +97,7 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout.addWidget(self.settings_btn)
         left_vlayout.addWidget(self.ftp_transfer_btn)
         left_vlayout.addWidget(self.logfile_btn)
+        left_vlayout.addWidget(self.plan_btn)
 
         left_vlayout.addStretch()
         main_hlayout.addWidget(left_widget, stretch=0)
@@ -127,16 +122,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.settings_widget)
 
-        # Widget 4: FTP-Transfer (Platzhalter)
-        self.ftp_transfer_widget = QtWidgets.QWidget()
-        ftp_layout = QtWidgets.QVBoxLayout(self.ftp_transfer_widget)
-        label_ftp = QtWidgets.QLabel("Hier könnte dein FTP-Transfer-Widget stehen...")
-        ftp_layout.addWidget(label_ftp)
+        # Widget 4: FTP-Transfer
+        self.ftp_transfer_widget = FtpTransferWidget(parent=self.stack)
         self.stack.addWidget(self.ftp_transfer_widget)
 
         # Widget 5: Logfile
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.logfile_widget)
+
+        # NEU: Widget 6: Transfer-Pläne (FtpScheduleWidget)
+        self.ftp_schedule_widget = FtpScheduleWidget(parent=self.stack)
+        self.stack.addWidget(self.ftp_schedule_widget)
 
         # Standard: Hotfolder (Index 0)
         self.stack.setCurrentIndex(0)
@@ -148,6 +144,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(3))
         self.ftp_transfer_btn.clicked.connect(lambda: self.stack.setCurrentIndex(4))
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
+
+        # NEU: Transfer-Pläne => Index 6
+        self.plan_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
 
     def toggle_debug(self):
         global DEBUG_OUTPUT
