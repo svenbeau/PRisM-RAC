@@ -7,6 +7,9 @@ from utils.config_manager import debug_print
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from ui.transfer_plan_dialog import TransferPlanDialog
 
+# NEU: Import für die Transfer-Logik
+from transfer_executor import execute_transfer_plan
+
 class TransferPlanWidget(QtWidgets.QFrame):
     def __init__(self, plan_data: dict, parent=None):
         super().__init__(parent)
@@ -141,7 +144,7 @@ class TransferPlanWidget(QtWidgets.QFrame):
         self.body_widget.setVisible(self.body_visible)
         self.toggle_btn.setIcon(self.icon_collapse if self.body_visible else self.icon_expand)
         self.plan_data["body_visible"] = self.body_visible
-        # Speichern in TransferPlanConfigManager (analog ScriptConfigManager)
+        # Speichern in TransferPlanConfigManager
         mgr = TransferPlanConfigManager()
         mgr.update_plan(self.plan_data["id"], self.plan_data)
 
@@ -160,25 +163,35 @@ class TransferPlanWidget(QtWidgets.QFrame):
 
     def on_run_now(self):
         """
-        Manuelles Starten des Plans. Hier kannst du deinen Transfer (FTP / lokal) ausführen.
+        Manuelles Starten des Plans. Hier rufen wir unsere Transfer-Logik auf.
         """
         plan_name = self.plan_data.get("name", "Unbenannt")
         debug_print(f"TransferPlanWidget: on_run_now() => Starte Transfer für Plan {plan_name}")
 
-        # Hier rufst du deine echte Transfer-Funktion auf, z. B.:
-        # execute_transfer_plan(self.plan_data)
-
+        # Kurze Meldung
         QtWidgets.QMessageBox.information(
             self,
             "Manueller Start",
-            f"Plan '{plan_name}' wird jetzt ausgeführt.\n"
-            "Hier würdest du die Transfer-Funktion aufrufen."
+            f"Plan '{plan_name}' wird jetzt ausgeführt. Siehe Log für Details."
         )
 
+        # HIER: Aufruf unserer Executor-Funktion
+        try:
+            execute_transfer_plan(self.plan_data)
+            QtWidgets.QMessageBox.information(
+                self,
+                "Fertig",
+                f"Plan '{plan_name}' wurde abgearbeitet."
+            )
+        except Exception as e:
+            debug_print(f"Fehler bei on_run_now (plan={plan_name}): {e}")
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Fehler",
+                f"Transfer fehlgeschlagen: {e}"
+            )
+
     def update_labels(self):
-        """
-        Aktualisiert die sichtbaren Labels im Body entsprechend der plan_data.
-        """
         debug_print("TransferPlanWidget.update_labels()")
         # Titel
         self.title_label.setText(self.plan_data.get("name", "Unbenannt"))

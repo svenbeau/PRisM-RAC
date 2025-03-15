@@ -13,10 +13,17 @@ from ui.settings_widget import SettingsWidget
 from ui.ftp_transfer_widget import FtpTransferWidget
 from ui.script_recipe_list_widget import ScriptRecipeListWidget
 
-# NEU: TransferPlanListWidget statt ftp_schedule_widget
+# NEU: TransferPlanListWidget
 from ui.transfer_plan_list_widget import TransferPlanListWidget
 
+# NEU: Wir benötigen den Executor + PlanConfigManager
+from transfer_executor import execute_transfer_plan
+from utils.transfer_plan_config_manager import TransferPlanConfigManager
+
+from datetime import datetime, timedelta
+
 DEBUG_OUTPUT = True
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -79,7 +86,6 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout = QtWidgets.QVBoxLayout(left_widget)
         left_vlayout.setContentsMargins(5, 5, 5, 5)
 
-        # === Reihenfolge ===
         self.hotfolder_btn = QtWidgets.QPushButton("Hotfolder")
         self.script_recipe_btn = QtWidgets.QPushButton("Script › Rezept")
         self.json_editor_btn = QtWidgets.QPushButton("JSON-Editor")
@@ -90,7 +96,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # NEU: Transfer-Pläne
         self.plan_btn = QtWidgets.QPushButton("Transfer-Pläne")
 
-        # Füge sie in genau dieser Reihenfolge ins Layout ein:
         left_vlayout.addWidget(self.hotfolder_btn)
         left_vlayout.addWidget(self.script_recipe_btn)
         left_vlayout.addWidget(self.json_editor_btn)
@@ -102,7 +107,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         main_hlayout.addWidget(left_widget, stretch=0)
 
-        # Rechter Bereich: QStackedWidget
         self.stack = QtWidgets.QStackedWidget()
         main_hlayout.addWidget(self.stack, stretch=1)
 
@@ -137,7 +141,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # Standard: Hotfolder (Index 0)
         self.stack.setCurrentIndex(0)
 
-        # (C) Button-Klicks => passender Stack-Index
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.script_recipe_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.json_editor_btn.clicked.connect(lambda: self.stack.setCurrentIndex(2))
@@ -145,6 +148,60 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ftp_transfer_btn.clicked.connect(lambda: self.stack.setCurrentIndex(4))
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
         self.plan_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
+
+        # NEU: Scheduler alle 60 Sekunden
+        self.schedule_timer = QtCore.QTimer(self)
+        self.schedule_timer.setInterval(60000)  # 1 Minute
+        self.schedule_timer.timeout.connect(self.check_scheduled_transfers)
+        self.schedule_timer.start()
+
+    def check_scheduled_transfers(self):
+        """
+        Lädt die transfer_plans.json, sucht nach fälligen Terminen und
+        führt die Pläne aus. Danach wird schedule_time hochgesetzt
+        (z.B. bei daily: +1 Tag).
+        """
+        debug_print("check_scheduled_transfers() aufgerufen.")
+        mgr = TransferPlanConfigManager()
+        plans = mgr.get_plans()
+        now_dt = datetime.now()
+
+        for plan in plans:
+            schedule_type = plan.get("schedule_type", "once")
+            schedule_time_str = plan.get("schedule_time", "")
+            if not schedule_time_str:
+                continue
+            try:
+                plan_dt = datetime.strptime(schedule_time_str, "%Y-%m-%d %H:%M")
+            except ValueError:
+                # Ungültiges Datumsformat
+                continue
+
+            if plan_dt <= now_dt:
+                debug_print(f"Plan fällig: {plan.get('name', '(ohne Name)')}")
+                # Ausführen, wenn (once) noch nicht ausgeführt oder if daily/weekly
+                # Du könntest z.B. auch "once_executed" Flag setzen,
+                # wenn du "once" nach erstem Durchlauf nie mehr ausführen willst.
+
+                try:
+                    execute_transfer_plan(plan)
+                except Exception as e:
+                    debug_print(f"Fehler bei check_scheduled_transfers -> execute_transfer_plan: {e}")
+
+                # Nächsten Termin berechnen
+                if schedule_type == "daily":
+                    new_dt = plan_dt + timedelta(days=1)
+                    plan["schedule_time"] = new_dt.strftime("%Y-%m-%d %H:%M")
+                elif schedule_type == "weekly":
+                    new_dt = plan_dt + timedelta(days=7)
+                    plan["schedule_time"] = new_dt.strftime("%Y-%m-%d %H:%M")
+                else:
+                    # once => optional "disable" oder rausnehmen
+                    # Hier machen wir nix, wenn du's so willst
+                    pass
+
+                # Speichern
+                mgr.update_plan(plan["id"], plan)
 
     def toggle_debug(self):
         global DEBUG_OUTPUT
