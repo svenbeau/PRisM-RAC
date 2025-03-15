@@ -1,5 +1,7 @@
+├── ./Compiler.txt
 ├── ./PRisM-RAC_DirectoryTree.txt
-├── ./PRisM-RAC_new.spec
+├── ./PRisM-RAC_arm64.spec
+├── ./PRisM-RAC_x86_64.spec
 ├── ./PRisM_Icon.ai
 ├── ./PRisM_Icon.icns
 ├── ./PRisM_Icon.png
@@ -9,6 +11,23 @@
 │   ├── ./assets/dropdown_list.png
 │   ├── ./assets/logo.png
 │   └── ./assets/spinner.gif
+├── ./build
+│   └── ./build/PRisM-RAC_arm64
+│       ├── ./build/PRisM-RAC_arm64/Analysis-00.toc
+│       ├── ./build/PRisM-RAC_arm64/BUNDLE-00.toc
+│       ├── ./build/PRisM-RAC_arm64/EXE-00.toc
+│       ├── ./build/PRisM-RAC_arm64/PKG-00.toc
+│       ├── ./build/PRisM-RAC_arm64/PRisM-CC.pkg
+│       ├── ./build/PRisM-RAC_arm64/PYZ-00.pyz
+│       ├── ./build/PRisM-RAC_arm64/PYZ-00.toc
+│       ├── ./build/PRisM-RAC_arm64/base_library.zip
+│       ├── ./build/PRisM-RAC_arm64/localpycs
+│       │   ├── ./build/PRisM-RAC_arm64/localpycs/pyimod01_archive.pyc
+│       │   ├── ./build/PRisM-RAC_arm64/localpycs/pyimod02_importers.pyc
+│       │   ├── ./build/PRisM-RAC_arm64/localpycs/pyimod03_ctypes.pyc
+│       │   └── ./build/PRisM-RAC_arm64/localpycs/struct.pyc
+│       ├── ./build/PRisM-RAC_arm64/warn-PRisM-RAC_arm64.txt
+│       └── ./build/PRisM-RAC_arm64/xref-PRisM-RAC_arm64.html
 ├── ./config
 │   ├── ./config/GrisebachRecipes_2020_01
 │   │   ├── ./config/GrisebachRecipes_2020_01/External_19JH.json
@@ -50,10 +69,29 @@
 │   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_19JH.json
 │   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_Moderne.json
 │   │   └── ./config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json
+│   ├── ./config/HF_Settings_01 Grisebach Render.json
+│   ├── ./config/HF_Settings_01 Grisebach Render_lokal.json
+│   ├── ./config/HF_Settings_02 Griesbach Wand.json
+│   ├── ./config/HF_Settings_02 Griesbach Wand_lokal.json
+│   ├── ./config/HF_Settings_03 Bo Yin Ra.json
 │   ├── ./config/JSX_Config
 │   │   └── ./config/JSX_Config/GB_Config_Render.json
+│   ├── ./config/ScriptConfig_01-Grisebach-Render.json
+│   ├── ./config/ScriptConfig_02-Grisebach-CSV-WBL.json
 │   ├── ./config/__init__.py
 │   └── ./config/script_config.json
+├── ./dist
+│   ├── ./dist/PRisM-CC
+│   └── ./dist/PRisM-CC.app
+│       └── ./dist/PRisM-CC.app/Contents
+│           ├── ./dist/PRisM-CC.app/Contents/Frameworks
+│           ├── ./dist/PRisM-CC.app/Contents/Info.plist
+│           ├── ./dist/PRisM-CC.app/Contents/MacOS
+│           │   └── ./dist/PRisM-CC.app/Contents/MacOS/PRisM-CC
+│           ├── ./dist/PRisM-CC.app/Contents/Resources
+│           │   └── ./dist/PRisM-CC.app/Contents/Resources/PRisM_Icon.icns
+│           └── ./dist/PRisM-CC.app/Contents/_CodeSignature
+│               └── ./dist/PRisM-CC.app/Contents/_CodeSignature/CodeResources
 ├── ./dynamic_jsx_generator.py
 ├── ./hotfolder
 ├── ./hotfolder_monitor.py
@@ -76,7 +114,6 @@
 │   └── ./scripts/SuperSkript_rcm_dynamisch.jsx
 ├── ./settings.json
 ├── ./temp
-│   └── ./temp/generated_script_4067424_Boemmels_3705_06_F.tif.jsx
 ├── ./ui
 │   ├── ./ui/__init__.py
 │   ├── ./ui/hotfolder_config.py
@@ -89,11 +126,14 @@
 │   ├── ./ui/logs
 │   │   └── ./ui/logs/global_log.json
 │   ├── ./ui/main_window.py
+│   ├── ./ui/script_recipe_dialog.py
+│   ├── ./ui/script_recipe_list_widget.py
 │   ├── ./ui/script_recipe_widget.py
 │   └── ./ui/settings_widget.py
 ├── ./utils
 │   ├── ./utils/__init__.py
 │   ├── ./utils/config_manager.py
+│   ├── ./utils/hotfolder_config.py
 │   ├── ./utils/log_exporter.py
 │   ├── ./utils/log_manager.py
 │   ├── ./utils/path_manager.py
