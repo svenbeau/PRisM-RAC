@@ -10,11 +10,11 @@ from ui.hotfolder_widget import HotfolderListWidget
 from ui.logfile_widget import LogfileWidget
 from ui.json_explorer_widget import JSONExplorerWidget
 from ui.settings_widget import SettingsWidget
-from ui.ftp_transfer_widget import FtpTransferWidget  # ECHTES Widget
+from ui.ftp_transfer_widget import FtpTransferWidget
 from ui.script_recipe_list_widget import ScriptRecipeListWidget
 
-# NEU: Import FtpScheduleWidget
-from ui.ftp_schedule_widget import FtpScheduleWidget
+# NEU: TransferPlanListWidget statt ftp_schedule_widget
+from ui.transfer_plan_list_widget import TransferPlanListWidget
 
 DEBUG_OUTPUT = True
 
@@ -98,8 +98,8 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout.addWidget(self.ftp_transfer_btn)
         left_vlayout.addWidget(self.logfile_btn)
         left_vlayout.addWidget(self.plan_btn)
-
         left_vlayout.addStretch()
+
         main_hlayout.addWidget(left_widget, stretch=0)
 
         # Rechter Bereich: QStackedWidget
@@ -114,11 +114,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.script_recipe_list_widget = ScriptRecipeListWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.script_recipe_list_widget)
 
-        # Widget 2: JSON Explorer
+        # Widget 2: JSON-Editor
         self.json_explorer_widget = JSONExplorerWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.json_explorer_widget)
 
-        # Widget 3: Settings
+        # Widget 3: Einstellungen
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.settings_widget)
 
@@ -130,9 +130,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.stack.addWidget(self.logfile_widget)
 
-        # NEU: Widget 6: Transfer-Pläne (FtpScheduleWidget)
-        self.ftp_schedule_widget = FtpScheduleWidget(parent=self.stack)
-        self.stack.addWidget(self.ftp_schedule_widget)
+        # NEU: Widget 6: Transfer-Pläne
+        self.transfer_plan_list_widget = TransferPlanListWidget(self.settings, parent=self.stack)
+        self.stack.addWidget(self.transfer_plan_list_widget)
 
         # Standard: Hotfolder (Index 0)
         self.stack.setCurrentIndex(0)
@@ -144,8 +144,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(3))
         self.ftp_transfer_btn.clicked.connect(lambda: self.stack.setCurrentIndex(4))
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
-
-        # NEU: Transfer-Pläne => Index 6
         self.plan_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
 
     def toggle_debug(self):
@@ -162,22 +160,13 @@ class MainWindow(QtWidgets.QMainWindow):
         save_settings(self.settings)
         super().closeEvent(event)
 
+
 def main():
     app = QtWidgets.QApplication(sys.argv)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
 
-def run():
-    print("PRisM-CC wird gestartet...")
-    try:
-        app = QtWidgets.QApplication(sys.argv)
-        win = MainWindow()
-        win.show()
-        return app.exec()
-    except Exception as e:
-        print(f"Fehler beim Starten der Anwendung: {e}")
-        return 1
 
 if __name__ == "__main__":
     main()
