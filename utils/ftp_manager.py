@@ -289,6 +289,44 @@ class FTPManager:
         with open(logfile_path, "w", encoding="utf-8") as lf:
             json.dump(entries, lf, indent=2)
 
+    def send_transfer_summary_email(self, results):
+        """
+        Schreibt die Transfer-Informationen in mail_transfer_info.json
+        und versendet eine E-Mail mit der Zusammenfassung der Transfer-Ergebnisse.
+        'results' ist eine Liste von Dictionaries mit den Transfer-Ergebnissen.
+        """
+        from utils.config_manager import get_mail_transfer_info_path
+        # Schreibe Ergebnisse in die Datei
+        info_path = get_mail_transfer_info_path()
+        try:
+            with open(info_path, "w", encoding="utf-8") as f:
+                json.dump(results, f, indent=2)
+            debug_print(f"Transfer summary written to {info_path}")
+        except Exception as e:
+            debug_print(f"Fehler beim Schreiben von {info_path}: {e}")
+
+        # E-Mail versenden
+        if self.smtp_enabled and self.notify_email:
+            summary = "Transfer Summary:\n\n"
+            for r in results:
+                summary += f"{r['direction']} | {r['file']} -> {r.get('destination', '')}\n"
+                if r["status"] == "FAILED":
+                    summary += f"   Fehler: {r.get('error', 'Unbekannter Fehler')}\n"
+            subject = "Transfer Summary Report"
+            msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\nSubject: {subject}\r\n\r\n{summary}"
+            smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
+            if smtp_pass is None:
+                debug_print("SMTP-Passwort nicht im Keyring, kann keine Transfer Summary Mail senden.")
+                return
+            try:
+                with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
+                    server.starttls()
+                    server.login(self.smtp_user, smtp_pass)
+                    server.sendmail(self.smtp_user, [self.notify_email], msg)
+                debug_print("Transfer summary email sent successfully.")
+            except Exception as e:
+                debug_print(f"Fehler beim Senden der Transfer summary Mail: {e}")
+
     def send_failure_notification(self, error_message):
         # macOS-Notification
         if platform.system() == "Darwin" and pync is not None:

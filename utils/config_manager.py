@@ -42,16 +42,13 @@ def migrate_settings(settings):
     #
     recent = settings.get("recent_dirs", {})
     if not isinstance(recent, dict):
-        # Wir legen leere Listen an, damit wir nicht versehentlich
-        # Strings als Ordner interpretieren.
         recent = {
             "monitor": [os.path.expanduser("~")],
             "success": [os.path.expanduser("~")],
             "fault":   [os.path.expanduser("~")],
-            "logfiles":[os.path.expanduser("~")]
+            "logfiles": [os.path.expanduser("~")]
         }
     else:
-        # Stelle sicher, dass alle 4 Kategorien vorhanden sind
         for cat in ["monitor", "success", "fault", "logfiles"]:
             if cat not in recent:
                 recent[cat] = [os.path.expanduser("~")]
@@ -61,10 +58,8 @@ def migrate_settings(settings):
     # 2) Für den JSON-Explorer: recent_json_dirs als Liste
     #
     if "recent_json_dirs" not in settings:
-        # Standardmäßig ein Eintrag: Home-Verzeichnis
         settings["recent_json_dirs"] = [os.path.expanduser("~")]
     else:
-        # Stelle sicher, dass recent_json_dirs wirklich eine Liste ist
         if not isinstance(settings["recent_json_dirs"], list):
             settings["recent_json_dirs"] = [os.path.expanduser("~")]
 
@@ -116,19 +111,11 @@ def save_settings(data):
 # ========== Hotfolder-Funktionen (Dictionary) ==========
 #
 def get_recent_dirs(category):
-    """
-    Liefert die Liste der zuletzt verwendeten Verzeichnisse für die angegebene Kategorie
-    (z. B. 'monitor', 'success', 'fault', 'logfiles') für Hotfolder.
-    """
     settings = load_settings()
     recent = settings.get("recent_dirs", {})
     return recent.get(category, [os.path.expanduser("~")])
 
 def update_recent_dirs(category, new_dir):
-    """
-    Aktualisiert die Liste der zuletzt verwendeten Verzeichnisse für die angegebene Kategorie
-    (z. B. 'monitor', 'success', 'fault', 'logfiles') in der settings.json.
-    """
     settings = load_settings()
     recent = settings.get("recent_dirs", {})
     if category not in recent:
@@ -143,9 +130,6 @@ def update_recent_dirs(category, new_dir):
 # ========== JSON-Explorer-Funktionen (Liste) ==========
 #
 def get_recent_json_dirs():
-    """
-    Gibt die Liste der zuletzt verwendeten Verzeichnisse für den JSON-Explorer zurück.
-    """
     settings = load_settings()
     if "recent_json_dirs" not in settings:
         settings["recent_json_dirs"] = [os.path.expanduser("~")]
@@ -153,10 +137,6 @@ def get_recent_json_dirs():
     return settings["recent_json_dirs"]
 
 def update_recent_json_dirs(new_dir):
-    """
-    Fügt 'new_dir' an erster Stelle in die Liste der zuletzt verwendeten Verzeichnisse
-    für den JSON-Explorer ein, begrenzt die Liste auf 10 Einträge und speichert.
-    """
     settings = load_settings()
     if "recent_json_dirs" not in settings:
         settings["recent_json_dirs"] = []
@@ -166,90 +146,7 @@ def update_recent_json_dirs(new_dir):
     save_settings(settings)
 
 #
-# ========== SMTP-Einstellungen (derzeit in settings.json) ==========
-#
-def get_smtp_settings():
-    """
-    Gibt ein Dictionary mit SMTP-Einstellungen zurück, das in settings.json steht.
-    Falls du SMTP in eine separate Datei auslagern möchtest, kannst du stattdessen
-    load_smtp_settings() (siehe unten) verwenden.
-    """
-    settings = load_settings()
-    smtp_conf = settings.get("smtp_settings", {})
-    return {
-        "enabled": smtp_conf.get("enabled", False),
-        "host": smtp_conf.get("host", ""),
-        "port": smtp_conf.get("port", 25),
-        "user": smtp_conf.get("user", ""),
-        "pass_key": smtp_conf.get("pass_key", ""),
-        "notify_email": smtp_conf.get("notify_email", "")
-    }
-
-#
-# ========== Pfad für FTP-Log (ftptransfer_log.json) ==========
-#
-def get_ftp_transfer_log_path():
-    """
-    Gibt den Pfad zu ftptransfer_log.json zurück und legt den Ordner an, falls nötig.
-    """
-    log_file = os.path.expanduser("~/Library/Application Support/PRisM-CC/ftptransfer_log.json")
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
-    return log_file
-
-#
-# ========== Backup-Pläne für ftp_schedule_widget ==========
-#
-BACKUP_PLANS_FILE = os.path.expanduser("~/Library/Application Support/PRisM-CC/backup_plans.json")
-
-def load_all_backup_plans():
-    """
-    Lädt das gesamte Array aus backup_plans.json.
-    Gibt [] zurück, wenn nichts vorhanden oder Datei defekt.
-    """
-    if not os.path.exists(BACKUP_PLANS_FILE):
-        return []
-    try:
-        with open(BACKUP_PLANS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_all_backup_plans(plans):
-    """
-    Überschreibt backup_plans.json mit dem übergebenen Array 'plans'.
-    """
-    os.makedirs(os.path.dirname(BACKUP_PLANS_FILE), exist_ok=True)
-    with open(BACKUP_PLANS_FILE, "w", encoding="utf-8") as f:
-        json.dump(plans, f, indent=2)
-
-#
-# ========== FTP-Servers in eigener Datei (ftp_servers.json) ==========
-#
-FTP_SERVERS_FILE = os.path.expanduser("~/Library/Application Support/PRisM-CC/ftp_servers.json")
-
-def load_ftp_servers():
-    """
-    Lädt die Liste der FTP-Server aus ftp_servers.json.
-    Gibt eine Liste von Dictionaries zurück.
-    """
-    if not os.path.exists(FTP_SERVERS_FILE):
-        return []
-    try:
-        with open(FTP_SERVERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_ftp_servers(servers):
-    """
-    Speichert die Liste der FTP-Server in ftp_servers.json.
-    """
-    os.makedirs(os.path.dirname(FTP_SERVERS_FILE), exist_ok=True)
-    with open(FTP_SERVERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(servers, f, indent=2)
-
-#
-# ========== NEU: SMTP-Einstellungen in separater Datei smtp_settings.json (optional) ==========
+# ========== SMTP-Einstellungen (in separater Datei smtp_settings.json) ==========
 #
 SMTP_SETTINGS_FILE = os.path.expanduser("~/Library/Application Support/PRisM-CC/smtp_settings.json")
 
@@ -291,12 +188,55 @@ def save_smtp_settings(data):
         debug_print(f"Error saving {SMTP_SETTINGS_FILE}: {e}")
 
 #
+# ========== Pfad für FTP-Log (ftptransfer_log.json) ==========
+#
+def get_ftp_transfer_log_path():
+    log_file = os.path.expanduser("~/Library/Application Support/PRisM-CC/ftptransfer_log.json")
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    return log_file
+
+#
+# ========== Backup-Pläne für ftp_schedule_widget ==========
+#
+BACKUP_PLANS_FILE = os.path.expanduser("~/Library/Application Support/PRisM-CC/backup_plans.json")
+
+def load_all_backup_plans():
+    if not os.path.exists(BACKUP_PLANS_FILE):
+        return []
+    try:
+        with open(BACKUP_PLANS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_all_backup_plans(plans):
+    os.makedirs(os.path.dirname(BACKUP_PLANS_FILE), exist_ok=True)
+    with open(BACKUP_PLANS_FILE, "w", encoding="utf-8") as f:
+        json.dump(plans, f, indent=2)
+
+#
+# ========== FTP-Servers in eigener Datei (ftp_servers.json) ==========
+#
+FTP_SERVERS_FILE = os.path.expanduser("~/Library/Application Support/PRisM-CC/ftp_servers.json")
+
+def load_ftp_servers():
+    if not os.path.exists(FTP_SERVERS_FILE):
+        return []
+    try:
+        with open(FTP_SERVERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_ftp_servers(servers):
+    os.makedirs(os.path.dirname(FTP_SERVERS_FILE), exist_ok=True)
+    with open(FTP_SERVERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(servers, f, indent=2)
+
+#
 # ========== NEU: Pfad für Transfer-Info (mail_transfer_info.json) ==========
 #
 def get_mail_transfer_info_path():
-    """
-    Gibt den Pfad zu mail_transfer_info.json zurück und legt den Ordner bei Bedarf an.
-    """
     path = os.path.expanduser("~/Library/Application Support/PRisM-CC/mail_transfer_info.json")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     return path

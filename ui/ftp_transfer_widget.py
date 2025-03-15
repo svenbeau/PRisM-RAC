@@ -4,6 +4,9 @@
 import os
 import traceback
 import keyring
+import json
+import smtplib
+from datetime import datetime
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from utils.config_manager import (
@@ -12,7 +15,8 @@ from utils.config_manager import (
     save_settings,
     load_ftp_servers,
     load_smtp_settings,
-    save_smtp_settings
+    save_smtp_settings,
+    get_mail_transfer_info_path
 )
 from utils.ftp_manager import FTPManager, TransferError
 from ui.ftp_server_manager_dialog import FtpServerManagerDialog
@@ -72,19 +76,15 @@ class FtpTransferWidget(QtWidgets.QWidget):
       - Lokaler RootPath "/Volumes" (auf macOS) als Ausgangspunkt – der aktuelle lokale Zielpfad wird über Klick in der TreeView aktualisiert.
       - Interaktive Abfrage bei Dateikonflikt (Überschreiben, Suffix oder Abbrechen)
 
-      **Hinweis:**
-      Aktuell werden nur Dateien transferiert. Verzeichnisse (Ordner) werden übersprungen –
-      um auch diese zu übertragen, müsste man einen rekursiven Transfer implementieren.
+      **Hinweis:** Es werden nur Dateien transferiert.
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # 1) FTP-Einstellungen: laden wir weiterhin aus settings.json
+        # FTP-Einstellungen aus settings.json
         self.settings = load_settings()
-
-        # 2) SMTP-Einstellungen: laden wir jetzt aus smtp_settings.json
+        # SMTP-Einstellungen aus smtp_settings.json
         self.smtp_settings = load_smtp_settings()
-
         self.ftp = None
         self.current_remote_path = "/"
         self.remote_items_all = []
@@ -185,7 +185,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
         main_layout.addWidget(smtp_group)
 
-        # 3) SMTP-Werte (neu: aus self.smtp_settings)
+        # SMTP-Werte aus smtp_settings.json
         self.smtp_enabled_check.setChecked(self.smtp_settings.get("enabled", False))
         self.smtp_host_edit.setText(self.smtp_settings.get("host", ""))
         self.smtp_port_spin.setValue(self.smtp_settings.get("port", 587))
@@ -528,7 +528,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Fehler", str(e))
 
     # ----------------------------------------
-    # UPLOAD: Interaktive Abfrage bei Dateikonflikt
+    # UPLOAD: Interaktive Abfrage bei Dateikonflikt und Transfer-Info sammeln
     # ----------------------------------------
     def upload_selected(self):
         debug_print("upload_selected() aufgerufen")
@@ -560,6 +560,8 @@ class FtpTransferWidget(QtWidgets.QWidget):
         progress_dlg.set_file_count(len(file_paths))
         progress_dlg.show()
 
+        transfer_results = []  # Sammle Ergebnisse
+
         try:
             for i, local_path in enumerate(file_paths, start=1):
                 if progress_dlg.canceled:
@@ -580,6 +582,13 @@ class FtpTransferWidget(QtWidgets.QWidget):
                     action = self.ask_file_conflict_action(base_name, "remote")
                     if action == "cancel":
                         debug_print(f"upload_selected(): user canceled => skip {local_path}")
+                        transfer_results.append({
+                            "file": local_path,
+                            "direction": "UPLOAD",
+                            "destination": remote_file_path,
+                            "status": "SKIPPED",
+                            "error": "User canceled"
+                        })
                         continue
                     elif action == "suffix":
                         ver = 2
@@ -590,18 +599,33 @@ class FtpTransferWidget(QtWidgets.QWidget):
                             new_name = f"{root}_v{ver}{ext}"
                         remote_file_path = self.current_remote_path.rstrip("/") + "/" + new_name
                 debug_print(f"upload_selected(): final remote_file_path={remote_file_path}")
-                # Wir rufen upload_file auf, wobei ftp_manager selbst den Dateinamen anhand des Verzeichnisses zusammenfügt
-                self.ftp.upload_file(local_path, os.path.dirname(remote_file_path))
-        except Exception as e:
-            debug_print(f"Fehler beim Upload: {e}")
-            self.ftp.send_failure_notification(str(e))
-            traceback.print_exc()
+                try:
+                    self.ftp.upload_file(local_path, os.path.dirname(remote_file_path))
+                    transfer_results.append({
+                        "file": local_path,
+                        "direction": "UPLOAD",
+                        "destination": remote_file_path,
+                        "status": "SUCCESS"
+                    })
+                except Exception as e:
+                    debug_print(f"Fehler beim Upload: {e}")
+                    transfer_results.append({
+                        "file": local_path,
+                        "direction": "UPLOAD",
+                        "destination": remote_file_path,
+                        "status": "FAILED",
+                        "error": str(e)
+                    })
+                    self.ftp.send_failure_notification(str(e))
+                    traceback.print_exc()
         finally:
             progress_dlg.close()
         self.refresh_remote()
+        # Sende Transfer Summary Mail
+        self.ftp.send_transfer_summary_email(transfer_results)
 
     # ----------------------------------------
-    # DOWNLOAD: Interaktive Abfrage bei Dateikonflikt
+    # DOWNLOAD: Interaktive Abfrage bei Dateikonflikt und Transfer-Info sammeln
     # ----------------------------------------
     def download_selected(self):
         debug_print("download_selected() aufgerufen")
@@ -638,6 +662,8 @@ class FtpTransferWidget(QtWidgets.QWidget):
         progress_dlg.set_file_count(len(file_names))
         progress_dlg.show()
 
+        transfer_results = []  # Liste für Download-Ergebnisse
+
         try:
             for i, fname in enumerate(file_names, start=1):
                 if progress_dlg.canceled:
@@ -649,6 +675,13 @@ class FtpTransferWidget(QtWidgets.QWidget):
                     action = self.ask_file_conflict_action(fname, "local")
                     if action == "cancel":
                         debug_print(f"download_selected(): user canceled => skip {remote_path}")
+                        transfer_results.append({
+                            "file": fname,
+                            "direction": "DOWNLOAD",
+                            "destination": local_file,
+                            "status": "SKIPPED",
+                            "error": "User canceled"
+                        })
                         continue
                     elif action == "suffix":
                         ver = 2
@@ -660,13 +693,30 @@ class FtpTransferWidget(QtWidgets.QWidget):
                         local_file = os.path.join(local_root, new_name)
                 debug_print(f"download_selected(): final local_file={local_file}")
                 progress_dlg.set_current_file(remote_path, i)
-                self.ftp.download_file(remote_path, os.path.dirname(local_file))
-        except Exception as e:
-            debug_print(f"Fehler beim Download: {e}")
-            self.ftp.send_failure_notification(str(e))
-            traceback.print_exc()
+                try:
+                    self.ftp.download_file(remote_path, os.path.dirname(local_file))
+                    transfer_results.append({
+                        "file": fname,
+                        "direction": "DOWNLOAD",
+                        "destination": local_file,
+                        "status": "SUCCESS"
+                    })
+                except Exception as e:
+                    debug_print(f"Fehler beim Download: {e}")
+                    transfer_results.append({
+                        "file": fname,
+                        "direction": "DOWNLOAD",
+                        "destination": local_file,
+                        "status": "FAILED",
+                        "error": str(e)
+                    })
+                    self.ftp.send_failure_notification(str(e))
+                    traceback.print_exc()
         finally:
             progress_dlg.close()
+
+        # Sende Transfer Summary Mail
+        self.ftp.send_transfer_summary_email(transfer_results)
 
     # ----------------------------------------
     # Fragt den Nutzer bei Dateikonflikt ab
@@ -694,35 +744,33 @@ class FtpTransferWidget(QtWidgets.QWidget):
     # ----------------------------------------
     def save_settings_slot(self):
         debug_print("save_settings_slot() aufgerufen")
-        # 1) FTP-Einstellungen => in self.settings (settings.json)
+        # FTP-Einstellungen in settings.json
         self.settings["ftp_protocol"] = self.protocol_combo.currentText()
         self.settings["ftp_host"] = self.host_edit.text().strip()
         self.settings["ftp_user"] = self.user_edit.text().strip()
 
-        port_str = self.port_edit.text().strip()
         try:
-            port_val = int(port_str)
+            self.settings["ftp_port"] = int(self.port_edit.text().strip())
         except ValueError:
-            port_val = 21
-        self.settings["ftp_port"] = port_val
+            self.settings["ftp_port"] = 21
 
         self.settings["keep_timestamp"] = self.keep_ts_check.isChecked()
         self.settings["versioning_mode"] = self.version_combo.currentText()
 
-        debug_print("save_settings_slot(): save_settings(self.settings)")
+        debug_print("save_settings_slot(): Speichere FTP-Einstellungen")
         save_settings(self.settings)
 
-        # 2) SMTP-Einstellungen => in self.smtp_settings (smtp_settings.json)
+        # SMTP-Einstellungen in smtp_settings.json
         self.smtp_settings["enabled"] = self.smtp_enabled_check.isChecked()
         self.smtp_settings["host"] = self.smtp_host_edit.text().strip()
         self.smtp_settings["port"] = self.smtp_port_spin.value()
         self.smtp_settings["user"] = self.smtp_user_edit.text().strip()
         self.smtp_settings["notify_email"] = self.notify_email_edit.text().strip()
 
-        debug_print("save_settings_slot(): save_smtp_settings(self.smtp_settings)")
+        debug_print("save_settings_slot(): Speichere SMTP-Einstellungen")
         save_smtp_settings(self.smtp_settings)
 
-        # 3) Passwörter in den Keyring
+        # Passwörter in den Keyring
         current_user = self.user_edit.text().strip()
         new_pass = self.pass_edit.text().strip()
         if new_pass and current_user:
