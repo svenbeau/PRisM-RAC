@@ -7,7 +7,10 @@ import threading
 import json
 import tempfile
 import shutil
+from datetime import datetime
+
 from utils.utils import debug_print, is_file_stable, open_in_photoshop, run_jsx_in_photoshop, move_file, close_current_document_in_photoshop
+from utils.contentcheck_email_notifier import send_fail_email_from_content
 
 IDLE_THRESHOLD = 60  # Sekunden Inaktivität bis zum Idle-Zustand
 
@@ -80,6 +83,7 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
       - Führt das dynamische Script aus und liest das generierte Log.
       - Bei Erfolg werden (falls konfiguriert) nacheinander die in "selected_jsx" und "additional_jsx" hinterlegten Scripts ausgeführt.
       - Schließt das aktuell geöffnete Photoshop-Dokument (ohne Speichern) und verschiebt die Datei in den Success- bzw. Fault-Ordner.
+      - **Neu:** Bei einem fehlerhaften Contentcheck wird eine E-Mail mit den Contentcheck-Daten versendet.
     """
     success_dir = hf_config.get("success_dir")
     fault_dir = hf_config.get("fault_dir")
@@ -120,6 +124,8 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
         move_file(file_path, dest)
         if on_status_update:
             on_status_update(f"Processed (no script): {os.path.basename(file_path)}", True)
+        # E-Mail-Benachrichtigung bei Fehler ohne Log
+        send_fail_email_from_content({}, file_path)
         return
 
     if run_jsx_in_photoshop(tmp_jsx_path):
@@ -138,6 +144,7 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
     contentCheck = read_json_file(contentLogPath)
     debug_print(f"ContentCheck Log ({contentLogPath}): {contentCheck}")
 
+    # Entscheide basierend auf dem Contentcheck, ob die Datei in den Success- oder Fault-Ordner soll
     if contentCheck:
         details = contentCheck.get("details", {})
         layerStatus = details.get("layerStatus", "FAIL")
@@ -158,9 +165,12 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
         else:
             dest_dir = fault_dir
             debug_print("Contentcheck FAIL: Datei -> Fault")
+            # E-Mail mit den Contentcheck-Daten direkt versenden
+            send_fail_email_from_content(contentCheck, file_path)
     else:
         dest_dir = fault_dir
         debug_print("No Contentcheck Log found: Datei -> Fault")
+        send_fail_email_from_content({}, file_path)
 
     if not close_current_document_in_photoshop():
         debug_print("Error closing document in Photoshop.")
@@ -264,8 +274,8 @@ class HotfolderMonitor:
 
 if __name__ == "__main__":
     hf_config = {
-        "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/02_Wand",
-        "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success/02_Wand",
+        "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/11_BoYinRa",
+        "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
         "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
         "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
         "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",

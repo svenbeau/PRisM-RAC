@@ -4,10 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="FTP mit Transferplänen funktioniert">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau Log-Ansicht mit Transfer">
+      <change afterPath="$PROJECT_DIR$/utils/contentcheck_email_notifier.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/logfile_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/logfile_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/ftp_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ftp_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/HF_Settings_01 Grisebach Render.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/HF_Settings_01 Grisebach Render.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,14 +98,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00016" summary="Samsatg Abend - Contentcheck funktioniert">
-      <option name="closed" value="true" />
-      <created>1740407444247</created>
-      <option name="number" value="00016" />
-      <option name="presentableId" value="LOCAL-00016" />
-      <option name="project" value="LOCAL" />
-      <updated>1740407444247</updated>
     </task>
     <task id="LOCAL-00017" summary="Samsatg Abend - Contentcheck funktioniert">
       <option name="closed" value="true" />
@@ -490,7 +483,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742149368438</updated>
     </task>
-    <option name="localTasksCounter" value="65" />
+    <task id="LOCAL-00065" summary="Umbau Log-Ansicht mit Transfer">
+      <option name="closed" value="true" />
+      <created>1742151217166</created>
+      <option name="number" value="00065" />
+      <option name="presentableId" value="LOCAL-00065" />
+      <option name="project" value="LOCAL" />
+      <updated>1742151217166</updated>
+    </task>
+    <option name="localTasksCounter" value="66" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -505,6 +506,7 @@
     <MESSAGE value="Script - Rezept Ansicht neu" />
     <MESSAGE value="FTP mit Transferplänen" />
     <MESSAGE value="FTP mit Transferplänen funktioniert" />
-    <option name="LAST_COMMIT_MESSAGE" value="FTP mit Transferplänen funktioniert" />
+    <MESSAGE value="Umbau Log-Ansicht mit Transfer" />
+    <option name="LAST_COMMIT_MESSAGE" value="Umbau Log-Ansicht mit Transfer" />
   </component>
 </project>
