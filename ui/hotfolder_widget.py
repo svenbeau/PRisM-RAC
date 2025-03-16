@@ -103,6 +103,7 @@ class HotfolderListWidget(QtWidgets.QWidget):
                 self.hf_manager.remove_hotfolder(hf_id)
                 self.load_hotfolders()
 
+
 class HotfolderWidget(QtWidgets.QFrame):
     """
     Zeigt die Konfiguration (Ordner, Bearbeitung, Contentcheck) und den Status
@@ -253,7 +254,13 @@ class HotfolderWidget(QtWidgets.QFrame):
             self.toggle_btn.setIcon(self.icon_collapse)
         else:
             self.toggle_btn.setIcon(self.icon_expand)
+
+        # body_visible in den Hotfolder-Daten aktualisieren
         self.hotfolder_config["body_visible"] = self.body_visible
+
+        # ÄNDERUNG: Sofort in hotfolder_config.json speichern
+        manager = HotfolderConfigManager()
+        manager.update_hotfolder(self.hotfolder_config["id"], self.hotfolder_config)
 
     def on_start_stop(self):
         if not self.monitor or not self.monitor.active:
@@ -427,6 +434,7 @@ class HotfolderWidget(QtWidgets.QFrame):
 
 if __name__ == "__main__":
     import sys
+    from PySide6.QtWidgets import QApplication
     app = QApplication(sys.argv)
     widget = HotfolderWidget({
         "id": "1234",
@@ -444,7 +452,8 @@ if __name__ == "__main__":
         "keyword_metadata": [],
         "jsx_folder": "",
         "selected_jsx": "",
-        "additional_jsx": ""
+        "additional_jsx": "",
+        "body_visible": True
     })
     widget.show()
     sys.exit(app.exec())
