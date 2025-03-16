@@ -41,14 +41,14 @@ class TransferPlanDialog(QtWidgets.QDialog):
         self.ftp_combo = QtWidgets.QComboBox()
         form_layout.addRow("FTP-Server Name:", self.ftp_combo)
 
-        # Zielordner (lokaler Pfad oder Remote-Pfad)
+        # Zielordner (Remote-Pfad) – Kombination aus QLineEdit und Button
+        self.target_edit = QtWidgets.QLineEdit()
         self.target_btn = QtWidgets.QPushButton("Ordner wählen")
         self.target_btn.clicked.connect(self.pick_target_folder)
-        self.target_label = QtWidgets.QLabel("(none)")
-        tgt_hbox = QtWidgets.QHBoxLayout()
-        tgt_hbox.addWidget(self.target_label, 1)
-        tgt_hbox.addWidget(self.target_btn)
-        form_layout.addRow("Zielordner:", tgt_hbox)
+        target_hbox = QtWidgets.QHBoxLayout()
+        target_hbox.addWidget(self.target_edit, 1)
+        target_hbox.addWidget(self.target_btn)
+        form_layout.addRow("Zielordner:", target_hbox)
 
         # Versionierung
         self.version_combo = QtWidgets.QComboBox()
@@ -112,8 +112,9 @@ class TransferPlanDialog(QtWidgets.QDialog):
         src = self.plan_data.get("source_path", "")
         self.source_label.setText(src or "(none)")
 
+        # Zielordner
         tgt = self.plan_data.get("target_path", "")
-        self.target_label.setText(tgt or "(none)")
+        self.target_edit.setText(tgt)  # Zielordner wird hier im Textfeld angezeigt
 
         use_ftp = self.plan_data.get("use_ftp", False)
         self.ftp_check.setChecked(use_ftp)
@@ -125,7 +126,7 @@ class TransferPlanDialog(QtWidgets.QDialog):
             if idx >= 0:
                 self.ftp_combo.setCurrentIndex(idx)
             else:
-                self.ftp_combo.setCurrentIndex(0)  # (none)
+                self.ftp_combo.setCurrentIndex(0)
         else:
             self.ftp_combo.setCurrentIndex(0)
 
@@ -145,14 +146,12 @@ class TransferPlanDialog(QtWidgets.QDialog):
         move_after = self.plan_data.get("move_after", "")
         self.move_label.setText(move_after or "(none)")
 
-        # Check initial ftp state
         self.on_ftp_toggled()
 
     def on_ok(self):
         """
         Schreibt die Widget-Werte zurück ins plan_data und beendet den Dialog mit Accept.
-        Hinweis: Dieses Modul speichert die Daten nicht direkt in die Konfiguration.
-        Das aktualisierte plan_data wird an den Aufrufer zurückgegeben, der dann für die persistente Speicherung zuständig ist.
+        Dieses Modul speichert die Daten nicht selbst, sondern gibt das aktualisierte plan_data zurück.
         """
         debug_print("TransferPlanDialog.on_ok() aufgerufen.")
         self.plan_data["name"] = self.name_edit.text().strip()
@@ -160,8 +159,8 @@ class TransferPlanDialog(QtWidgets.QDialog):
         src_str = self.source_label.text()
         self.plan_data["source_path"] = "" if src_str == "(none)" else src_str
 
-        tgt_str = self.target_label.text()
-        self.plan_data["target_path"] = "" if tgt_str == "(none)" else tgt_str
+        tgt_str = self.target_edit.text().strip()  # Wert aus dem Textfeld
+        self.plan_data["target_path"] = tgt_str
 
         use_ftp = self.ftp_check.isChecked()
         self.plan_data["use_ftp"] = use_ftp
@@ -198,7 +197,7 @@ class TransferPlanDialog(QtWidgets.QDialog):
     def pick_target_folder(self):
         folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Zielordner wählen")
         if folder:
-            self.target_label.setText(folder)
+            self.target_edit.setText(folder)
 
     def pick_move_after_folder(self):
         folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Nach Transfer verschieben nach...")
@@ -211,5 +210,3 @@ class TransferPlanDialog(QtWidgets.QDialog):
         """
         checked = self.ftp_check.isChecked()
         self.ftp_combo.setEnabled(checked)
-        if not checked:
-            self.ftp_combo.setCurrentIndex(0)

@@ -4,6 +4,7 @@
 import sys
 import os
 from PySide6 import QtWidgets, QtGui, QtCore
+from datetime import datetime, timedelta
 
 from utils.config_manager import load_settings, save_settings, debug_print
 from ui.hotfolder_widget import HotfolderListWidget
@@ -19,8 +20,6 @@ from ui.transfer_plan_list_widget import TransferPlanListWidget
 # Executor + PlanConfigManager
 from utils.transfer_executor import execute_transfer_plan
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
-
-from datetime import datetime, timedelta
 
 DEBUG_OUTPUT = True
 
@@ -139,7 +138,53 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
         self.plan_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
 
-        # (C) Der Scheduler wurde entfernt – die Konfiguration wird nun nur beim manuellen Start (z. B. über "Jetzt ausführen") geladen.
+        # (C) Scheduler einrichten: Alle 60 Sekunden wird die Methode check_scheduled_transfers() aufgerufen.
+        self.schedule_timer = QtCore.QTimer(self)
+        self.schedule_timer.setInterval(60000)  # alle 60 Sekunden
+        self.schedule_timer.timeout.connect(self.check_scheduled_transfers)
+        self.schedule_timer.start()
+
+    def check_scheduled_transfers(self):
+        """
+        Prüft jede Minute, ob ein Plan fällig ist.
+        Wir erlauben ein Toleranzfenster von 60 Sekunden.
+        Wenn die aktuelle Zeit innerhalb dieses Fensters liegt (>= plan_dt und < plan_dt+60s),
+        wird der Plan ausgeführt und bei daily/weekly der nächste Termin gesetzt.
+        """
+        debug_print("check_scheduled_transfers() aufgerufen.")
+        mgr = TransferPlanConfigManager()
+        plans = mgr.get_plans()
+        now_dt = datetime.now()
+
+        for plan in plans:
+            schedule_type = plan.get("schedule_type", "once")
+            schedule_time_str = plan.get("schedule_time", "")
+            if not schedule_time_str:
+                continue
+
+            try:
+                plan_dt = datetime.strptime(schedule_time_str, "%Y-%m-%d %H:%M")
+            except ValueError:
+                continue
+
+            # Toleranzfenster: Wenn now_dt >= plan_dt und now_dt < plan_dt + 60 Sekunden
+            if plan_dt <= now_dt < (plan_dt + timedelta(seconds=60)):
+                debug_print(f"Plan fällig: {plan.get('name', '(ohne Name)')}")
+                try:
+                    execute_transfer_plan(plan)
+                except Exception as e:
+                    debug_print(f"Fehler bei check_scheduled_transfers -> execute_transfer_plan: {e}")
+
+                # Aktualisiere schedule_time, falls daily oder weekly
+                if schedule_type == "daily":
+                    new_dt = plan_dt + timedelta(days=1)
+                    plan["schedule_time"] = new_dt.strftime("%Y-%m-%d %H:%M")
+                elif schedule_type == "weekly":
+                    new_dt = plan_dt + timedelta(days=7)
+                    plan["schedule_time"] = new_dt.strftime("%Y-%m-%d %H:%M")
+                # Bei "once" wird nichts geändert
+
+                mgr.update_plan(plan["id"], plan)
 
     def toggle_debug(self):
         global DEBUG_OUTPUT

@@ -5,12 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="FTP mit Transferplänen">
+      <change afterPath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/transfer_plan_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_dialog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_list_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_list_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/transfer_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/transfer_plan_config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/transfer_plan_config_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/transfer_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/transfer_executor.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,27 +58,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.hotfolder_config.executor": "Run",
-    "Python.hotfolder_monitor.executor": "Run",
-    "Python.hotfolder_widget.executor": "Run",
-    "Python.json_editor.executor": "Run",
-    "Python.json_explorer.executor": "Run",
-    "Python.json_explorer_widget.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.main_window.executor": "Run",
-    "Python.script_config_manager.executor": "Run",
-    "Python.settings_widget.executor": "Run",
-    "Python.smtp_test.executor": "Run",
-    "Python.start.executor": "Run",
-    "Python.transfer_plan_dialog.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "stable-v17",
-    "settings.editor.selected.configurable": "preferences.lookFeel"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hotfolder_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_explorer_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
+    &quot;Python.script_config_manager.executor&quot;: &quot;Run&quot;,
+    &quot;Python.settings_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.smtp_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.start.executor&quot;: &quot;Run&quot;,
+    &quot;Python.transfer_plan_dialog.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;stable-v17&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/utils" />

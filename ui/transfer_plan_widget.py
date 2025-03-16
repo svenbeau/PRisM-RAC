@@ -7,8 +7,8 @@ from utils.config_manager import debug_print
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from ui.transfer_plan_dialog import TransferPlanDialog
 
-# NEU: Import korrigiert
-from utils.transfer_executor import execute_transfer_plan
+# NEU: Import des TransferQueueDialogs
+from ui.transfer_queue_dialog import TransferQueueDialog
 
 class TransferPlanWidget(QtWidgets.QFrame):
     def __init__(self, plan_data: dict, parent=None):
@@ -151,8 +151,11 @@ class TransferPlanWidget(QtWidgets.QFrame):
     def on_edit(self):
         dlg = TransferPlanDialog(self.plan_data, parent=self)
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            debug_print("TransferPlan geändert, reload.")
-            # Neu laden
+            debug_print("TransferPlan geändert, update and reload.")
+            # Aktualisierte Daten persistent speichern:
+            mgr = TransferPlanConfigManager()
+            mgr.update_plan(self.plan_data["id"], self.plan_data)
+            # Neu laden:
             parent_widget = self.parent()
             while parent_widget and not hasattr(parent_widget, "load_plans"):
                 parent_widget = parent_widget.parent()
@@ -162,33 +165,19 @@ class TransferPlanWidget(QtWidgets.QFrame):
             debug_print("TransferPlan-Dialog abgebrochen.")
 
     def on_run_now(self):
-        """
-        Manuelles Starten des Plans. Hier rufen wir unsere Transfer-Logik auf.
-        """
         plan_name = self.plan_data.get("name", "Unbenannt")
         debug_print(f"TransferPlanWidget: on_run_now() => Starte Transfer für Plan {plan_name}")
 
-        # Kurze Meldung
+        # Öffne den Queue-Dialog für den asynchronen Transfer
+        dlg = TransferQueueDialog(self.plan_data, parent=self)
+        dlg.show()
+        dlg.start_transfer()
+
         QtWidgets.QMessageBox.information(
             self,
             "Manueller Start",
             f"Plan '{plan_name}' wird jetzt ausgeführt. Siehe Log für Details."
         )
-
-        try:
-            execute_transfer_plan(self.plan_data)
-            QtWidgets.QMessageBox.information(
-                self,
-                "Fertig",
-                f"Plan '{plan_name}' wurde abgearbeitet."
-            )
-        except Exception as e:
-            debug_print(f"Fehler bei on_run_now (plan={plan_name}): {e}")
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Fehler",
-                f"Transfer fehlgeschlagen: {e}"
-            )
 
     def update_labels(self):
         debug_print("TransferPlanWidget.update_labels()")
