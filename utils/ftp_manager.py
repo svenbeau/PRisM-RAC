@@ -68,8 +68,6 @@ class FTPManager:
         self.smtp_host = smtp_conf.get("host", "")
         self.smtp_port = smtp_conf.get("port", 587)
         self.smtp_user = smtp_conf.get("user", "")
-        # pass_key ist hier optional; wir holen das Passwort später aus dem Keyring
-        # Falls du pass_key in smtp_settings.json haben willst, könntest du es hier abrufen
         self.notify_email = smtp_conf.get("notify_email", "")
 
     def _load_password_from_keyring(self):
@@ -136,7 +134,6 @@ class FTPManager:
                         except Exception as e:
                             debug_print(f"Fehler beim Erstellen des Ordners {cwd}: {e}")
         else:
-            # sftp
             try:
                 self.conn.chdir(remote_dir)
             except IOError:
@@ -185,9 +182,21 @@ class FTPManager:
         else:
             return self._listdir_sftp(remote_path)
 
-    def _upload_file_ftp(self, local_path, remote_path):
+    # -------------------------------
+    # Neuer Callback-Upload für FTP
+    # -------------------------------
+    def _upload_file_ftp(self, local_path, remote_path, progress_callback=None):
+        file_size = os.path.getsize(local_path)
+        uploaded = 0
+        chunk_size = 8192
         with open(local_path, "rb") as f:
-            self.conn.storbinary(f"STOR {remote_path}", f, 8192)
+            def callback(data):
+                nonlocal uploaded
+                uploaded += len(data)
+                if progress_callback:
+                    percent = int((uploaded / file_size) * 100)
+                    progress_callback(percent)
+            self.conn.storbinary(f"STOR {remote_path}", f, blocksize=chunk_size, callback=callback)
         if self.keep_timestamp:
             modtime = time.strftime("%Y%m%d%H%M%S", time.localtime(os.path.getmtime(local_path)))
             try:
@@ -203,7 +212,7 @@ class FTPManager:
             mtime = os.path.getmtime(local_path)
             sftp.utime(remote_path, (atime, mtime))
 
-    def upload_file(self, local_path, remote_dir):
+    def upload_file(self, local_path, remote_dir, progress_callback=None):
         base_name = os.path.basename(local_path)
         remote_path = remote_dir.rstrip("/") + "/" + base_name
         try:
@@ -224,10 +233,9 @@ class FTPManager:
 
         self.ensure_remote_directory(remote_dir)
         if self.ftp_protocol == "ftp":
-            self._upload_file_ftp(local_path, remote_path)
+            self._upload_file_ftp(local_path, remote_path, progress_callback)
         else:
             self._upload_file_sftp(local_path, remote_path)
-
         self.log_transfer(local_path, remote_path, "UPLOAD")
 
     def download_file(self, remote_path, local_dir):
@@ -290,13 +298,7 @@ class FTPManager:
             json.dump(entries, lf, indent=2)
 
     def send_transfer_summary_email(self, results):
-        """
-        Schreibt die Transfer-Informationen in mail_transfer_info.json
-        und versendet eine E-Mail mit der Zusammenfassung der Transfer-Ergebnisse.
-        'results' ist eine Liste von Dictionaries mit den Transfer-Ergebnissen.
-        """
         from utils.config_manager import get_mail_transfer_info_path
-        # Schreibe Ergebnisse in die Datei
         info_path = get_mail_transfer_info_path()
         try:
             with open(info_path, "w", encoding="utf-8") as f:
@@ -305,7 +307,6 @@ class FTPManager:
         except Exception as e:
             debug_print(f"Fehler beim Schreiben von {info_path}: {e}")
 
-        # E-Mail versenden
         if self.smtp_enabled and self.notify_email:
             summary = "Transfer Summary:\n\n"
             for r in results:
@@ -328,22 +329,16 @@ class FTPManager:
                 debug_print(f"Fehler beim Senden der Transfer summary Mail: {e}")
 
     def send_failure_notification(self, error_message):
-        # macOS-Notification
         if platform.system() == "Darwin" and pync is not None:
             pync.notify(f"FTP-Transfer fehlgeschlagen: {error_message}", title="PRisM-RAC")
-
-        # SMTP-Fehlermeldung
         if self.smtp_enabled and self.notify_email:
             smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
             if smtp_pass is None:
                 debug_print("SMTP-Passwort nicht im Keyring, kann keine E-Mail senden.")
                 return
-
             subject = "FTP-Transfer fehlgeschlagen"
             body = f"Folgender Fehler ist aufgetreten:\n\n{error_message}"
-            msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\n"
-            msg += f"Subject: {subject}\r\n\r\n{body}"
-
+            msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\nSubject: {subject}\r\n\r\n{body}"
             try:
                 with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
                     server.starttls()
@@ -353,7 +348,6 @@ class FTPManager:
                 debug_print(f"Fehler beim Senden der E-Mail: {e}")
 
     # --- Neue Methoden für Remote File Management ---
-
     def mkdir_remote(self, remote_path):
         if self.ftp_protocol == "ftp":
             try:
