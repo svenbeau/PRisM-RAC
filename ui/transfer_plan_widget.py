@@ -7,8 +7,8 @@ from utils.config_manager import debug_print
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from ui.transfer_plan_dialog import TransferPlanDialog
 
-# NEU: Import für die Transfer-Logik
-from transfer_executor import execute_transfer_plan
+# NEU: Import korrigiert
+from utils.transfer_executor import execute_transfer_plan
 
 class TransferPlanWidget(QtWidgets.QFrame):
     def __init__(self, plan_data: dict, parent=None):
@@ -175,7 +175,6 @@ class TransferPlanWidget(QtWidgets.QFrame):
             f"Plan '{plan_name}' wird jetzt ausgeführt. Siehe Log für Details."
         )
 
-        # HIER: Aufruf unserer Executor-Funktion
         try:
             execute_transfer_plan(self.plan_data)
             QtWidgets.QMessageBox.information(
@@ -214,18 +213,18 @@ class TransferPlanWidget(QtWidgets.QFrame):
         self.lbl_ftp.setText(ftp_str)
 
         # Versionierung
-        version_mode = self.plan_data.get("versioning_mode","mirror")
-        suffix_fmt = self.plan_data.get("suffix_format","_v{n}")
+        version_mode = self.plan_data.get("versioning_mode", "mirror")
+        suffix_fmt = self.plan_data.get("suffix_format", "_v{n}")
         version_str = f"Versionierung: {version_mode} (Suffix={suffix_fmt})"
         self.lbl_ver.setText(version_str)
 
         # Zeitplan
-        schedule_type = self.plan_data.get("schedule_type","once")
-        schedule_time = self.plan_data.get("schedule_time","(none)")
+        schedule_type = self.plan_data.get("schedule_type", "once")
+        schedule_time = self.plan_data.get("schedule_time", "(none)")
         sched_str = f"Zeitplan: {schedule_type} @ {schedule_time}"
         self.lbl_sched.setText(sched_str)
 
         # Nach Transfer verschieben
-        move_after = self.plan_data.get("move_after","(none)")
+        move_after = self.plan_data.get("move_after", "(none)")
         move_str = f"Nach Transfer verschieben: {move_after}"
         self.lbl_move.setText(move_str)

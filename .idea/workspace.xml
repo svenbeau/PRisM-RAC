@@ -6,6 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="FTP mit Transferplänen">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_list_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_list_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/transfer_plan_config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/transfer_plan_config_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,6 +72,7 @@
     "Python.settings_widget.executor": "Run",
     "Python.smtp_test.executor": "Run",
     "Python.start.executor": "Run",
+    "Python.transfer_plan_dialog.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "stable-v17",
@@ -94,14 +100,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00013" summary="Samsatg Abend - Contentcheck funktioniert">
-      <option name="closed" value="true" />
-      <created>1740305961363</created>
-      <option name="number" value="00013" />
-      <option name="presentableId" value="LOCAL-00013" />
-      <option name="project" value="LOCAL" />
-      <updated>1740305961363</updated>
     </task>
     <task id="LOCAL-00014" summary="Samsatg Abend - Contentcheck funktioniert">
       <option name="closed" value="true" />
@@ -487,7 +485,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742070814120</updated>
     </task>
-    <option name="localTasksCounter" value="62" />
+    <task id="LOCAL-00062" summary="FTP mit Transferplänen">
+      <option name="closed" value="true" />
+      <created>1742073441424</created>
+      <option name="number" value="00062" />
+      <option name="presentableId" value="LOCAL-00062" />
+      <option name="project" value="LOCAL" />
+      <updated>1742073441424</updated>
+    </task>
+    <option name="localTasksCounter" value="63" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

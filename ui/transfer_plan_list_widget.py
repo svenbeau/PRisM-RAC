@@ -7,6 +7,7 @@ from utils.config_manager import debug_print
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from ui.transfer_plan_widget import TransferPlanWidget
 from ui.transfer_plan_dialog import TransferPlanDialog
+import json
 
 class TransferPlanListWidget(QtWidgets.QWidget):
     """
@@ -52,9 +53,6 @@ class TransferPlanListWidget(QtWidgets.QWidget):
         self.load_plans()
 
     def load_plans(self):
-        """
-        Lädt alle Transfer-Pläne und erzeugt ein TransferPlanWidget je Eintrag.
-        """
         debug_print("TransferPlanListWidget.load_plans() aufgerufen.")
         # Alte Widgets entfernen
         for i in reversed(range(self.container_layout.count())):
@@ -64,7 +62,7 @@ class TransferPlanListWidget(QtWidgets.QWidget):
                 widget.deleteLater()
 
         plans = self.manager.get_plans()
-        debug_print(f"Plans={plans}")
+        debug_print("Plans=" + json.dumps(plans, indent=2))
         for p_data in plans:
             widget = TransferPlanWidget(p_data, parent=self.container_widget)
             self.container_layout.addWidget(widget)
@@ -72,9 +70,6 @@ class TransferPlanListWidget(QtWidgets.QWidget):
         self.container_layout.addStretch()
 
     def add_transfer_plan(self):
-        """
-        Legt einen neuen Eintrag an, öffnet sofort den Dialog.
-        """
         new_id = str(uuid.uuid4())
         new_plan = {
             "id": new_id,
@@ -90,26 +85,26 @@ class TransferPlanListWidget(QtWidgets.QWidget):
             "move_after": "",
             "body_visible": True  # Für Kollabieren
         }
-        # Erst mal adden => Dann Dialog
+        # Zuerst den neuen Plan hinzufügen (Standardwerte)
         self.manager.add_plan(new_plan)
 
-        # Plan im Dialog bearbeiten
+        # Dann den Dialog zum Bearbeiten öffnen
         dlg = TransferPlanDialog(new_plan, parent=self)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
-            debug_print("TransferPlanDialog: Plan gespeichert => reload")
+            debug_print("TransferPlanDialog: Plan gespeichert.")
+            debug_print("Neuer Plan (nach Dialog):\n" + json.dumps(new_plan, indent=2))
+            # Den aktualisierten Plan in die Konfiguration schreiben
+            self.manager.update_plan(new_id, new_plan)
         else:
-            debug_print("Abgebrochen => evtl. leeren Plan entfernen?")
-            # Falls du den Plan löschen willst, wenn abgebrochen => remove
+            debug_print("TransferPlanDialog abgebrochen, evtl. leeren Plan entfernen?")
+            # Optional: Den Plan entfernen, wenn abgebrochen:
             # self.manager.remove_plan(new_id)
 
-        self.manager = TransferPlanConfigManager()  # Neu laden
+        # Manager neu laden und Widgets aktualisieren
+        self.manager = TransferPlanConfigManager()
         self.load_plans()
 
     def remove_transfer_plan(self):
-        """
-        Entfernt Plan per Index-Eingabe.
-        Ggf. anpassen, z. B. per Plan-Name oder ID.
-        """
         plans = self.manager.get_plans()
         if not plans:
             QtWidgets.QMessageBox.warning(self, "Entfernen", "Keine Transfer-Pläne vorhanden.")
