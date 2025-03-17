@@ -4,37 +4,31 @@
 import os
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
-APP_NAME = "PRisM-CC"
-APP_SCRIPT = "wrapper.py"
+# Name der Anwendung
+APP_NAME = "PRisM-RAC"
 
-pathex = [os.path.abspath('.')]
+# Hauptskript, das als Einstieg dient
+APP_SCRIPT = "main.py"
 
+# Pfade, in denen PyInstaller nach Modulen und Ressourcen suchen soll
+pathex = [
+    os.path.abspath('.'),
+]
+
+# Optionale versteckte Importe
 hidden_imports = []
 
-def collect_datas(source, target):
-    """
-    Sammelt rekursiv alle Dateien aus dem Ordner 'source' und ordnet sie dem Zielordner 'target' zu.
-    Liefert eine Liste von Tupeln (Quelle, Zielpfad relativ zum Bundle).
-    """
-    datas = []
-    for root, dirs, files in os.walk(source):
-        for f in files:
-            full_path = os.path.join(root, f)
-            rel_path = os.path.relpath(root, source)
-            # Falls der relative Pfad '.', dann wird nur target benutzt
-            target_path = os.path.join(target, rel_path) if rel_path != '.' else target
-            datas.append((full_path, target_path))
-    return datas
+# Hier definieren wir die Assets-Ordner und andere Daten
+datas = [
+    ("assets", "assets"),  # Dies kopiert den gesamten assets-Ordner in das Bundle
+]
 
-datas = []
-datas += collect_datas("assets", "assets")
-datas += [(os.path.abspath("scripts"), "scripts")]
-datas += [(os.path.abspath("config"), "config")]
-datas += [(os.path.abspath("jsx_templates"), "jsx_templates")]
+# Füge settings.json hinzu, wenn vorhanden
+if os.path.exists("settings.json"):
+    datas.append(("settings.json", "."))
 
 a = Analysis(
     [APP_SCRIPT],
@@ -45,7 +39,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['PyQt5', 'PyQt6', 'PySide2'],  # Schließe andere Qt-Bibliotheken aus
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -54,13 +48,12 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# Wichtig: Two-File-Modus statt One-File-Modus
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
+    [],  # Leere Liste bedeutet: Keine Binärdateien einbetten
+    exclude_binaries=True,  # Sehr wichtig: Binärdateien und Assets NICHT in die EXE einbetten
     name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
@@ -68,15 +61,28 @@ exe = EXE(
     upx=True,
     console=False,
     disable_windowed_traceback=False,
+    target_arch='arm64',
+)
+
+# Sammlung von Dateien, die neben der EXE platziert werden
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name=APP_NAME,
 )
 
 app = BUNDLE(
-    exe,
-    name='PRisM-CC.app',
+    coll,  # Wichtig: Verwende die Sammlung statt der EXE
+    name=f'{APP_NAME}.app',
     icon='/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns',
-    bundle_identifier='com.svenbeau.prismcc.arm64',
+    bundle_identifier='com.svenbeau.prismrac.arm64',
     info_plist={
-        'CFBundleName': 'PRisM-CC',
+        'CFBundleName': APP_NAME,
         'CFBundleShortVersionString': '1.0.0',
         'CFBundleVersion': '1.0.0',
         'CFBundleDevelopmentRegion': 'en',

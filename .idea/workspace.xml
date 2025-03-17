@@ -5,28 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Contentcheck Fehler behoben.">
-      <change afterPath="$PROJECT_DIR$/ui/hotfolder_config_dialog.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/Analysis-00.toc" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/Analysis-00.toc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/EXE-00.toc" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/EXE-00.toc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PKG-00.toc" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PKG-00.toc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PRisM-CC.pkg" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PRisM-CC.pkg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PYZ-00.pyz" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PYZ-00.pyz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PYZ-00.toc" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/PYZ-00.toc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/base_library.zip" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/base_library.zip" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/warn-PRisM-RAC_arm64.txt" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/warn-PRisM-RAC_arm64.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/PRisM-RAC_arm64/xref-PRisM-RAC_arm64.html" beforeDir="false" afterPath="$PROJECT_DIR$/build/PRisM-RAC_arm64/xref-PRisM-RAC_arm64.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/PRisM-CC" beforeDir="false" afterPath="$PROJECT_DIR$/dist/PRisM-CC" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/PRisM-CC.app/Contents/MacOS/PRisM-CC" beforeDir="false" afterPath="$PROJECT_DIR$/dist/PRisM-CC.app/Contents/MacOS/PRisM-CC" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/hotfolder_config.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/hotfolder_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/script_recipe_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/script_recipe_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/auto_delete_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/auto_delete_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/hotfolder_config.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/hotfolder_config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/hotfolder_config_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -74,27 +55,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.hotfolder_config.executor": "Run",
-    "Python.hotfolder_monitor.executor": "Run",
-    "Python.hotfolder_widget.executor": "Run",
-    "Python.json_editor.executor": "Run",
-    "Python.json_explorer.executor": "Run",
-    "Python.json_explorer_widget.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.main_window.executor": "Run",
-    "Python.script_config_manager.executor": "Run",
-    "Python.settings_widget.executor": "Run",
-    "Python.smtp_test.executor": "Run",
-    "Python.start.executor": "Run",
-    "Python.transfer_plan_dialog.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "stable-v20",
-    "settings.editor.selected.configurable": "preferences.lookFeel"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hotfolder_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_explorer_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
+    &quot;Python.script_config_manager.executor&quot;: &quot;Run&quot;,
+    &quot;Python.settings_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.smtp_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.start.executor&quot;: &quot;Run&quot;,
+    &quot;Python.transfer_plan_dialog.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;stable-v20&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/utils" />
@@ -116,30 +97,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00020" summary="Umbau zu globaler Konfiguration">
-      <option name="closed" value="true" />
-      <created>1740864427030</created>
-      <option name="number" value="00020" />
-      <option name="presentableId" value="LOCAL-00020" />
-      <option name="project" value="LOCAL" />
-      <updated>1740864427030</updated>
-    </task>
-    <task id="LOCAL-00021" summary="Umbau zu globaler Konfiguration">
-      <option name="closed" value="true" />
-      <created>1740864497583</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1740864497583</updated>
-    </task>
-    <task id="LOCAL-00022" summary="Umbau zu globaler Konfiguration">
-      <option name="closed" value="true" />
-      <created>1740865641600</created>
-      <option name="number" value="00022" />
-      <option name="presentableId" value="LOCAL-00022" />
-      <option name="project" value="LOCAL" />
-      <updated>1740865641600</updated>
     </task>
     <task id="LOCAL-00023" summary="Umbau zu globaler Konfiguration">
       <option name="closed" value="true" />
@@ -509,7 +466,31 @@
       <option name="project" value="LOCAL" />
       <updated>1742211509526</updated>
     </task>
-    <option name="localTasksCounter" value="69" />
+    <task id="LOCAL-00069" summary="Contentcheck Fehler behoben.">
+      <option name="closed" value="true" />
+      <created>1742217464664</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1742217464664</updated>
+    </task>
+    <task id="LOCAL-00070" summary="Contentcheck Fehler behoben.">
+      <option name="closed" value="true" />
+      <created>1742217748732</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1742217748732</updated>
+    </task>
+    <task id="LOCAL-00071" summary="Contentcheck Fehler behoben.">
+      <option name="closed" value="true" />
+      <created>1742219221637</created>
+      <option name="number" value="00071" />
+      <option name="presentableId" value="LOCAL-00071" />
+      <option name="project" value="LOCAL" />
+      <updated>1742219221637</updated>
+    </task>
+    <option name="localTasksCounter" value="72" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

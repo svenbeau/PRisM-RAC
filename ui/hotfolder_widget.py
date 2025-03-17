@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 from PySide6 import QtWidgets, QtCore, QtGui
 from utils.hotfolder_config_manager import HotfolderConfigManager, debug_print
 from ui.hotfolder_config_dialog import HotfolderConfigDialog
 from hotfolder_monitor import HotfolderMonitor  # bleibt unverändert
+
 
 def resource_path(relative_path):
     """Gibt den absoluten Pfad zur Ressource zurück – funktioniert im Entwicklungsmodus und im PyInstaller-Bundle."""
@@ -14,7 +16,9 @@ def resource_path(relative_path):
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
+
     return os.path.join(base_path, relative_path)
+
 
 class HotfolderListWidget(QtWidgets.QWidget):
     """
@@ -22,6 +26,7 @@ class HotfolderListWidget(QtWidgets.QWidget):
     Oben befinden sich Buttons zum Hinzufügen und Entfernen.
     Die Hotfolder-Daten werden über den HotfolderConfigManager geladen.
     """
+
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings  # Dieser Parameter wird jetzt nur noch für Kompatibilität beibehalten
@@ -104,7 +109,8 @@ class HotfolderListWidget(QtWidgets.QWidget):
         if not hotfolders:
             QtWidgets.QMessageBox.warning(self, "Entfernen", "Keine Hotfolder vorhanden.")
             return
-        idx, ok = QtWidgets.QInputDialog.getInt(self, "Hotfolder entfernen", "Index (1-basiert):", 1, 1, len(hotfolders))
+        idx, ok = QtWidgets.QInputDialog.getInt(self, "Hotfolder entfernen", "Index (1-basiert):", 1, 1,
+                                                len(hotfolders))
         if ok:
             real_idx = idx - 1
             if 0 <= real_idx < len(hotfolders):
@@ -118,13 +124,29 @@ class HotfolderWidget(QtWidgets.QFrame):
     Zeigt die Konfiguration (Ordner, Bearbeitung, Contentcheck) und den Status
     (Start/Stop, Spinner, Edit) für einen einzelnen Hotfolder an.
     """
+
     def __init__(self, hotfolder_config: dict, parent=None):
         super().__init__(parent)
         self.hotfolder_config = hotfolder_config
         self.monitor = None
         self.body_visible = self.hotfolder_config.get("body_visible", True)
-        self.icon_expand = QtGui.QIcon(resource_path("assets/dropdown_list.png"))
-        self.icon_collapse = QtGui.QIcon(resource_path("assets/close_list.png"))
+
+        # Hartkodierte relative Pfade für die Assets, um sicherzustellen, dass sie direkt gefunden werden
+        expand_icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "dropdown_list.png")
+        collapse_icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "close_list.png")
+
+        # Fallback zu resource_path wenn die direkten Pfade nicht funktionieren
+        if not os.path.exists(expand_icon_path):
+            expand_icon_path = resource_path("assets/dropdown_list.png")
+        if not os.path.exists(collapse_icon_path):
+            collapse_icon_path = resource_path("assets/close_list.png")
+
+        debug_print(f"Expand icon path: {expand_icon_path}, exists: {os.path.exists(expand_icon_path)}")
+        debug_print(f"Collapse icon path: {collapse_icon_path}, exists: {os.path.exists(collapse_icon_path)}")
+
+        self.icon_expand = QtGui.QIcon(expand_icon_path)
+        self.icon_collapse = QtGui.QIcon(collapse_icon_path)
+
         self.setupUi()
 
     def setupUi(self):
@@ -144,12 +166,21 @@ class HotfolderWidget(QtWidgets.QFrame):
         self.title_label = QtWidgets.QLabel(self.hotfolder_config.get("name", "Unbenannt"))
         self.title_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 12pt;")
         title_layout.addWidget(self.title_label, 1, QtCore.Qt.AlignVCenter)
+
+        # Erstelle einen Button mit einem Text statt eines Icons für den Togglebutton (als Fallback)
         self.toggle_btn = QtWidgets.QPushButton()
         self.toggle_btn.setFlat(True)
-        if self.body_visible:
-            self.toggle_btn.setIcon(self.icon_collapse)
+
+        # Überprüfe, ob die Icons richtig geladen wurden
+        if self.icon_expand.isNull() or self.icon_collapse.isNull():
+            debug_print("Icons konnten nicht geladen werden, verwende Text stattdessen")
+            self.toggle_btn.setText("↕")  # Ein Unicode-Symbol als Ersatz
         else:
-            self.toggle_btn.setIcon(self.icon_expand)
+            if self.body_visible:
+                self.toggle_btn.setIcon(self.icon_collapse)
+            else:
+                self.toggle_btn.setIcon(self.icon_expand)
+
         self.toggle_btn.clicked.connect(self.on_toggle_body)
         title_layout.addWidget(self.toggle_btn, 0, QtCore.Qt.AlignRight)
         main_layout.addWidget(self.title_bar)
@@ -177,10 +208,10 @@ class HotfolderWidget(QtWidgets.QFrame):
             QGroupBox::title { background-color: #b0b0b0; color: #000000; }
         """)
         ordner_layout = QtWidgets.QVBoxLayout(self.ordner_group)
-        self.monitor_label = QtWidgets.QLabel(f"Monitor: {self.hotfolder_config.get('monitor_dir','')}")
-        self.success_label = QtWidgets.QLabel(f"Success: {self.hotfolder_config.get('success_dir','')}")
-        self.fault_label   = QtWidgets.QLabel(f"Fault: {self.hotfolder_config.get('fault_dir','')}")
-        self.logfiles_label= QtWidgets.QLabel(f"Logfiles: {self.hotfolder_config.get('logfiles_dir','')}")
+        self.monitor_label = QtWidgets.QLabel(f"Monitor: {self.hotfolder_config.get('monitor_dir', '')}")
+        self.success_label = QtWidgets.QLabel(f"Success: {self.hotfolder_config.get('success_dir', '')}")
+        self.fault_label = QtWidgets.QLabel(f"Fault: {self.hotfolder_config.get('fault_dir', '')}")
+        self.logfiles_label = QtWidgets.QLabel(f"Logfiles: {self.hotfolder_config.get('logfiles_dir', '')}")
         for i, lbl in enumerate([self.monitor_label, self.success_label, self.fault_label, self.logfiles_label]):
             bg_color = "#f7f7f7" if i % 2 == 0 else "#e5e5e5"
             lbl.setStyleSheet(f"background-color: {bg_color}; color: #000000; padding: 4px;")
@@ -193,9 +224,11 @@ class HotfolderWidget(QtWidgets.QFrame):
             QGroupBox::title { background-color: #b0b0b0; color: #000000; }
         """)
         bearbeitung_layout = QtWidgets.QVBoxLayout(self.bearbeitung_group)
-        self.jsx_folder_label = QtWidgets.QLabel(f"JSX-Folder: {self.hotfolder_config.get('jsx_folder','')}")
-        self.selected_jsx_label = QtWidgets.QLabel(f"JSX-Script (Combo): {os.path.basename(self.hotfolder_config.get('selected_jsx','')) or '(none)'}")
-        self.additional_jsx_label = QtWidgets.QLabel(f"JSX-Script (Manual): {os.path.basename(self.hotfolder_config.get('additional_jsx','')) or '(none)'}")
+        self.jsx_folder_label = QtWidgets.QLabel(f"JSX-Folder: {self.hotfolder_config.get('jsx_folder', '')}")
+        self.selected_jsx_label = QtWidgets.QLabel(
+            f"JSX-Script (Combo): {os.path.basename(self.hotfolder_config.get('selected_jsx', '')) or '(none)'}")
+        self.additional_jsx_label = QtWidgets.QLabel(
+            f"JSX-Script (Manual): {os.path.basename(self.hotfolder_config.get('additional_jsx', '')) or '(none)'}")
         for lbl in [self.jsx_folder_label, self.selected_jsx_label, self.additional_jsx_label]:
             lbl.setStyleSheet("background-color: #f7f7f7; color: #000000; padding: 4px;")
             bearbeitung_layout.addWidget(lbl)
@@ -208,9 +241,9 @@ class HotfolderWidget(QtWidgets.QFrame):
         """)
         content_layout = QtWidgets.QVBoxLayout(self.content_group)
         self.std_layers_label = QtWidgets.QLabel()
-        self.std_meta_label   = QtWidgets.QLabel()
-        self.kw_layers_label  = QtWidgets.QLabel()
-        self.kw_meta_label    = QtWidgets.QLabel()
+        self.std_meta_label = QtWidgets.QLabel()
+        self.kw_layers_label = QtWidgets.QLabel()
+        self.kw_meta_label = QtWidgets.QLabel()
         for i, lbl in enumerate([self.std_layers_label, self.std_meta_label, self.kw_layers_label, self.kw_meta_label]):
             bg_color = "#f7f7f7" if i % 2 == 0 else "#e5e5e5"
             lbl.setStyleSheet(f"background-color: {bg_color}; color: #000000; padding: 4px;")
@@ -259,10 +292,15 @@ class HotfolderWidget(QtWidgets.QFrame):
     def on_toggle_body(self):
         self.body_visible = not self.body_visible
         self.body_widget.setVisible(self.body_visible)
-        if self.body_visible:
-            self.toggle_btn.setIcon(self.icon_collapse)
+
+        # Überprüfe, ob die Icons richtig geladen wurden
+        if self.icon_expand.isNull() or self.icon_collapse.isNull():
+            self.toggle_btn.setText("↕")  # Fallback Text
         else:
-            self.toggle_btn.setIcon(self.icon_expand)
+            if self.body_visible:
+                self.toggle_btn.setIcon(self.icon_collapse)
+            else:
+                self.toggle_btn.setIcon(self.icon_expand)
 
         # body_visible in den Hotfolder-Daten aktualisieren
         self.hotfolder_config["body_visible"] = self.body_visible
@@ -278,7 +316,8 @@ class HotfolderWidget(QtWidgets.QFrame):
             self.stop_monitor()
 
     def start_monitor(self):
-        debug_print(f"Starte Monitor für: {self.hotfolder_config.get('name','?')} (ID={self.hotfolder_config.get('id','??')})")
+        debug_print(
+            f"Starte Monitor für: {self.hotfolder_config.get('name', '?')} (ID={self.hotfolder_config.get('id', '??')})")
         self.monitor = HotfolderMonitor(
             hf_config=self.hotfolder_config,
             on_status_update=self.on_status_update,
@@ -294,7 +333,8 @@ class HotfolderWidget(QtWidgets.QFrame):
 
     def stop_monitor(self):
         if self.monitor:
-            debug_print(f"Stoppe Monitor für: {self.hotfolder_config.get('name','?')} (ID={self.hotfolder_config.get('id','??')})")
+            debug_print(
+                f"Stoppe Monitor für: {self.hotfolder_config.get('name', '?')} (ID={self.hotfolder_config.get('id', '??')})")
             self.monitor.stop()
             self.monitor = None
         self.start_stop_btn.setText("Start")
@@ -412,24 +452,24 @@ class HotfolderWidget(QtWidgets.QFrame):
     def update_labels(self):
         debug_print("Aktualisiere HotfolderWidget-Labels.")
         self.title_label.setText(self.hotfolder_config.get("name", "Unbenannt"))
-        self.monitor_label.setText(f"Monitor: {self.hotfolder_config.get('monitor_dir','')}")
-        self.success_label.setText(f"Success: {self.hotfolder_config.get('success_dir','')}")
-        self.fault_label.setText(f"Fault: {self.hotfolder_config.get('fault_dir','')}")
-        self.logfiles_label.setText(f"Logfiles: {self.hotfolder_config.get('logfiles_dir','')}")
+        self.monitor_label.setText(f"Monitor: {self.hotfolder_config.get('monitor_dir', '')}")
+        self.success_label.setText(f"Success: {self.hotfolder_config.get('success_dir', '')}")
+        self.fault_label.setText(f"Fault: {self.hotfolder_config.get('fault_dir', '')}")
+        self.logfiles_label.setText(f"Logfiles: {self.hotfolder_config.get('logfiles_dir', '')}")
         folder = self.hotfolder_config.get("jsx_folder", "")
         self.jsx_folder_label.setText(f"JSX-Folder: {folder}")
-        combo_name = os.path.basename(self.hotfolder_config.get("selected_jsx","")) or "(none)"
-        manual_name = os.path.basename(self.hotfolder_config.get("additional_jsx","")) or "(none)"
+        combo_name = os.path.basename(self.hotfolder_config.get("selected_jsx", "")) or "(none)"
+        manual_name = os.path.basename(self.hotfolder_config.get("additional_jsx", "")) or "(none)"
         self.selected_jsx_label.setText(f"JSX-Script (Combo): {combo_name}")
         self.additional_jsx_label.setText(f"JSX-Script (Manual): {manual_name}")
         std_layers = ", ".join(self.hotfolder_config.get("required_layers", []))
-        std_meta   = ", ".join(self.hotfolder_config.get("required_metadata", []))
+        std_meta = ", ".join(self.hotfolder_config.get("required_metadata", []))
         self.std_layers_label.setText(f"Standard Ebenen: {std_layers}")
         self.std_meta_label.setText(f"Standard Metadaten: {std_meta}")
         if self.hotfolder_config.get("keyword_check_enabled", False):
             kw = self.hotfolder_config.get("keyword_check_word", "Rueckseite")
             kw_layers = ", ".join(self.hotfolder_config.get("keyword_layers", []))
-            kw_meta   = ", ".join(self.hotfolder_config.get("keyword_metadata", []))
+            kw_meta = ", ".join(self.hotfolder_config.get("keyword_metadata", []))
             self.kw_layers_label.setText(f"Keyword '{kw}' Ebenen: {kw_layers}")
             self.kw_meta_label.setText(f"Keyword '{kw}' Metadaten: {kw_meta}")
         else:
@@ -441,9 +481,11 @@ class HotfolderWidget(QtWidgets.QFrame):
         if self.spinner_movie:
             self.spinner_label.setVisible(False)
 
+
 if __name__ == "__main__":
     import sys
     from PySide6.QtWidgets import QApplication
+
     app = QApplication(sys.argv)
     widget = HotfolderWidget({
         "id": "1234",
