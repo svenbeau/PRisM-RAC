@@ -78,6 +78,20 @@ class TransferPlanDialog(QtWidgets.QDialog):
         mv_hbox.addWidget(self.move_btn)
         form_layout.addRow("Nach Transfer verschieben:", mv_hbox)
 
+        #
+        # -- NEU: Automatisches Löschen im "Nach Transfer verschieben"-Ordner
+        #
+        self.auto_delete_move_checkbox = QtWidgets.QCheckBox("Auto-Delete aktivieren")
+        self.auto_delete_move_hours_spin = QtWidgets.QSpinBox()
+        self.auto_delete_move_hours_spin.setRange(1, 24*30)  # bspw. max 30 Tage
+        self.auto_delete_move_hours_spin.setValue(48)        # Standardwert 48 Stunden
+
+        mv_delete_hbox = QtWidgets.QHBoxLayout()
+        mv_delete_hbox.addWidget(self.auto_delete_move_checkbox)
+        mv_delete_hbox.addWidget(QtWidgets.QLabel("Stunden:"))
+        mv_delete_hbox.addWidget(self.auto_delete_move_hours_spin)
+        form_layout.addRow("Dateien löschen in:", mv_delete_hbox)
+
         main_layout.addLayout(form_layout)
 
         # Buttons OK / Cancel
@@ -114,7 +128,7 @@ class TransferPlanDialog(QtWidgets.QDialog):
 
         # Zielordner
         tgt = self.plan_data.get("target_path", "")
-        self.target_edit.setText(tgt)  # Zielordner wird hier im Textfeld angezeigt
+        self.target_edit.setText(tgt)
 
         use_ftp = self.plan_data.get("use_ftp", False)
         self.ftp_check.setChecked(use_ftp)
@@ -146,6 +160,16 @@ class TransferPlanDialog(QtWidgets.QDialog):
         move_after = self.plan_data.get("move_after", "")
         self.move_label.setText(move_after or "(none)")
 
+        #
+        # NEU: Auto-Delete nach Transfer
+        #
+        self.auto_delete_move_checkbox.setChecked(
+            self.plan_data.get("auto_delete_after_move_enabled", False)
+        )
+        self.auto_delete_move_hours_spin.setValue(
+            self.plan_data.get("auto_delete_after_move_hours", 48)
+        )
+
         self.on_ftp_toggled()
 
     def on_ok(self):
@@ -159,7 +183,7 @@ class TransferPlanDialog(QtWidgets.QDialog):
         src_str = self.source_label.text()
         self.plan_data["source_path"] = "" if src_str == "(none)" else src_str
 
-        tgt_str = self.target_edit.text().strip()  # Wert aus dem Textfeld
+        tgt_str = self.target_edit.text().strip()
         self.plan_data["target_path"] = tgt_str
 
         use_ftp = self.ftp_check.isChecked()
@@ -185,6 +209,12 @@ class TransferPlanDialog(QtWidgets.QDialog):
         if mv_str == "(none)":
             mv_str = ""
         self.plan_data["move_after"] = mv_str
+
+        #
+        # NEU: Auto-Delete-Infos übernehmen
+        #
+        self.plan_data["auto_delete_after_move_enabled"] = self.auto_delete_move_checkbox.isChecked()
+        self.plan_data["auto_delete_after_move_hours"] = self.auto_delete_move_hours_spin.value()
 
         debug_print(f"TransferPlanDialog => final plan_data: {self.plan_data}")
         self.accept()
