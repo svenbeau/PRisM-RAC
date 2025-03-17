@@ -4,7 +4,7 @@
 import os
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.building.datastruct import Tree  # Verwende Tree aus diesem Modul
 
 block_cipher = None
 
@@ -15,26 +15,15 @@ pathex = [os.path.abspath('.')]
 
 hidden_imports = []
 
-def collect_datas(source, target):
-    """
-    Sammelt rekursiv alle Dateien aus dem Ordner 'source' und ordnet sie dem Zielordner 'target' zu.
-    Liefert eine Liste von Tupeln (Quelle, Zielpfad relativ zum Bundle).
-    """
-    datas = []
-    for root, dirs, files in os.walk(source):
-        for f in files:
-            full_path = os.path.join(root, f)
-            rel_path = os.path.relpath(root, source)
-            # Falls der relative Pfad '.', dann wird nur target benutzt
-            target_path = os.path.join(target, rel_path) if rel_path != '.' else target
-            datas.append((full_path, target_path))
-    return datas
+# Mit Tree werden alle Dateien im Ordner "assets" (sowie in den anderen Ordnern) rekursiv aufgenommen.
+datas = [
+    Tree("assets", prefix="assets"),
+    Tree("scripts", prefix="scripts"),
+    Tree("config", prefix="config"),
+    Tree("jsx_templates", prefix="jsx_templates"),
+]
 
-datas = []
-datas += collect_datas("assets", "assets")
-datas += [(os.path.abspath("scripts"), "scripts")]
-datas += [(os.path.abspath("config"), "config")]
-datas += [(os.path.abspath("jsx_templates"), "jsx_templates")]
+from PyInstaller.building.build_main import Analysis, PYZ, EXE, BUNDLE
 
 a = Analysis(
     [APP_SCRIPT],
