@@ -2,10 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 from PySide6 import QtWidgets, QtCore, QtGui
 from utils.config_manager import debug_print
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from ui.transfer_plan_dialog import TransferPlanDialog
+
+def resource_path(relative_path):
+    """Gibt den absoluten Pfad zur Ressource zurück – funktioniert im Entwicklungsmodus und im PyInstaller-Bundle."""
+    try:
+        # Wenn wir per PyInstaller laufen:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 class TransferPlanWidget(QtWidgets.QFrame):
     def __init__(self, plan_data: dict, parent=None):
@@ -13,8 +23,8 @@ class TransferPlanWidget(QtWidgets.QFrame):
         self.plan_data = plan_data
         self.body_visible = plan_data.get("body_visible", False)
 
-        self.icon_expand = QtGui.QIcon(os.path.join("assets", "dropdown_list.png"))
-        self.icon_collapse = QtGui.QIcon(os.path.join("assets", "close_list.png"))
+        self.icon_expand = QtGui.QIcon(resource_path("assets/dropdown_list.png"))
+        self.icon_collapse = QtGui.QIcon(resource_path("assets/close_list.png"))
         self.setup_ui()
 
     def setup_ui(self):

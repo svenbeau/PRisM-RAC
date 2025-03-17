@@ -8,27 +8,33 @@ from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
-# Name der Anwendung
 APP_NAME = "PRisM-CC"
-
-# Wrapper-Skript, das als Einstieg dient
 APP_SCRIPT = "wrapper.py"
 
-# Pfade, in denen PyInstaller nach Modulen und Ressourcen suchen soll
-pathex = [
-    os.path.abspath('.'),
-]
+pathex = [os.path.abspath('.')]
 
-# Optionale versteckte Importe
 hidden_imports = []
 
-# Hier definieren wir die Assets-Ordner und andere Daten
-datas = [
-    ("assets", "assets"),
-    ("scripts", "scripts"),
-    ("config", "config"),
-    ("jsx_templates", "jsx_templates"),  # Wichtig: JSX-Templates einschließen
-]
+def collect_datas(source, target):
+    """
+    Sammelt rekursiv alle Dateien aus dem Ordner 'source' und ordnet sie dem Zielordner 'target' zu.
+    Liefert eine Liste von Tupeln (Quelle, Zielpfad relativ zum Bundle).
+    """
+    datas = []
+    for root, dirs, files in os.walk(source):
+        for f in files:
+            full_path = os.path.join(root, f)
+            rel_path = os.path.relpath(root, source)
+            # Falls der relative Pfad '.', dann wird nur target benutzt
+            target_path = os.path.join(target, rel_path) if rel_path != '.' else target
+            datas.append((full_path, target_path))
+    return datas
+
+datas = []
+datas += collect_datas("assets", "assets")
+datas += [(os.path.abspath("scripts"), "scripts")]
+datas += [(os.path.abspath("config"), "config")]
+datas += [(os.path.abspath("jsx_templates"), "jsx_templates")]
 
 a = Analysis(
     [APP_SCRIPT],
@@ -48,7 +54,6 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Ändere auf One-File-Modus
 exe = EXE(
     pyz,
     a.scripts,

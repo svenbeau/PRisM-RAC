@@ -3,9 +3,18 @@
 
 import os
 from PySide6 import QtWidgets, QtCore, QtGui
-from utils.hotfolder_config import HotfolderConfigManager, debug_print
-from ui.hotfolder_config import HotfolderConfigDialog
+from utils.hotfolder_config_manager import HotfolderConfigManager, debug_print
+from ui.hotfolder_config_dialog import HotfolderConfigDialog
 from hotfolder_monitor import HotfolderMonitor  # bleibt unverändert
+
+def resource_path(relative_path):
+    """Gibt den absoluten Pfad zur Ressource zurück – funktioniert im Entwicklungsmodus und im PyInstaller-Bundle."""
+    try:
+        # Wenn wir per PyInstaller laufen:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 class HotfolderListWidget(QtWidgets.QWidget):
     """
@@ -114,8 +123,8 @@ class HotfolderWidget(QtWidgets.QFrame):
         self.hotfolder_config = hotfolder_config
         self.monitor = None
         self.body_visible = self.hotfolder_config.get("body_visible", True)
-        self.icon_expand = QtGui.QIcon(os.path.join("assets", "dropdown_list.png"))
-        self.icon_collapse = QtGui.QIcon(os.path.join("assets", "close_list.png"))
+        self.icon_expand = QtGui.QIcon(resource_path("assets/dropdown_list.png"))
+        self.icon_collapse = QtGui.QIcon(resource_path("assets/close_list.png"))
         self.setupUi()
 
     def setupUi(self):

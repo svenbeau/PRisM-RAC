@@ -14,10 +14,6 @@ from ui.ftp_transfer_widget import FtpTransferWidget
 from ui.script_recipe_list_widget import ScriptRecipeListWidget
 from ui.transfer_plan_list_widget import TransferPlanListWidget
 
-# Optional: Wenn du eine Executor-Funktion oder PlanConfigManager brauchst:
-# from utils.transfer_executor import execute_transfer_plan
-# from utils.transfer_plan_config_manager import TransferPlanConfigManager
-
 from datetime import datetime, timedelta
 
 DEBUG_OUTPUT = True
@@ -31,7 +27,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.init_ui()
 
     def init_ui(self):
-        # Haupt-Widget + Layout
+        # Zentrales Widget + Layout
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
         main_vlayout = QtWidgets.QVBoxLayout(central_widget)
@@ -83,16 +79,15 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout = QtWidgets.QVBoxLayout(left_widget)
         left_vlayout.setContentsMargins(5, 5, 5, 5)
 
-        # --- Reihenfolge NEU (Buttons) ---
-        self.hotfolder_btn = QtWidgets.QPushButton("Hotfolder")              # 1
-        self.script_recipe_btn = QtWidgets.QPushButton("Script › Rezept")    # 2
-        self.json_editor_btn = QtWidgets.QPushButton("JSON-Editor")          # 3
-        self.ftp_transfer_btn = QtWidgets.QPushButton("FTP-Transfer")        # 4
-        self.plan_btn = QtWidgets.QPushButton("Transfer-Pläne")              # 5
-        self.logfile_btn = QtWidgets.QPushButton("Logfile")                  # 6
-        self.settings_btn = QtWidgets.QPushButton("Einstellungen")           # 7
+        # Reihenfolge der Buttons
+        self.hotfolder_btn = QtWidgets.QPushButton("Hotfolder")
+        self.script_recipe_btn = QtWidgets.QPushButton("Script › Rezept")
+        self.json_editor_btn = QtWidgets.QPushButton("JSON-Editor")
+        self.ftp_transfer_btn = QtWidgets.QPushButton("FTP-Transfer")
+        self.plan_btn = QtWidgets.QPushButton("Transfer-Pläne")
+        self.logfile_btn = QtWidgets.QPushButton("Logfile")
+        self.settings_btn = QtWidgets.QPushButton("Einstellungen")
 
-        # Füge sie in genau dieser Reihenfolge ins Layout ein:
         left_vlayout.addWidget(self.hotfolder_btn)
         left_vlayout.addWidget(self.script_recipe_btn)
         left_vlayout.addWidget(self.json_editor_btn)
@@ -108,27 +103,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stack = QtWidgets.QStackedWidget()
         main_hlayout.addWidget(self.stack, stretch=1)
 
-        # --- Widgets für die Stacked-Seiten in passender Reihenfolge ---
-        self.hotfolder_list_widget = HotfolderListWidget(self.settings, parent=self.stack)   # Index 0
-        self.script_recipe_list_widget = ScriptRecipeListWidget(self.settings, parent=self.stack)  # Index 1
-        self.json_explorer_widget = JSONExplorerWidget(self.settings, parent=self.stack)     # Index 2
-        self.ftp_transfer_widget = FtpTransferWidget(parent=self.stack)                      # Index 3
-        self.transfer_plan_list_widget = TransferPlanListWidget(self.settings, parent=self.stack) # Index 4
-        self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)                # Index 5
-        self.settings_widget = SettingsWidget(self.settings, parent=self.stack)              # Index 6
+        self.hotfolder_list_widget = HotfolderListWidget(self.settings, parent=self.stack)
+        self.script_recipe_list_widget = ScriptRecipeListWidget(self.settings, parent=self.stack)
+        self.json_explorer_widget = JSONExplorerWidget(self.settings, parent=self.stack)
+        self.ftp_transfer_widget = FtpTransferWidget(parent=self.stack)
+        self.transfer_plan_list_widget = TransferPlanListWidget(self.settings, parent=self.stack)
+        self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
+        self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
 
-        self.stack.addWidget(self.hotfolder_list_widget)         # 0
-        self.stack.addWidget(self.script_recipe_list_widget)      # 1
-        self.stack.addWidget(self.json_explorer_widget)           # 2
-        self.stack.addWidget(self.ftp_transfer_widget)            # 3
-        self.stack.addWidget(self.transfer_plan_list_widget)      # 4
-        self.stack.addWidget(self.logfile_widget)                 # 5
-        self.stack.addWidget(self.settings_widget)                # 6
+        self.stack.addWidget(self.hotfolder_list_widget)         # Index 0
+        self.stack.addWidget(self.script_recipe_list_widget)       # Index 1
+        self.stack.addWidget(self.json_explorer_widget)            # Index 2
+        self.stack.addWidget(self.ftp_transfer_widget)             # Index 3
+        self.stack.addWidget(self.transfer_plan_list_widget)       # Index 4
+        self.stack.addWidget(self.logfile_widget)                  # Index 5
+        self.stack.addWidget(self.settings_widget)                 # Index 6
 
-        # Standard: Hotfolder (Index 0)
         self.stack.setCurrentIndex(0)
 
-        # (C) Button-Klicks => passender Stack-Index
+        # Button-Klicks
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.script_recipe_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.json_editor_btn.clicked.connect(lambda: self.stack.setCurrentIndex(2))
@@ -148,16 +141,20 @@ class MainWindow(QtWidgets.QMainWindow):
         debug_print(f"DEBUG_OUTPUT={DEBUG_OUTPUT}")
 
     def closeEvent(self, event):
+        from utils.config_manager import save_settings
         save_settings(self.settings)
         super().closeEvent(event)
 
 
-def main():
+def run():
     app = QtWidgets.QApplication(sys.argv)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
 
 
+# Damit auch wrapper.py auf main.run zugreifen kann:
+run = run
+
 if __name__ == "__main__":
-    main()
+    run()

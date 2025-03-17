@@ -3,7 +3,7 @@
 
 import os
 import time
-from utils.hotfolder_config import HotfolderConfigManager, debug_print
+from utils.hotfolder_config_manager import HotfolderConfigManager, debug_print
 # Falls Du für Transferpläne noch keinen Manager hast, kann man hier analog
 # die Transferpläne laden. Beispiel: load_transfer_plans() etc.
 
