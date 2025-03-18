@@ -364,7 +364,8 @@ class HotfolderWidget(QtWidgets.QFrame):
 
         logfiles_dir = self.hotfolder_config.get("logfiles_dir", "")
         basename = os.path.splitext(os.path.basename(filename))[0]
-        contentcheck_filename = os.path.join(logfiles_dir, f"_{basename}_01_log_contentcheck.json")
+        # Korrektur: Entferne das zusätzliche führende "_" vor dem Dateinamen.
+        contentcheck_filename = os.path.join(logfiles_dir, f"{basename}_01_log_contentcheck.json")
         if os.path.exists(contentcheck_filename):
             try:
                 with open(contentcheck_filename, "r", encoding="utf-8") as f:
