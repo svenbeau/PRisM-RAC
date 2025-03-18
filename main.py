@@ -3,8 +3,10 @@
 
 import sys
 import os
+import time
 from PySide6 import QtWidgets, QtGui, QtCore
 
+from utils.splash_screen import SplashScreen  # Import des neuen Splash-Screens
 from utils.config_manager import load_settings, save_settings, debug_print
 from ui.hotfolder_widget import HotfolderListWidget
 from ui.logfile_widget import LogfileWidget
@@ -17,6 +19,7 @@ from ui.transfer_plan_list_widget import TransferPlanListWidget
 from datetime import datetime, timedelta
 
 DEBUG_OUTPUT = True
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -111,13 +114,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
 
-        self.stack.addWidget(self.hotfolder_list_widget)         # Index 0
-        self.stack.addWidget(self.script_recipe_list_widget)       # Index 1
-        self.stack.addWidget(self.json_explorer_widget)            # Index 2
-        self.stack.addWidget(self.ftp_transfer_widget)             # Index 3
-        self.stack.addWidget(self.transfer_plan_list_widget)       # Index 4
-        self.stack.addWidget(self.logfile_widget)                  # Index 5
-        self.stack.addWidget(self.settings_widget)                 # Index 6
+        self.stack.addWidget(self.hotfolder_list_widget)  # Index 0
+        self.stack.addWidget(self.script_recipe_list_widget)  # Index 1
+        self.stack.addWidget(self.json_explorer_widget)  # Index 2
+        self.stack.addWidget(self.ftp_transfer_widget)  # Index 3
+        self.stack.addWidget(self.transfer_plan_list_widget)  # Index 4
+        self.stack.addWidget(self.logfile_widget)  # Index 5
+        self.stack.addWidget(self.settings_widget)  # Index 6
 
         self.stack.setCurrentIndex(0)
 
@@ -148,13 +151,30 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def run():
     app = QtWidgets.QApplication(sys.argv)
-    win = MainWindow()
-    win.show()
-    sys.exit(app.exec())
+    app.setApplicationName("PRisM-RAC")
 
+    # Splash-Screen erstellen und anzeigen
+    splash = SplashScreen(app)
+    splash.show()
+
+    # Zeige einen schnellen Ladeprozess im Fortschrittsbalken
+    for i in range(0, 101, 20):
+        splash.update_progress(f"Starte PRisM-RAC... {i}%", i)
+        app.processEvents()  # Stellt sicher, dass die UI aktualisiert wird
+
+    # Hauptfenster erstellen
+    main_window = MainWindow()
+
+    # Splash-Screen wird nach 2 Sekunden automatisch ausgeblendet
+    splash.finish(main_window)
+
+    # Zeige das Hauptfenster sofort an
+    main_window.show()
+
+    return app.exec()
 
 # Damit auch wrapper.py auf main.run zugreifen kann:
 run = run
 
 if __name__ == "__main__":
-    run()
+    sys.exit(run())

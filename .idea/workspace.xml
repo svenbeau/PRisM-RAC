@@ -4,10 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Contentcheck Fehler behoben.">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Bedienelemete werden mit kopiert">
+      <change afterPath="$PROJECT_DIR$/utils/splash_screen.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/hotfolder_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,14 +98,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00023" summary="Umbau zu globaler Konfiguration">
-      <option name="closed" value="true" />
-      <created>1740867462607</created>
-      <option name="number" value="00023" />
-      <option name="presentableId" value="LOCAL-00023" />
-      <option name="project" value="LOCAL" />
-      <updated>1740867462607</updated>
     </task>
     <task id="LOCAL-00024" summary="Umbau zu globaler Konfiguration">
       <option name="closed" value="true" />
@@ -490,7 +483,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742219221637</updated>
     </task>
-    <option name="localTasksCounter" value="72" />
+    <task id="LOCAL-00072" summary="Bedienelemete werden mit kopiert">
+      <option name="closed" value="true" />
+      <created>1742228973594</created>
+      <option name="number" value="00072" />
+      <option name="presentableId" value="LOCAL-00072" />
+      <option name="project" value="LOCAL" />
+      <updated>1742228973594</updated>
+    </task>
+    <option name="localTasksCounter" value="73" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -507,6 +508,7 @@
     <MESSAGE value="FTP mit Transferplänen funktioniert" />
     <MESSAGE value="Umbau Log-Ansicht mit Transfer" />
     <MESSAGE value="Contentcheck Fehler behoben." />
-    <option name="LAST_COMMIT_MESSAGE" value="Contentcheck Fehler behoben." />
+    <MESSAGE value="Bedienelemete werden mit kopiert" />
+    <option name="LAST_COMMIT_MESSAGE" value="Bedienelemete werden mit kopiert" />
   </component>
 </project>

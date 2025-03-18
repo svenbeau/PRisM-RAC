@@ -21,14 +21,10 @@ pathex = [
 # Optionale versteckte Importe
 hidden_imports = []
 
-# Hier definieren wir die Assets-Ordner und andere Daten
+# Hier definieren wir NUR den assets-Ordner und das Icon
 datas = [
-    ("assets", "assets"),  # Dies kopiert den gesamten assets-Ordner in das Bundle
+    ("assets", "assets"),  # Nur der assets-Ordner wird kopiert
 ]
-
-# Füge settings.json hinzu, wenn vorhanden
-if os.path.exists("settings.json"):
-    datas.append(("settings.json", "."))
 
 a = Analysis(
     [APP_SCRIPT],
@@ -48,12 +44,12 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Wichtig: Two-File-Modus statt One-File-Modus
+# Two-File-Modus
 exe = EXE(
     pyz,
     a.scripts,
-    [],  # Leere Liste bedeutet: Keine Binärdateien einbetten
-    exclude_binaries=True,  # Sehr wichtig: Binärdateien und Assets NICHT in die EXE einbetten
+    [],
+    exclude_binaries=True,
     name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
@@ -76,10 +72,13 @@ coll = COLLECT(
     name=APP_NAME,
 )
 
+# Pfad zum Icon
+icon_path = '/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns'
+
 app = BUNDLE(
-    coll,  # Wichtig: Verwende die Sammlung statt der EXE
+    coll,
     name=f'{APP_NAME}.app',
-    icon='/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns',
+    icon=icon_path,
     bundle_identifier='com.svenbeau.prismrac.arm64',
     info_plist={
         'CFBundleName': APP_NAME,
