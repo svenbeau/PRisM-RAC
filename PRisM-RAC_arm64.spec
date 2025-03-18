@@ -21,9 +21,10 @@ pathex = [
 # Optionale versteckte Importe
 hidden_imports = []
 
-# Hier definieren wir NUR den assets-Ordner und das Icon
+# Hier definieren wir NUR den assets-Ordner und den jsx_templates-Ordner (welcher später per post_build.py verschoben wird)
 datas = [
-    ("assets", "assets"),  # Nur der assets-Ordner wird kopiert
+    ("assets", "assets"),           # Kopiert den assets-Ordner
+    ("jsx_templates", "jsx_templates"),  # Kopiert den jsx_templates-Ordner
 ]
 
 a = Analysis(

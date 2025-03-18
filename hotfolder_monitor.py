@@ -32,7 +32,7 @@ def create_temp_jsx_with_config(base_jsx_path, keyword_check_enabled, keyword_ch
     Erzeugt eine temporäre JSX-Datei, in der folgende Platzhalter im Basis‑JSX‑Template ersetzt werden:
       /*PYTHON_INSERT_LAYERS*/    -> JSON-string der effektiven Ebenen
       /*PYTHON_INSERT_METADATA*/  -> JSON-string der effektiven Metadaten
-      /*PYTHON_INSERT_LOGFOLDER*/ -> JSON-string des Logfile-Verzeichnisses
+      /*PYTHON_INSERT_LOGFOLDER*/ -> JavaScript-Code zur Definition von logFolderPath
     Zusätzlich wird am Anfang Code injiziert, der die Variablen DEBUG_OUTPUT, keywordCheckEnabled und keywordCheckWord deklariert.
     """
     if not base_jsx_path or not os.path.exists(base_jsx_path):
@@ -48,12 +48,14 @@ def create_temp_jsx_with_config(base_jsx_path, keyword_check_enabled, keyword_ch
     # Erzeuge die Strings für den Austausch der Platzhalter
     layers_str = json.dumps(effective_layers)
     metadata_str = json.dumps(effective_metadata)
-    logfiles_str = json.dumps(logfiles_dir)
+    # Hier definieren wir logFolderPath als JavaScript-Code, z. B.:
+    #   var logFolderPath = "/Volumes/File_01/__Hotfolder/_Render/04_Logfiles";
+    logfiles_injection = "var logFolderPath = " + json.dumps(logfiles_dir) + ";\n"
 
     # Ersetze die Platzhalter im Template
     jsx_template = jsx_template.replace("/*PYTHON_INSERT_LAYERS*/", layers_str)
     jsx_template = jsx_template.replace("/*PYTHON_INSERT_METADATA*/", metadata_str)
-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_LOGFOLDER*/", logfiles_str)
+    jsx_template = jsx_template.replace("/*PYTHON_INSERT_LOGFOLDER*/", logfiles_injection)
 
     # Injektions-Code: Definiere DEBUG_OUTPUT, keywordCheckEnabled und keywordCheckWord
     injection = ""
@@ -83,7 +85,7 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
       - Führt das dynamische Script aus und liest das generierte Log.
       - Bei Erfolg werden (falls konfiguriert) nacheinander die in "selected_jsx" und "additional_jsx" hinterlegten Scripts ausgeführt.
       - Schließt das aktuell geöffnete Photoshop-Dokument (ohne Speichern) und verschiebt die Datei in den Success- bzw. Fault-Ordner.
-      - **Neu:** Bei einem fehlerhaften Contentcheck wird eine E-Mail mit den Contentcheck-Daten versendet.
+      - Bei einem fehlerhaften Contentcheck wird eine E-Mail mit den Contentcheck-Daten versendet.
     """
     success_dir = hf_config.get("success_dir")
     fault_dir = hf_config.get("fault_dir")
@@ -138,9 +140,18 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
     except Exception as e:
         debug_print(f"Error removing temporary JSX script {tmp_jsx_path}: {e}")
 
-    time.sleep(2)
+    # Warte bis zu 10 Sekunden, damit das Logfile geschrieben wird
     baseName = os.path.basename(file_path).rsplit(".", 1)[0]
     contentLogPath = os.path.join(logfiles_dir, baseName + "_01_log_contentcheck.json")
+    timeout = 10.0  # Sekunden
+    waited = 0.0
+    interval = 0.5
+    while not os.path.exists(contentLogPath) and waited < timeout:
+        time.sleep(interval)
+        waited += interval
+    if waited >= timeout:
+        debug_print(f"Timeout: Logfile {contentLogPath} wurde nach {timeout} Sekunden nicht gefunden.")
+
     contentCheck = read_json_file(contentLogPath)
     debug_print(f"ContentCheck Log ({contentLogPath}): {contentCheck}")
 
@@ -165,7 +176,6 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
         else:
             dest_dir = fault_dir
             debug_print("Contentcheck FAIL: Datei -> Fault")
-            # E-Mail mit den Contentcheck-Daten direkt versenden
             send_fail_email_from_content(contentCheck, file_path)
     else:
         dest_dir = fault_dir
