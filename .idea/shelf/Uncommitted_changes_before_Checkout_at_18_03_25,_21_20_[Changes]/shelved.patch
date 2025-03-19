@@ -1,0 +1,235 @@
+Index: dynamic_jsx_generator.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\nimport os\nimport json\nimport tempfile\nfrom utils.config_manager import debug_print\n\ndef create_temp_jsx_with_config(base_jsx_path, keyword_check_enabled, keyword_check_word,\n                                  required_layers, required_metadata,\n                                  keyword_layers, keyword_metadata,\n                                  logfiles_dir):\n    \"\"\"\n    Erzeugt eine temporäre JSX-Datei, in der folgende Platzhalter ersetzt werden:\n      /*PYTHON_INSERT_REQUIRED_LAYERS*/    -> JSON-string der Standard-Ebenen (required_layers)\n      /*PYTHON_INSERT_REQUIRED_METADATA*/  -> JSON-string der Standard-Metadaten (required_metadata)\n      /*PYTHON_INSERT_KEYWORD_LAYERS*/       -> JSON-string der Keyword-Ebenen (keyword_layers)\n      /*PYTHON_INSERT_KEYWORD_METADATA*/     -> JSON-string der Keyword-Metadaten (keyword_metadata)\n      /*PYTHON_INSERT_LOGFOLDER*/            -> JSON-string des Logfile-Verzeichnisses\n\n    Zusätzlich wird Injektions-Code erzeugt, der zur Laufzeit im JSX entscheidet:\n    Falls keyword_check_enabled true ist und das in den Dateimetadaten gefundene Keyword exakt\n    mit keyword_check_word übereinstimmt, dann werden die Keyword-Werte verwendet, sonst die\n    Standard-Werte.\n    \"\"\"\n    if not base_jsx_path or not os.path.exists(base_jsx_path):\n        debug_print(f\"Error: Base JSX script not found at {base_jsx_path}\")\n        return None\n    try:\n        with open(base_jsx_path, \"r\", encoding=\"utf-8\") as f:\n            jsx_template = f.read()\n    except Exception as e:\n        debug_print(f\"Error reading base JSX script {base_jsx_path}: {e}\")\n        return None\n\n    # Konvertiere die Konfigurationswerte in JSON-Strings\n    required_layers_str = json.dumps(required_layers)\n    required_metadata_str = json.dumps(required_metadata)\n    keyword_layers_str = json.dumps(keyword_layers)\n    keyword_metadata_str = json.dumps(keyword_metadata)\n    logfiles_str = json.dumps(logfiles_dir)\n\n    # Ersetze die Platzhalter im Template\n    jsx_template = jsx_template.replace(\"/*PYTHON_INSERT_REQUIRED_LAYERS*/\", required_layers_str)\n    jsx_template = jsx_template.replace(\"/*PYTHON_INSERT_REQUIRED_METADATA*/\", required_metadata_str)\n    jsx_template = jsx_template.replace(\"/*PYTHON_INSERT_KEYWORD_LAYERS*/\", keyword_layers_str)\n    jsx_template = jsx_template.replace(\"/*PYTHON_INSERT_KEYWORD_METADATA*/\", keyword_metadata_str)\n    jsx_template = jsx_template.replace(\"/*PYTHON_INSERT_LOGFOLDER*/\", logfiles_str)\n\n    # Injektions-Code: Dieser Code wird zu Beginn des JSX-Skripts eingefügt.\n    # Er nimmt an, dass es im JSX eine Funktion getFileKeywords() gibt, die die Keywords\n    # des aktuell offenen Dokuments als String (oder Array) zurückliefert.\n    injection = (\n        \"var DEBUG_OUTPUT = false;\\n\"\n        \"var keywordCheckEnabled = \" + str(keyword_check_enabled).lower() + \";\\n\"\n        \"var keywordCheckWord = \" + json.dumps(keyword_check_word) + \";\\n\"\n        \"var fileKeywords = (typeof getFileKeywords === 'function') ? getFileKeywords() : '';\\n\"\n        \"var checkType;\\n\"\n        \"if (keywordCheckEnabled && String(fileKeywords).trim().toLowerCase() === keywordCheckWord.toLowerCase()) {\\n\"\n        \"    checkType = 'Keyword-based';\\n\"\n        \"} else {\\n\"\n        \"    checkType = 'Standard';\\n\"\n        \"}\\n\"\n        \"// Bestimme die effektiven Kriterien basierend auf checkType\\n\"\n        \"var effectiveLayers, effectiveMetadata;\\n\"\n        \"if (checkType === 'Keyword-based') {\\n\"\n        \"    effectiveLayers = JSON.parse('/*PYTHON_INSERT_KEYWORD_LAYERS*/');\\n\"\n        \"    effectiveMetadata = JSON.parse('/*PYTHON_INSERT_KEYWORD_METADATA*/');\\n\"\n        \"} else {\\n\"\n        \"    effectiveLayers = JSON.parse('/*PYTHON_INSERT_REQUIRED_LAYERS*/');\\n\"\n        \"    effectiveMetadata = JSON.parse('/*PYTHON_INSERT_REQUIRED_METADATA*/');\\n\"\n        \"}\\n\"\n        \"// Weitere Logik des Contentchecks folgt hier ...\\n\"\n    )\n\n    # Kombiniere Injektion und Template\n    combined_code = injection + jsx_template\n\n    try:\n        tmp_fd, tmp_path = tempfile.mkstemp(suffix=\".jsx\", prefix=\"dynamic_contentcheck_\")\n        os.close(tmp_fd)\n        with open(tmp_path, \"w\", encoding=\"utf-8\") as tmp_f:\n            tmp_f.write(combined_code)\n        debug_print(f\"Temporary JSX created: {tmp_path} \"\n                    f\"(keywordCheckEnabled={keyword_check_enabled}, keywordCheckWord={keyword_check_word}, \"\n                    f\"required_layers={required_layers}, required_metadata={required_metadata}, \"\n                    f\"keyword_layers={keyword_layers}, keyword_metadata={keyword_metadata}, \"\n                    f\"logFolderPath={logfiles_dir})\")\n        return tmp_path\n    except Exception as e:\n        debug_print(f\"Error writing temporary JSX script: {e}\")\n        return None\n\n# Beispiel für die Verwendung:\nif __name__ == \"__main__\":\n    # Dummy-Daten zur Überprüfung\n    base_jsx = \"contentcheck_template.jsx\"  # Pfad zum Template\n    temp_jsx = create_temp_jsx_with_config(\n        base_jsx_path=base_jsx,\n        keyword_check_enabled=True,\n        keyword_check_word=\"Rueckseite\",\n        required_layers=[\"Freisteller\", \"Messwerte\", \"Korrektur\"],\n        required_metadata=[\"author\", \"description\", \"keywords\"],\n        keyword_layers=[\"SpezialLayer1\", \"SpezialLayer2\"],\n        keyword_metadata=[\"author\", \"description\"],\n        logfiles_dir=\"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles\"\n    )\n    print(\"Generated temporary JSX script:\", temp_jsx)
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/dynamic_jsx_generator.py b/dynamic_jsx_generator.py
+--- a/dynamic_jsx_generator.py	(revision 93ce36e271801ee4556ed787eb88455bdeb9caeb)
++++ b/dynamic_jsx_generator.py	(date 1742329141947)
+@@ -2,107 +2,142 @@
+ # -*- coding: utf-8 -*-
+ 
+ import os
+-import json
++import sys
+ import tempfile
+-from utils.config_manager import debug_print
++import json
++from utils.config_manager import debug_print, load_settings
+ 
+-def create_temp_jsx_with_config(base_jsx_path, keyword_check_enabled, keyword_check_word,
+-                                  required_layers, required_metadata,
+-                                  keyword_layers, keyword_metadata,
+-                                  logfiles_dir):
++def find_template_file(template_name):
++    """
++    Sucht nach der Template-Datei an verschiedenen möglichen Speicherorten.
+     """
+-    Erzeugt eine temporäre JSX-Datei, in der folgende Platzhalter ersetzt werden:
+-      /*PYTHON_INSERT_REQUIRED_LAYERS*/    -> JSON-string der Standard-Ebenen (required_layers)
+-      /*PYTHON_INSERT_REQUIRED_METADATA*/  -> JSON-string der Standard-Metadaten (required_metadata)
+-      /*PYTHON_INSERT_KEYWORD_LAYERS*/       -> JSON-string der Keyword-Ebenen (keyword_layers)
+-      /*PYTHON_INSERT_KEYWORD_METADATA*/     -> JSON-string der Keyword-Metadaten (keyword_metadata)
+-      /*PYTHON_INSERT_LOGFOLDER*/            -> JSON-string des Logfile-Verzeichnisses
++    settings = load_settings()
++    possible_paths = []
++    # 1. Konfigurierter Pfad in den Einstellungen
++    if settings and "resource_paths" in settings and "jsx_templates" in settings["resource_paths"]:
++        configured_path = os.path.join(settings["resource_paths"]["jsx_templates"], template_name)
++        possible_paths.append(configured_path)
++    # 2. PyInstaller-Pfad
++    if hasattr(sys, '_MEIPASS'):
++        pyinstaller_path = os.path.join(sys._MEIPASS, "jsx_templates", template_name)
++        possible_paths.append(pyinstaller_path)
++    # 3. Relativer Pfad zum Skript
++    script_relative_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jsx_templates", template_name)
++    possible_paths.append(script_relative_path)
++    # 4. Relativer Pfad zum Arbeitsverzeichnis
++    working_dir_path = os.path.join(os.getcwd(), "jsx_templates", template_name)
++    possible_paths.append(working_dir_path)
++    # 5. Einfacher relativer Pfad
++    simple_relative_path = os.path.join("jsx_templates", template_name)
++    possible_paths.append(simple_relative_path)
+ 
+-    Zusätzlich wird Injektions-Code erzeugt, der zur Laufzeit im JSX entscheidet:
+-    Falls keyword_check_enabled true ist und das in den Dateimetadaten gefundene Keyword exakt
+-    mit keyword_check_word übereinstimmt, dann werden die Keyword-Werte verwendet, sonst die
+-    Standard-Werte.
+-    """
+-    if not base_jsx_path or not os.path.exists(base_jsx_path):
+-        debug_print(f"Error: Base JSX script not found at {base_jsx_path}")
+-        return None
++    debug_print(f"Suche nach Template: {template_name}")
++    for path in possible_paths:
++        debug_print(f"  Prüfe Pfad: {path}")
++        if os.path.exists(path):
++            debug_print(f"  Template gefunden unter: {path}")
++            return path
++
++    debug_print(f"FEHLER: Template {template_name} konnte nicht gefunden werden! Gesuchte Pfade:")
++    for path in possible_paths:
++        debug_print(f"  - {path}")
++    return None
++
++def create_contentcheck_jsx(layers, metadata_fields, keyword_check=None, logfiles_dir=""):
++    """
++    Erzeugt ein dynamisches JSX-Skript für den Contentcheck.
++    Es werden die Standard- und Keyword-Werte injiziert sowie detaillierte Debug-Meldungen in den JSX-Code eingebaut.
++    """
+     try:
+-        with open(base_jsx_path, "r", encoding="utf-8") as f:
+-            jsx_template = f.read()
+-    except Exception as e:
+-        debug_print(f"Error reading base JSX script {base_jsx_path}: {e}")
+-        return None
++        base_jsx_path = find_template_file("contentcheck_template.jsx")
++        if not base_jsx_path:
++            debug_print("Fehler: Base JSX script not found")
++            return None
+ 
+-    # Konvertiere die Konfigurationswerte in JSON-Strings
+-    required_layers_str = json.dumps(required_layers)
+-    required_metadata_str = json.dumps(required_metadata)
+-    keyword_layers_str = json.dumps(keyword_layers)
+-    keyword_metadata_str = json.dumps(keyword_metadata)
+-    logfiles_str = json.dumps(logfiles_dir)
++        with open(base_jsx_path, 'r', encoding='utf-8') as f:
++            template = f.read()
+ 
+-    # Ersetze die Platzhalter im Template
+-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_REQUIRED_LAYERS*/", required_layers_str)
+-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_REQUIRED_METADATA*/", required_metadata_str)
+-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_KEYWORD_LAYERS*/", keyword_layers_str)
+-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_KEYWORD_METADATA*/", keyword_metadata_str)
+-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_LOGFOLDER*/", logfiles_str)
++        # Konvertiere die Ebenen- und Metadaten-Arrays in JSON-Strings
++        layers_js = json.dumps(layers)
++        metadata_js = json.dumps(metadata_fields)
++        template = template.replace("__REQUIRED_LAYERS__", layers_js)
++        template = template.replace("__REQUIRED_METADATA__", metadata_js)
+ 
+-    # Injektions-Code: Dieser Code wird zu Beginn des JSX-Skripts eingefügt.
+-    # Er nimmt an, dass es im JSX eine Funktion getFileKeywords() gibt, die die Keywords
+-    # des aktuell offenen Dokuments als String (oder Array) zurückliefert.
+-    injection = (
+-        "var DEBUG_OUTPUT = false;\n"
+-        "var keywordCheckEnabled = " + str(keyword_check_enabled).lower() + ";\n"
+-        "var keywordCheckWord = " + json.dumps(keyword_check_word) + ";\n"
+-        "var fileKeywords = (typeof getFileKeywords === 'function') ? getFileKeywords() : '';\n"
+-        "var checkType;\n"
+-        "if (keywordCheckEnabled && String(fileKeywords).trim().toLowerCase() === keywordCheckWord.toLowerCase()) {\n"
+-        "    checkType = 'Keyword-based';\n"
+-        "} else {\n"
+-        "    checkType = 'Standard';\n"
+-        "}\n"
+-        "// Bestimme die effektiven Kriterien basierend auf checkType\n"
+-        "var effectiveLayers, effectiveMetadata;\n"
+-        "if (checkType === 'Keyword-based') {\n"
+-        "    effectiveLayers = JSON.parse('/*PYTHON_INSERT_KEYWORD_LAYERS*/');\n"
+-        "    effectiveMetadata = JSON.parse('/*PYTHON_INSERT_KEYWORD_METADATA*/');\n"
+-        "} else {\n"
+-        "    effectiveLayers = JSON.parse('/*PYTHON_INSERT_REQUIRED_LAYERS*/');\n"
+-        "    effectiveMetadata = JSON.parse('/*PYTHON_INSERT_REQUIRED_METADATA*/');\n"
+-        "}\n"
+-        "// Weitere Logik des Contentchecks folgt hier ...\n"
+-    )
++        if keyword_check and isinstance(keyword_check, dict):
++            keyword_enabled = "true" if keyword_check.get("enabled", False) else "false"
++            keyword = json.dumps(keyword_check.get("keyword", ""))
++            keyword_layers = json.dumps(keyword_check.get("layers", []))
++            keyword_metadata = json.dumps(keyword_check.get("metadata", []))
++            template = template.replace("__KEYWORD_CHECK_ENABLED__", keyword_enabled)
++            template = template.replace("__KEYWORD_CHECK_WORD__", keyword)
++            template = template.replace("__KEYWORD_CHECK_LAYERS__", keyword_layers)
++            template = template.replace("__KEYWORD_CHECK_METADATA__", keyword_metadata)
++        else:
++            template = template.replace("__KEYWORD_CHECK_ENABLED__", "false")
++            template = template.replace("__KEYWORD_CHECK_WORD__", '""')
++            template = template.replace("__KEYWORD_CHECK_LAYERS__", "[]")
++            template = template.replace("__KEYWORD_CHECK_METADATA__", "[]")
++
++        # Erzeuge Injektions-Code mit erweiterten Debug-Ausgaben
++        injection = (
++            "var DEBUG_OUTPUT = true;\n"
++            "function debug_print_jsx(msg) { if (DEBUG_OUTPUT) $.writeln('[JSX DEBUG] ' + msg); }\n"
++            "debug_print_jsx('Starte dynamisches JSX-Skript');\n"
++            "var keywordCheckEnabled = " + str(keyword_check.get("enabled", False)).lower() + ";\n"
++            "var keywordCheckWord = " + json.dumps(keyword_check.get("keyword", "")) + ";\n"
++            "var fileKeywords = (typeof getFileKeywords === 'function') ? getFileKeywords() : '';\n"
++            "debug_print_jsx('fileKeywords: ' + fileKeywords);\n"
++            "var checkType;\n"
++            "if (keywordCheckEnabled && String(fileKeywords).trim().toLowerCase() === keywordCheckWord.toLowerCase()) {\n"
++            "    checkType = 'Keyword-based';\n"
++            "    debug_print_jsx('checkType: Keyword-based');\n"
++            "} else {\n"
++            "    checkType = 'Standard';\n"
++            "    debug_print_jsx('checkType: Standard');\n"
++            "}\n"
++            "var effectiveLayers, effectiveMetadata;\n"
++            "if (checkType === 'Keyword-based') {\n"
++            "    effectiveLayers = JSON.parse('/*PYTHON_INSERT_KEYWORD_LAYERS*/');\n"
++            "    effectiveMetadata = JSON.parse('/*PYTHON_INSERT_KEYWORD_METADATA*/');\n"
++            "    debug_print_jsx('Verwende keyword-basierte Kriterien');\n"
++            "} else {\n"
++            "    effectiveLayers = JSON.parse('/*PYTHON_INSERT_REQUIRED_LAYERS*/');\n"
++            "    effectiveMetadata = JSON.parse('/*PYTHON_INSERT_REQUIRED_METADATA*/');\n"
++            "    debug_print_jsx('Verwende Standard-Kriterien');\n"
++            "}\n"
++            "var logFolderPath = " + json.dumps(logfiles_dir) + ";\n"
++            "debug_print_jsx('logFolderPath gesetzt auf: ' + logFolderPath);\n"
++        )
+ 
+-    # Kombiniere Injektion und Template
+-    combined_code = injection + jsx_template
++        # Kombiniere Injektions-Code und Template
++        combined_code = injection + template
+ 
+-    try:
+         tmp_fd, tmp_path = tempfile.mkstemp(suffix=".jsx", prefix="dynamic_contentcheck_")
+         os.close(tmp_fd)
+         with open(tmp_path, "w", encoding="utf-8") as tmp_f:
+             tmp_f.write(combined_code)
+-        debug_print(f"Temporary JSX created: {tmp_path} "
+-                    f"(keywordCheckEnabled={keyword_check_enabled}, keywordCheckWord={keyword_check_word}, "
+-                    f"required_layers={required_layers}, required_metadata={required_metadata}, "
+-                    f"keyword_layers={keyword_layers}, keyword_metadata={keyword_metadata}, "
++        debug_print(f"Temporäres JSX-Skript erstellt: {tmp_path} "
++                    f"(keywordCheckEnabled={keyword_check.get('enabled', False)}, keywordCheckWord={keyword_check.get('keyword', '')}, "
++                    f"required_layers={layers}, required_metadata={metadata_fields}, "
++                    f"keyword_layers={keyword_check.get('layers', [])}, keyword_metadata={keyword_check.get('metadata', [])}, "
+                     f"logFolderPath={logfiles_dir})")
+         return tmp_path
+     except Exception as e:
+-        debug_print(f"Error writing temporary JSX script: {e}")
++        debug_print(f"Fehler beim Erstellen des dynamischen JSX-Skripts: {e}")
+         return None
+ 
+-# Beispiel für die Verwendung:
+ if __name__ == "__main__":
+-    # Dummy-Daten zur Überprüfung
+-    base_jsx = "contentcheck_template.jsx"  # Pfad zum Template
+-    temp_jsx = create_temp_jsx_with_config(
+-        base_jsx_path=base_jsx,
+-        keyword_check_enabled=True,
+-        keyword_check_word="Rueckseite",
+-        required_layers=["Freisteller", "Messwerte", "Korrektur"],
+-        required_metadata=["author", "description", "keywords"],
+-        keyword_layers=["SpezialLayer1", "SpezialLayer2"],
+-        keyword_metadata=["author", "description"],
++    # Beispielaufruf zur Überprüfung
++    base_jsx = "contentcheck_template.jsx"  # Passe den Pfad ggf. an
++    temp_jsx = create_contentcheck_jsx(
++        layers=["Freisteller", "Messwerte", "Korrektur"],
++        metadata_fields=["author", "description", "keywords"],
++        keyword_check={
++            "enabled": True,
++            "keyword": "Rueckseite",
++            "layers": ["SpezialLayer1", "SpezialLayer2"],
++            "metadata": ["author", "description"]
++        },
+         logfiles_dir="/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles"
+     )
+     print("Generated temporary JSX script:", temp_jsx)
+\ No newline at end of file
