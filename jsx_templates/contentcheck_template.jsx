@@ -27,15 +27,10 @@ if (typeof keyword_layers === "undefined") {
 if (typeof keyword_metadata === "undefined") {
     var keyword_metadata = []; // Leere Liste -> dann werden in diesem Bereich keine Metadaten geprüft.
 }
-// Hier erfolgt die Definition des Logfolder-Pfads anhand der injizierten Einstellung.
-// Falls kein Pfad injiziert wurde, wird ein Fallback verwendet.
-var logFolderPath = /*PYTHON_INSERT_LOGFOLDER*/;
-if (!logFolderPath || logFolderPath === "") {
-    logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles";
+// Hier übernehmen wir den Logfiles-Pfad aus der Injektion – falls nicht gesetzt, bleibt er leer.
+if (typeof logFolderPath === "undefined" || logFolderPath === "") {
+    logFolderPath = "";
 }
-
-// Debug-Ausgabe: Zeige den finalen Logfolder-Pfad an.
-$.writeln("[DEBUG] logFolderPath is set to: " + logFolderPath);
 
 // Polyfill für Array.isArray
 if (typeof Array.isArray !== "function") {

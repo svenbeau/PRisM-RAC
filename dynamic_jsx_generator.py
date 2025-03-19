@@ -24,7 +24,6 @@ def create_temp_jsx_with_config(base_jsx_path,
 
     Zusätzlich wird Injektions-Code erzeugt, der zur Laufzeit im JSX entscheidet,
     ob der Keyword-basierte Check aktiv ist und welche Kriterien (Ebenen/Metadaten) verwendet werden sollen.
-    Außerdem wird ein Debug-Ausdruck eingebaut, der angibt, wohin die Logfiles geschrieben werden.
     """
     if not base_jsx_path or not os.path.exists(base_jsx_path):
         debug_print(f"Error: Base JSX script not found at {base_jsx_path}")
