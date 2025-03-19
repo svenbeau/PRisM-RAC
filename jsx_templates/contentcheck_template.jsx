@@ -29,7 +29,7 @@ if (typeof keyword_metadata === "undefined") {
 }
 // Optional: Falls logFolderPath nicht injiziert wurde, setzen wir einen Standardwert.
 if (typeof logFolderPath === "undefined") {
-    var logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles";
+    var logFolderPath = "/Volumes/File_01/__Hotfolder/_Render/04_Logfiles";
 }
 
 // Polyfill für Array.isArray
