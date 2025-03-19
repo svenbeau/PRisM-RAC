@@ -64,13 +64,15 @@ def migrate_settings(settings):
             settings["recent_json_dirs"] = [os.path.expanduser("~")]
 
     #
-    # 3) resource_paths: Nur relevanten Eintrag behalten
+    # 3) resource_paths: Nur relevanten Eintrag behalten (jetzt auch logfiles_dir)
     #
     if "resource_paths" in settings:
         resource_paths = settings["resource_paths"]
         new_resource_paths = {}
         if "jsx_templates" in resource_paths:
             new_resource_paths["jsx_templates"] = resource_paths["jsx_templates"]
+        if "logfiles_dir" in resource_paths:
+            new_resource_paths["logfiles_dir"] = resource_paths["logfiles_dir"]
         settings["resource_paths"] = new_resource_paths
     else:
         settings["resource_paths"] = {}
