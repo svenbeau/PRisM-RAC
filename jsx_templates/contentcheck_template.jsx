@@ -27,9 +27,17 @@ if (typeof keyword_layers === "undefined") {
 if (typeof keyword_metadata === "undefined") {
     var keyword_metadata = []; // Leere Liste -> dann werden in diesem Bereich keine Metadaten geprüft.
 }
-// Hier übernehmen wir den Logfiles-Pfad aus der Injektion – falls nicht gesetzt, bleibt er leer.
+// Optional: Falls logFolderPath nicht injiziert wurde oder leer ist, setzen wir einen Fallback-Wert,
+// der in den Settings vom Anwender individuell konfigurierbar sein kann.
 if (typeof logFolderPath === "undefined" || logFolderPath === "") {
-    logFolderPath = "";
+    var logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles";
+}
+
+if (typeof DEBUG_OUTPUT === "undefined") {
+    var DEBUG_OUTPUT = false;
+}
+if (DEBUG_OUTPUT) {
+    $.writeln("DEBUG: Logfiles werden geschrieben in: " + logFolderPath);
 }
 
 // Polyfill für Array.isArray
@@ -97,16 +105,6 @@ function serializeToJsonPretty(obj, indent) {
     }
     result += "\n" + indent + (isArray ? "]" : "}");
     return result;
-}
-
-// Globaler Debug-Schalter – wird von außen injiziert, falls nicht gesetzt.
-if (typeof DEBUG_OUTPUT === "undefined") {
-    var DEBUG_OUTPUT = false;
-}
-function debug_print(msg) {
-    if (DEBUG_OUTPUT) {
-        $.writeln("[DEBUG] " + msg);
-    }
 }
 
 // Standardwerte für den normalen Contentcheck – diese kommen aus settings.json:
