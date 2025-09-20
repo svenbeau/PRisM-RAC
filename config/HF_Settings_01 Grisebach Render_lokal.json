@@ -2,10 +2,10 @@
     "id": "b0d16093-e9e4-4885-a5b9-484bab97e98e",
     "name": "01 Grisebach Render",
     "path": "/Volumes/File_01/__Hotfolder/_Render",
-    "monitor_dir": "/Volumes/File_01/__Hotfolder/_Render/01_Monitor",
-    "success_dir": "/Volumes/File_01/__Hotfolder/_Render/02_Success",
-    "fault_dir": "/Volumes/File_01/__Hotfolder/_Render/03_Fault",
-    "logfiles_dir": "/Volumes/File_01/__Hotfolder/_Render/04_Logfiles",
+    "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/01_Render",
+    "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success/01_Render",
+    "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault/01_Render",
+    "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
     "contentcheck_enabled": true,
     "required_layers": [
         "Freisteller",
@@ -22,10 +22,11 @@
     "keyword_layers": [],
     "keyword_metadata": [
         "author",
-        "description"
+        "description",
+        "keywords"
     ],
     "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
-    "additional_jsx": "",
     "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025_dynamisch.jsx",
+    "additional_jsx": "",
     "body_visible": false
 }
