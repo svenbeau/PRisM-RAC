@@ -5,7 +5,7 @@
         {
             "name":"Master",
             "photoshopAction":"11 Master Cruse (MA)",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/01_Master",
+            "outputFolder":"/Volumes/4TM2/Grisebach/30_Renderfiles/01_Master/",
             "suffix":"MA",
             "filetype":"jpg",
             "backside":true,
@@ -15,7 +15,7 @@
         {
             "name":"Web_Komplett",
             "photoshopAction":"21 Cruse Color 2 Web Kompeltt (WK)",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web",
+            "outputFolder":"/Volumes/4TM2/Grisebach/30_Renderfiles/03_Web/",
             "suffix":"WK",
             "filetype":"png",
             "backside":true,
@@ -25,7 +25,7 @@
         {
             "name":"Web_Ausschnitt",
             "photoshopAction":"20 Cruse Color 2 Web Cropped (WC)",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/03_Web",
+            "outputFolder":"/Volumes/4TM2/Grisebach/30_Renderfiles/03_Web/",
             "suffix":"WC",
             "filetype":"png",
             "backside":false
@@ -33,7 +33,7 @@
         {
             "name":"Druck-Standard",
             "photoshopAction":"30 Cruse Color 2 39L (P2s)",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/02_Druck",
+            "outputFolder":"/Volumes/4TM2/Grisebach/30_Renderfiles/02_Druck/",
             "suffix":"P2s",
             "filetype":"tif",
             "backside":false
@@ -41,7 +41,7 @@
         {
             "name":"OPI",
             "photoshopAction":"80 Color 2 OPI",
-            "outputFolder":"/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/30_Renderfiles/06_OPI_Lay",
+            "outputFolder":"/Volumes/4TM2/Grisebach/30_Renderfiles/06_OPI_Lay/",
             "suffix":"PM2s",
             "filetype":"jpg",
             "backside":false

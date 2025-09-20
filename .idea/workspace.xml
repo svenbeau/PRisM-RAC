@@ -5,10 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Umbau Pfade für App">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/hotfolder_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_19JH.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_19JH.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_19JH.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_19JH.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -46,7 +46,7 @@
   &quot;associatedIndex&quot;: 4
 }</component>
   <component name="ProjectId" id="2tLLJVRQJMUXiQ27cV9Yrr8hWGr" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+  <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
   <component name="ProjectViewState">
