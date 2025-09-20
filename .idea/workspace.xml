@@ -4,9 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Bedienelemete werden mit kopiert">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="weiterentwicklung von -v22 (da wurde das Logfile auf einen fixen Pfad erzeugt.) das funktioniert schon mal&#10;fixer Pfad auf /Volumes/File_01/__Hotfolder/_Render/04_Logfiles gestellt">
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_18_03_25,_16_25_[Changes]/shelved.patch" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_18_03_25__16_25__Changes_.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/script_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/script_config.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,7 +49,7 @@
   &quot;associatedIndex&quot;: 4
 }</component>
   <component name="ProjectId" id="2tLLJVRQJMUXiQ27cV9Yrr8hWGr" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+  <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
   <component name="ProjectViewState">
@@ -56,6 +58,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Python.contentcheck_email_notifier.executor": "Run",
     "Python.hotfolder_config.executor": "Run",
     "Python.hotfolder_monitor.executor": "Run",
     "Python.hotfolder_widget.executor": "Run",
@@ -70,8 +73,10 @@
     "Python.start.executor": "Run",
     "Python.transfer_plan_dialog.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "stable-v25",
+    "last_opened_file_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC",
     "settings.editor.selected.configurable": "preferences.lookFeel"
   }
 }]]></component>
@@ -84,7 +89,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-14705d77f0bb-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.25659.43" />
+        <option value="bundled-python-sdk-8753aad8314d-d902c0275401-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-252.25557.178" />
       </set>
     </attachedChunks>
   </component>

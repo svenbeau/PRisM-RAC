@@ -13,16 +13,16 @@
             "json_folder": "",
             "actionFolderName": "Grisebach 2025",
             "basicWandFiles": "",
-            "csvWandFile": "/Volumes/File_01/_GRIS/01_dokumente/751/A751_Wandbilderliste_1.csv",
+            "csvWandFile": "/Volumes/Grisebach/06_Wand/02_CSV/755/A755 Wandbilderliste_Version_1.csv",
             "wandFileSavePath": ""
         },
         {
             "script_path": "GRIS_Wandabbildungen_2024_dynamisch.jsx",
             "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
             "actionFolderName": "Grisebach 2025",
-            "basicWandFiles": "/Volumes/4TM2/Grisebach/06_Wand/01_Vorlagen",
+            "basicWandFiles": "/Volumes/Grisebach/06_Wand/01_Vorlagen",
             "csvWandFile": "",
-            "wandFileSavePath": "/Volumes/4TM2/Grisebach/30_Renderfiles/05_Wand/PSD"
+            "wandFileSavePath": "/Volumes/File_01/__Hotfolder/_Render/05_Process/05_Wand/755"
         },
         {
             "script_path": "SuperSkript_rcm_dynamisch.jsx",
