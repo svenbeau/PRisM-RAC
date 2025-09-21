@@ -1,128 +1,96 @@
 // contentcheck_template.jsx
 
-// Polyfill für String.prototype.trim (ExtendScript unterstützt trim() möglicherweise nicht)
+// Polyfill für String.prototype.trim
 if (typeof String.prototype.trim !== "function") {
     String.prototype.trim = function() {
         return this.replace(/^\s+|\s+$/g, "");
     };
 }
 
-// Lade die Adobe XMPScript Library, falls noch nicht geladen
+// Adobe XMPScript laden
 if (ExternalObject.AdobeXMPScript == undefined) {
     ExternalObject.AdobeXMPScript = new ExternalObject("lib:AdobeXMPScript");
 }
 
-// --- Dynamisch injizierte Variablen ---
-// Diese Variablen werden von Python übergeben, basierend auf den Werten in settings.json.
-// Falls nicht injiziert, werden Standardwerte gesetzt.
-if (typeof keywordCheckEnabled === "undefined") {
-    var keywordCheckEnabled = false;
-}
-if (typeof keywordCheckWord === "undefined") {
-    var keywordCheckWord = "";
-}
-if (typeof keyword_layers === "undefined") {
-    var keyword_layers = []; // Leere Liste -> dann werden in diesem Bereich keine Layer geprüft.
-}
-if (typeof keyword_metadata === "undefined") {
-    var keyword_metadata = []; // Leere Liste -> dann werden in diesem Bereich keine Metadaten geprüft.
-}
-// Optional: Falls logFolderPath nicht injiziert wurde, setzen wir einen Standardwert.
-if (typeof logFolderPath === "undefined") {
-    var logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles/";
+// --- Von Python zu injizierende Variablen (Platzhalter!) ---
+var required_layers = /*PYTHON_INSERT_REQUIRED_LAYERS*/;
+if (!required_layers || required_layers === "") { required_layers = []; }
+
+var required_metadata = /*PYTHON_INSERT_REQUIRED_METADATA*/;
+if (!required_metadata || required_metadata === "") { required_metadata = []; }
+
+var keyword_layers = /*PYTHON_INSERT_KEYWORD_LAYERS*/;
+if (!keyword_layers || keyword_layers === "") { keyword_layers = []; }
+
+var keyword_metadata = /*PYTHON_INSERT_KEYWORD_METADATA*/;
+if (!keyword_metadata || keyword_metadata === "") { keyword_metadata = []; }
+
+var logFolderPath = /*PYTHON_INSERT_LOGFOLDER*/;
+if (!logFolderPath || logFolderPath === "") {
+    logFolderPath = Folder.desktop.fsName; // defensiver Fallback
 }
 
-// Polyfill für Array.isArray
+// Polyfills
 if (typeof Array.isArray !== "function") {
-    Array.isArray = function(arg) {
-        return Object.prototype.toString.call(arg) === "[object Array]";
-    };
+    Array.isArray = function(arg) { return Object.prototype.toString.call(arg) === "[object Array]"; };
 }
-
-// Polyfill für JSON.stringify, falls nicht definiert
 if (typeof JSON === "undefined") {
     JSON = {};
     JSON.stringify = function(obj) {
-        function serialize(obj) {
-            if (typeof obj === "object") {
+        function serialize(o) {
+            if (typeof o === "object") {
                 var s = "{";
-                for (var key in obj) {
-                    if (obj.hasOwnProperty(key)) {
-                        var val = obj[key];
-                        if (typeof val === "object" && val !== null) {
-                            s += '"' + key + '":' + serialize(val) + ",";
-                        } else if (typeof val === "string") {
-                            s += '"' + key + '":"' + val.replace(/"/g, '\\"') + '",';
-                        } else {
-                            s += '"' + key + '":' + val + ",";
-                        }
+                for (var k in o) if (o.hasOwnProperty(k)) {
+                    var v = o[k];
+                    if (typeof v === "object" && v !== null) {
+                        s += '"' + k + '":' + serialize(v) + ",";
+                    } else if (typeof v === "string") {
+                        s += '"' + k + '":"' + v.replace(/"/g, '\\"') + '",';
+                    } else {
+                        s += '"' + k + '":' + v + ",";
                     }
                 }
                 s = s.replace(/,$/, "") + "}";
                 return s;
             }
-            return obj.toString();
+            return o.toString();
         }
         return serialize(obj);
     };
 }
 
-// Pretty Print Funktion für JSON
+// Pretty JSON
 function serializeToJsonPretty(obj, indent) {
     indent = indent || "";
     if (typeof obj !== "object" || obj === null) {
-        if (typeof obj === "string") {
-            return '"' + obj.replace(/"/g, '\\"') + '"';
-        } else {
-            return String(obj);
-        }
+        return (typeof obj === "string") ? '"' + obj.replace(/"/g, '\\"') + '"' : String(obj);
     }
     var isArray = Array.isArray(obj);
-    var result = isArray ? "[\n" : "{\n";
+    var out = isArray ? "[\n" : "{\n";
     var indentNext = indent + "    ";
     var first = true;
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            if (!first) {
-                result += ",\n";
-            }
-            first = false;
-            if (!isArray) {
-                result += indentNext + '"' + key + '": ';
-            } else {
-                result += indentNext;
-            }
-            result += serializeToJsonPretty(obj[key], indentNext);
-        }
+    for (var key in obj) if (obj.hasOwnProperty(key)) {
+        if (!first) out += ",\n";
+        first = false;
+        if (!isArray) out += indentNext + '"' + key + '": ';
+        else out += indentNext;
+        out += serializeToJsonPretty(obj[key], indentNext);
     }
-    result += "\n" + indent + (isArray ? "]" : "}");
-    return result;
+    out += "\n" + indent + (isArray ? "]" : "}");
+    return out;
 }
 
-// Globaler Debug-Schalter – wird von außen injiziert, falls nicht gesetzt.
-if (typeof DEBUG_OUTPUT === "undefined") {
-    var DEBUG_OUTPUT = false;
-}
-function debug_print(msg) {
-    if (DEBUG_OUTPUT) {
-        $.writeln("[DEBUG] " + msg);
-    }
-}
+// Debug
+if (typeof DEBUG_OUTPUT === "undefined") { var DEBUG_OUTPUT = false; }
+function debug_print(msg) { if (DEBUG_OUTPUT) { $.writeln("[DEBUG] " + msg); } }
 
-// Standardwerte für den normalen Contentcheck – diese kommen aus settings.json:
-if (typeof required_layers === "undefined") {
-    var required_layers = ["Freisteller", "Messwerte", "Korrektur"];
-}
-if (typeof required_metadata === "undefined") {
-    var required_metadata = ["author", "description", "keywords"];
-}
+// Standardwerte nur falls NICHT injiziert
 var requiredLayers = required_layers;
 var requiredMetadata = required_metadata;
 
-// Setze zunächst checkType standardmäßig auf "Standard"
+// Check-Typ
 var checkType = "Standard";
 
-// Funktion zum Entfernen umgebender Anführungszeichen
 function removeSurroundingQuotes(str) {
     if (!str || str.length < 2) return str;
     if (str.charAt(0) === '"' && str.charAt(str.length - 1) === '"') {
@@ -131,7 +99,7 @@ function removeSurroundingQuotes(str) {
     return str;
 }
 
-// Feld-Mapping – Keys entsprechen der gewünschten Zuordnung.
+// Feld-Mapping
 var fieldMapping = {
     "documentTitle":    { ns: XMPConst.NS_DC, prop: "title", altText: true, isArray: false },
     "author":           { ns: XMPConst.NS_DC, prop: "creator", altText: false, isArray: true },
@@ -151,7 +119,7 @@ var fieldMapping = {
     "transmissionRef":  { ns: XMPConst.NS_PHOTOSHOP, prop: "TransmissionReference", altText: false, isArray: false }
 };
 
-// Benutzerfreundliche Labels für die Anzeige
+// Labels
 var userFriendlyLabels = {
     "documentTitle":    "Title",
     "author":           "Author",
@@ -159,7 +127,7 @@ var userFriendlyLabels = {
     "keywords":         "Keywords",
     "headline":         "Headline",
     "authorPosition":   "Author Position",
-    "descriptionWriter": "Description Writer",
+    "descriptionWriter":"Description Writer",
     "copyrightNotice":  "Copyright Notice",
     "copyrightURL":     "Copyright URL",
     "city":             "City",
@@ -171,62 +139,7 @@ var userFriendlyLabels = {
     "transmissionRef":  "Transmission Ref"
 };
 
-// Funktion zum Auslesen eines Feldes gemäß Mapping
-function getXMPValue(fieldKey) {
-    var mapping = fieldMapping[fieldKey];
-    if (!mapping) {
-        return "undefined";
-    }
-    var val = "";
-    if (mapping.isArray) {
-        try {
-            var count = 1;
-            try {
-                count = xmp.countArrayItems(mapping.ns, mapping.prop);
-            } catch(e) {
-                count = 1;
-            }
-            var items = [];
-            for (var i = 1; i <= count; i++) {
-                try {
-                    var item = xmp.getArrayItem(mapping.ns, mapping.prop, i);
-                    if (item && item.value) {
-                        items.push(String(item.value));
-                    }
-                } catch(e) {}
-            }
-            if (items.length > 0) {
-                // Verbinde alle Einträge mit Semikolon
-                val = items.join("; ");
-            }
-        } catch(e) {
-            val = "undefined";
-        }
-    } else {
-        if (mapping.altText) {
-            try {
-                var loc = xmp.getLocalizedText(mapping.ns, mapping.prop, "", "x-default");
-                if (loc && loc.value) {
-                    val = String(loc.value);
-                }
-            } catch(e) {}
-        }
-        if (!val) {
-            try {
-                var raw = xmp.getProperty(mapping.ns, mapping.prop);
-                if (raw) {
-                    val = String(raw);
-                }
-            } catch(e) {}
-        }
-    }
-    if (!val) {
-        val = "undefined";
-    }
-    return removeSurroundingQuotes(val);
-}
-
-// Sicherstellen, dass ein Dokument geöffnet ist
+// XMP lesen
 if (app.documents.length === 0) {
     alert("Keine Datei geöffnet. Bitte öffne eine Datei und starte das Skript erneut.");
     throw new Error("Kein Dokument geöffnet");
@@ -235,67 +148,98 @@ var doc = app.activeDocument;
 var xmpData = doc.xmpMetadata.rawData;
 var xmp = new XMPMeta(xmpData);
 
-// Erzeuge ein Objekt, das alle Felder enthält (basierend auf fieldMapping)
-var metadataOutput = {};
-for (var key in fieldMapping) {
-    metadataOutput[key] = getXMPValue(key);
+// XMP Value Helper
+function getXMPValue(fieldKey) {
+    var mapping = fieldMapping[fieldKey];
+    if (!mapping) return "undefined";
+    var val = "";
+    if (mapping.isArray) {
+        try {
+            var count = 1;
+            try { count = xmp.countArrayItems(mapping.ns, mapping.prop); } catch(e) { count = 1; }
+            var items = [];
+            for (var i = 1; i <= count; i++) {
+                try {
+                    var item = xmp.getArrayItem(mapping.ns, mapping.prop, i);
+                    if (item && item.value) { items.push(String(item.value)); }
+                } catch(e) {}
+            }
+            if (items.length > 0) { val = items.join("; "); }
+        } catch(e) { val = "undefined"; }
+    } else {
+        if (mapping.altText) {
+            try {
+                var loc = xmp.getLocalizedText(mapping.ns, mapping.prop, "", "x-default");
+                if (loc && loc.value) { val = String(loc.value); }
+            } catch(e) {}
+        }
+        if (!val) {
+            try {
+                var raw = xmp.getProperty(mapping.ns, mapping.prop);
+                if (raw) { val = String(raw); }
+            } catch(e) {}
+        }
+    }
+    if (!val) val = "undefined";
+    return removeSurroundingQuotes(val);
 }
 
-// 1) Keyword-Check: robust (Semikolon ODER Komma), normalisiert
-function norm(s){ return String(s||"").toLowerCase().trim(); }
+// Alle Metadaten auslesen
+var metadataOutput = {};
+for (var k in fieldMapping) {
+    metadataOutput[k] = getXMPValue(k);
+}
 
-if (keywordCheckEnabled && keywordCheckWord !== "") {
-    var raw  = String(metadataOutput["keywords"] || "");
-    var tags = raw.split(/[;,]/); // akzeptiert ";" oder ","
-    var needle = norm(keywordCheckWord);
+// --- Keyword-Entscheidung ---
+var keywordCheckEnabled = /*PYTHON_INSERT_KW_ENABLED*/;    // true/false
+var keywordCheckWord    = /*PYTHON_INSERT_KW_WORD*/;       // "Rueckseite" o.ä.
+
+var decidedKW = "Standard";
+if (keywordCheckEnabled && keywordCheckWord && keywordCheckWord !== "") {
+    var kwStr = String(metadataOutput["keywords"]);
+    var tags = kwStr.split(";");
     var found = false;
     for (var i = 0; i < tags.length; i++) {
-        if (norm(tags[i]) === needle) { found = true; break; }
+        if (String(tags[i]).trim().toLowerCase() === String(keywordCheckWord).toLowerCase()) { found = true; break; }
     }
-    checkType = found ? "Keyword-based" : "Standard";
-} else {
-    checkType = "Standard";
+    decidedKW = found ? "Keyword-based" : "Standard";
 }
+checkType = decidedKW;
 
-// 2) Effektive Kriterien: Falls der Keyword-basierte Check aktiv ist,
-// verwenden wir ausschließlich die in keyword_layers und keyword_metadata definierten Werte.
-// Sind diese Arrays leer, werden in diesem Bereich keine Kriterien geprüft.
+// Effektive Kriterien wählen (nur HIER!)
 var effectiveLayers, effectiveMetadata;
 if (checkType === "Keyword-based") {
-    effectiveLayers = (keyword_layers.length > 0) ? keyword_layers : [];
-    effectiveMetadata = (keyword_metadata.length > 0) ? keyword_metadata : [];
+    effectiveLayers = Array.isArray(keyword_layers) ? keyword_layers : [];
+    effectiveMetadata = Array.isArray(keyword_metadata) ? keyword_metadata : [];
 } else {
-    effectiveLayers = requiredLayers;
-    effectiveMetadata = requiredMetadata;
+    effectiveLayers = Array.isArray(requiredLayers) ? requiredLayers : [];
+    effectiveMetadata = Array.isArray(requiredMetadata) ? requiredMetadata : [];
 }
 
-// 3) Erzeuge formatierten Output für die ausgewählten Metadaten
-var formattedMeta = "Metadata Output:\n";
-for (var i = 0; i < effectiveMetadata.length; i++) {
-    var key = effectiveMetadata[i];
-    var label = userFriendlyLabels[key] || key;
-    formattedMeta += label + ": " + metadataOutput[key] + "\n";
+// Optionale UI-Preview
+if (DEBUG_OUTPUT === true) {
+    var formattedMeta = "Metadata Output:\n";
+    for (var m = 0; m < effectiveMetadata.length; m++) {
+        var mk = effectiveMetadata[m];
+        var label = userFriendlyLabels[mk] || mk;
+        formattedMeta += label + ": " + metadataOutput[mk] + "\n";
+    }
+    var formattedLayers = "Layer Output:\n";
+    for (var n = 0; n < effectiveLayers.length; n++) {
+        var lname = effectiveLayers[n];
+        formattedLayers += lname + ": " + (layerExists(doc, lname) ? "yes" : "NO") + "\n";
+    }
+    alert(formattedMeta + "\n\n" + formattedLayers);
 }
 
-// 4) Erzeuge formatierten Output für die Ebenen
-var formattedLayers = "Layer Output:\n";
-for (var i = 0; i < effectiveLayers.length; i++) {
-    var lname = effectiveLayers[i];
-    formattedLayers += lname + ": " + (layerExists(doc, lname) ? "yes" : "NO") + "\n";
-}
-
-// Funktion, um zu prüfen, ob eine Ebene im Dokument existiert
+// Layer-Existenz
 function layerExists(doc, layerName) {
     function searchLayers(layers, name) {
         for (var i = 0; i < layers.length; i++) {
             var layer = layers[i];
-            if (layer.name === name) {
-                return true;
-            }
+            if (layer.name === name) return true;
             if (layer.typename === "LayerSet") {
-                if (searchLayers(layer.layers, name)) {
-                    return true;
-                }
+                if (searchLayers(layer.layers, name)) return true;
             }
         }
         return false;
@@ -303,12 +247,7 @@ function layerExists(doc, layerName) {
     return searchLayers(doc.layers, layerName);
 }
 
-// Debug-Ausgabe (nur Metadaten und Ebenen)
-if (DEBUG_OUTPUT === true) {
-    alert(formattedMeta + "\n\n" + formattedLayers);
-}
-
-// 5) Erstelle das finale Objekt für die JSON-Ausgabe
+// Ergebnis-Grundgerüst
 var resultObj = {
     metadata: metadataOutput,
     details: {
@@ -318,60 +257,55 @@ var resultObj = {
         layerStatus: "OK",
         metaStatus: "OK",
         checkType: checkType,
-        keywordCheck: { enabled: keywordCheckEnabled, keyword: keywordCheckWord }
+        keywordCheck: { enabled: keywordCheckEnabled, keyword: keywordCheckWord },
+        keywordDebug: {
+            enabled: keywordCheckEnabled,
+            word: String(keywordCheckWord || ""),
+            parsedKeywords: String(metadataOutput["keywords"] || "undefined"),
+            decided: checkType
+        }
     }
 };
 
-// Entscheidung transparent mitschreiben
-resultObj.details.keywordDebug = {
-    enabled: !!keywordCheckEnabled,
-    word: keywordCheckWord,
-    parsedKeywords: String(metadataOutput["keywords"] || ""),
-    decided: checkType
-};
-
-// 6) Prüfung der Ebenen
-for (var i = 0; i < effectiveLayers.length; i++) {
-    var lname = effectiveLayers[i];
-    var present = layerExists(doc, lname);
-    resultObj.details.layers[lname] = present ? "yes" : "no";
+// Ebenen prüfen
+for (var li = 0; li < effectiveLayers.length; li++) {
+    var lname2 = effectiveLayers[li];
+    var present = layerExists(doc, lname2);
+    resultObj.details.layers[lname2] = present ? "yes" : "no";
     if (!present) {
-        resultObj.details.missingLayers.push(lname);
+        resultObj.details.missingLayers.push(lname2);
         resultObj.details.layerStatus = "FAIL";
     }
 }
 
-// 7) Prüfung der Metadaten
-for (var j = 0; j < effectiveMetadata.length; j++) {
-    var field = effectiveMetadata[j];
+// Metadaten prüfen
+for (var mj = 0; mj < effectiveMetadata.length; mj++) {
+    var field = effectiveMetadata[mj];
     if (metadataOutput[field] === "undefined") {
         resultObj.details.missingMetadata.push(field);
         resultObj.details.metaStatus = "FAIL";
     }
 }
 
-// 8) Erzeuge den kompletten Contentcheck-Log (Pretty Print)
-var jsonString = serializeToJsonPretty(resultObj, "");
+// --- Logging (wie gehabt) ---
 var baseName = doc.name.replace(/\.[^\.]+$/, "");
+
 var contentLogFile = new File(logFolderPath + "/" + baseName + "_01_log_contentcheck.json");
 contentLogFile.encoding = "UTF8";
 contentLogFile.open("w");
-contentLogFile.write(jsonString);
+contentLogFile.write(serializeToJsonPretty(resultObj, ""));
 contentLogFile.close();
-
 debug_print("Contentcheck-Log gespeichert: " + contentLogFile.fullName);
 
-// 9) Falls layerStatus oder metaStatus FAIL, zusätzlich einen Fail-Log erzeugen
+// Fail-Log nur bei FAIL
 if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus === "FAIL") {
     var missingLayersObj = {};
-    for (var i = 0; i < resultObj.details.missingLayers.length; i++) {
-        var layer = resultObj.details.missingLayers[i];
-        missingLayersObj[layer] = "fehlt";
+    for (var i2 = 0; i2 < resultObj.details.missingLayers.length; i2++) {
+        missingLayersObj[resultObj.details.missingLayers[i2]] = "fehlt";
     }
     var missingMetadataObj = {};
-    for (var j = 0; j < resultObj.details.missingMetadata.length; j++) {
-        var field = resultObj.details.missingMetadata[j];
-        missingMetadataObj[field] = "fehlt";
+    for (var j2 = 0; j2 < resultObj.details.missingMetadata.length; j2++) {
+        missingMetadataObj[resultObj.details.missingMetadata[j2]] = "fehlt";
     }
     var failObj = {
         missingLayers: missingLayersObj,
@@ -381,11 +315,10 @@ if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus ===
         checkType: checkType,
         keywordCheck: { enabled: keywordCheckEnabled, keyword: keywordCheckWord }
     };
-    var failJsonString = serializeToJsonPretty(failObj, "");
     var failLogFile = new File(logFolderPath + "/" + baseName + "_01_log_fail.json");
     failLogFile.encoding = "UTF8";
     failLogFile.open("w");
-    failLogFile.write(failJsonString);
+    failLogFile.write(serializeToJsonPretty(failObj, ""));
     failLogFile.close();
     debug_print("Contentcheck-Fail Log gespeichert: " + failLogFile.fullName);
 }
