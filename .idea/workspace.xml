@@ -6,10 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="weiterentwicklung von -v22 (da wurde das Logfile auf einen fixen Pfad erzeugt.) das funktioniert schon mal&#10;fixer Pfad auf /Volumes/File_01/__Hotfolder/_Render/04_Logfiles gestellt">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -76,7 +72,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "stable-v30",
+    "git-widget-placeholder": "stable-v31",
     "last_opened_file_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC",
     "settings.editor.selected.configurable": "preferences.lookFeel"
   }
