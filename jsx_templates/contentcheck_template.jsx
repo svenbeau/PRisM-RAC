@@ -29,7 +29,7 @@ if (typeof keyword_metadata === "undefined") {
 }
 // Optional: Falls logFolderPath nicht injiziert wurde, setzen wir einen Standardwert.
 if (typeof logFolderPath === "undefined") {
-    var logFolderPath = "/Volumes/File_01/__Hotfolder/_Render/04_Logfiles";
+    var logFolderPath = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles/";
 }
 
 // Polyfill für Array.isArray
@@ -241,22 +241,18 @@ for (var key in fieldMapping) {
     metadataOutput[key] = getXMPValue(key);
 }
 
-// 1) Keyword-Check: Falls keywordCheckEnabled true ist und ein Suchbegriff definiert ist,
-// teilen wir das "keywords"-Feld anhand des Semikolons auf und prüfen, ob ein Tag exakt übereinstimmt.
+// 1) Keyword-Check: robust (Semikolon ODER Komma), normalisiert
+function norm(s){ return String(s||"").toLowerCase().trim(); }
+
 if (keywordCheckEnabled && keywordCheckWord !== "") {
-    var tags = String(metadataOutput["keywords"]).split(";");
+    var raw  = String(metadataOutput["keywords"] || "");
+    var tags = raw.split(/[;,]/); // akzeptiert ";" oder ","
+    var needle = norm(keywordCheckWord);
     var found = false;
     for (var i = 0; i < tags.length; i++) {
-        if (String(tags[i]).trim().toLowerCase() === keywordCheckWord.toLowerCase()) {
-            found = true;
-            break;
-        }
+        if (norm(tags[i]) === needle) { found = true; break; }
     }
-    if (found) {
-        checkType = "Keyword-based";
-    } else {
-        checkType = "Standard";
-    }
+    checkType = found ? "Keyword-based" : "Standard";
 } else {
     checkType = "Standard";
 }
@@ -326,6 +322,14 @@ var resultObj = {
     }
 };
 
+// Entscheidung transparent mitschreiben
+resultObj.details.keywordDebug = {
+    enabled: !!keywordCheckEnabled,
+    word: keywordCheckWord,
+    parsedKeywords: String(metadataOutput["keywords"] || ""),
+    decided: checkType
+};
+
 // 6) Prüfung der Ebenen
 for (var i = 0; i < effectiveLayers.length; i++) {
     var lname = effectiveLayers[i];
@@ -357,8 +361,7 @@ contentLogFile.close();
 
 debug_print("Contentcheck-Log gespeichert: " + contentLogFile.fullName);
 
-// 9) Falls layerStatus oder metaStatus FAIL, zusätzlich einen Fail-Log erzeugen,
-// der nur die fehlenden Kriterien enthält.
+// 9) Falls layerStatus oder metaStatus FAIL, zusätzlich einen Fail-Log erzeugen
 if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus === "FAIL") {
     var missingLayersObj = {};
     for (var i = 0; i < resultObj.details.missingLayers.length; i++) {

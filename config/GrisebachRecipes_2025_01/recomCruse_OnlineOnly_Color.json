@@ -5,7 +5,7 @@
         {
             "name": "Web_Komplett",
             "photoshopAction": "21 Cruse Color 2 Web Kompeltt (WK)",
-            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/02_Web/",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/03_Web/",
             "suffix": "WK",
             "filetype": "png",
             "backside": true,
@@ -15,7 +15,7 @@
         {
             "name": "Web_Ausschnitt",
             "photoshopAction": "20 Cruse Color 2 Web Cropped (WC)",
-            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/02_Web/",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/03_Web/",
             "suffix": "WC",
             "filetype": "png",
             "backside": false
