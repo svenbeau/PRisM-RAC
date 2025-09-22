@@ -7,6 +7,7 @@ import threading
 import json
 import tempfile
 import shutil
+import re
 from datetime import datetime
 
 from utils.utils import debug_print, is_file_stable, open_in_photoshop, run_jsx_in_photoshop, move_file, close_current_document_in_photoshop
@@ -27,13 +28,36 @@ def read_json_file(file_path):
         debug_print(f"Error reading JSON file {file_path}: {e}")
         return None
 
-def create_temp_jsx_with_config(base_jsx_path, keyword_check_enabled, keyword_check_word, effective_layers, effective_metadata, logfiles_dir):
+def _ensure_list(value):
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return [str(value)]
+
+def _js_bool(py_bool):
+    return "true" if bool(py_bool) else "false"
+
+def _js_string(s):
+    # JSON-escape + immer als JS-String
+    return json.dumps("" if s is None else str(s), ensure_ascii=False)
+
+def _js_array(seq):
+    # kompakter JSON-Array-Dump (gilt in JS 1:1)
+    return json.dumps(_ensure_list(seq), ensure_ascii=False, separators=(",", ":"))
+
+def create_temp_jsx_with_config(
+    base_jsx_path,
+    keyword_check_enabled,
+    keyword_check_word,
+    effective_layers,
+    effective_metadata,
+    logfiles_dir
+):
     """
-    Erzeugt eine temporäre JSX-Datei, in der folgende Platzhalter im Basis‑JSX‑Template ersetzt werden:
-      /*PYTHON_INSERT_LAYERS*/    -> JSON-string der effektiven Ebenen
-      /*PYTHON_INSERT_METADATA*/  -> JSON-string der effektiven Metadaten
-      /*PYTHON_INSERT_LOGFOLDER*/ -> JavaScript-Code zur Definition von logFolderPath
-    Zusätzlich wird am Anfang Code injiziert, der die Variablen DEBUG_OUTPUT, keywordCheckEnabled und keywordCheckWord deklariert.
+    Erzeugt eine temporäre JSX-Datei.
+    - Prepend: Injektions-Header mit allen Variablen.
+    - Abwärtskompatibel: Platzhalter im Template werden ersetzt/entschärft.
     """
     if not base_jsx_path or not os.path.exists(base_jsx_path):
         debug_print(f"Error: Base JSX script not found at {base_jsx_path}")
@@ -45,32 +69,110 @@ def create_temp_jsx_with_config(base_jsx_path, keyword_check_enabled, keyword_ch
         debug_print(f"Error reading base JSX script {base_jsx_path}: {e}")
         return None
 
-    # Erzeuge die Strings für den Austausch der Platzhalter
-    layers_str = json.dumps(effective_layers)
-    metadata_str = json.dumps(effective_metadata)
-    # Hier definieren wir logFolderPath als JavaScript-Code, z. B.:
-    #   var logFolderPath = "/Volumes/File_01/__Hotfolder/_Render/04_Logfiles";
-    logfiles_injection = "var logFolderPath = " + json.dumps(logfiles_dir) + ";\n"
+    # Injektions-Header
+    js_required_layers   = _js_array(effective_layers)
+    js_required_metadata = _js_array(effective_metadata)
+    js_keyword_layers    = _js_array(effective_layers)
+    js_keyword_metadata  = _js_array(effective_metadata)
 
-    # Ersetze die Platzhalter im Template
-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_LAYERS*/", layers_str)
-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_METADATA*/", metadata_str)
-    jsx_template = jsx_template.replace("/*PYTHON_INSERT_LOGFOLDER*/", logfiles_injection)
+    js_kw_enabled = _js_bool(keyword_check_enabled)
+    js_kw_word    = _js_string(keyword_check_word)
+    js_log_dir    = _js_string(logfiles_dir)
+    js_debug      = _js_bool(False)
 
-    # Injektions-Code: Definiere DEBUG_OUTPUT, keywordCheckEnabled und keywordCheckWord
-    injection = ""
-    injection += "var DEBUG_OUTPUT = false;\n"
-    injection += "var keywordCheckEnabled = " + str(keyword_check_enabled).lower() + ";\n"
-    injection += "var keywordCheckWord = " + json.dumps(keyword_check_word) + ";\n"
+    injection_header = (
+        "// ===== PRisM-RAC injected config (auto-generated) =====\n"
+        "var DEBUG_OUTPUT = {dbg};\n"
+        "var required_layers   = {req_layers};\n"
+        "var required_metadata = {req_meta};\n"
+        "var keyword_layers    = {kw_layers};\n"
+        "var keyword_metadata  = {kw_meta};\n"
+        "var keywordCheckEnabled = {kw_enabled};\n"
+        "var keywordCheckWord    = {kw_word};\n"
+        "var logFolderPath       = {log_dir};\n"
+        "// ===== end injected config =====\n\n"
+    ).format(
+        dbg=js_debug,
+        req_layers=js_required_layers,
+        req_meta=js_required_metadata,
+        kw_layers=js_keyword_layers,
+        kw_meta=js_keyword_metadata,
+        kw_enabled=js_kw_enabled,
+        kw_word=js_kw_word,
+        log_dir=js_log_dir,
+    )
 
-    combined_code = injection + jsx_template
+    # Platzhalter-Handling (Layers/Metadata)
+    placeholder_map = {
+        "/*PYTHON_INSERT_REQUIRED_LAYERS*/": js_required_layers,
+        "/*PYTHON_INSERT_REQUIRED_METADATA*/": js_required_metadata,
+        "/*PYTHON_INSERT_KEYWORD_LAYERS*/": js_keyword_layers,
+        "/*PYTHON_INSERT_KEYWORD_METADATA*/": js_keyword_metadata,
+        "/*PYTHON_INSERT_LAYERS*/": js_required_layers,      # ältere Variante
+        "/*PYTHON_INSERT_METADATA*/": js_required_metadata,  # ältere Variante
+    }
 
+    for token, replacement in placeholder_map.items():
+        if token in jsx_template:
+            jsx_template = jsx_template.replace(
+                f"var required_layers = {token};",
+                f"// (replaced) var required_layers = {token};\nvar required_layers = {replacement};"
+            )
+            jsx_template = jsx_template.replace(
+                f"var required_metadata = {token};",
+                f"// (replaced) var required_metadata = {token};\nvar required_metadata = {replacement};"
+            )
+            # Generischer Fallback
+            jsx_template = jsx_template.replace(token, replacement)
+
+    # LOGFOLDER-Platzhalter sauber entschärfen:
+    # Wenn das Template die Form `var logFolderPath = /*PYTHON_INSERT_LOGFOLDER*/;` hat,
+    # ersetzen wir die GESAMTE Zuweisung mit einem Kommentar, da der Header bereits setzt.
+    pattern = r'^\s*var\s+logFolderPath\s*=\s*/\*PYTHON_INSERT_LOGFOLDER\*/\s*;\s*$'
+    jsx_lines = jsx_template.splitlines()
+    for i, line in enumerate(jsx_lines):
+        if re.match(pattern, line):
+            jsx_lines[i] = "// logFolderPath is set by injected header."
+    jsx_template = "\n".join(jsx_lines)
+
+    # Falls der reine Token irgendwo verblieben ist, löschen wir ihn (Header ist maßgeblich).
+    if "/*PYTHON_INSERT_LOGFOLDER*/" in jsx_template:
+        jsx_template = jsx_template.replace("/*PYTHON_INSERT_LOGFOLDER*/", "/* logFolderPath set by header */")
+
+    combined_code = injection_header + jsx_template
+
+    # Datei schreiben + Sanity-Check
     try:
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=".jsx", prefix="dynamic_contentcheck_")
         os.close(tmp_fd)
         with open(tmp_path, "w", encoding="utf-8") as tmp_f:
             tmp_f.write(combined_code)
-        debug_print(f"Temporary JSX created: {tmp_path} (keywordCheckEnabled={keyword_check_enabled}, keywordCheckWord={keyword_check_word}, effective_layers={effective_layers}, effective_metadata={effective_metadata}, logFolderPath={logfiles_dir})")
+
+        debug_print(
+            f"Temporary JSX created: {tmp_path} "
+            f"(keywordCheckEnabled={keyword_check_enabled}, "
+            f"keywordCheckWord={keyword_check_word}, "
+            f"effective_layers={_ensure_list(effective_layers)}, "
+            f"effective_metadata={_ensure_list(effective_metadata)}, "
+            f"logFolderPath={logfiles_dir})"
+        )
+
+        # Sanity-Check: erste 30 Zeilen ausgeben
+        try:
+            head_lines = []
+            with open(tmp_path, "r", encoding="utf-8") as check_f:
+                for _ in range(30):
+                    line = check_f.readline()
+                    if not line:
+                        break
+                    head_lines.append(line.rstrip("\n"))
+            debug_print("[DynamicJSX] --- Sanity Check: First 30 lines of generated JSX ---")
+            for ln in head_lines:
+                debug_print(ln)
+            debug_print("[DynamicJSX] --- End of Sanity Check ---")
+        except Exception as e:
+            debug_print(f"[DynamicJSX] Sanity check failed: {e}")
+
         return tmp_path
     except Exception as e:
         debug_print(f"Error writing temporary JSX script: {e}")
@@ -93,8 +195,7 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
     keyword_check_enabled = hf_config.get("keyword_check_enabled", False)
     keyword_check_word = hf_config.get("keyword_check_word", "")
 
-    # Für den effektiven Check: Bei aktiviertem Keyword-Check werden die keyword_* Arrays verwendet,
-    # sonst die Standardwerte
+    # Effektive Check-Arrays bestimmen
     if keyword_check_enabled:
         effective_layers = hf_config.get("keyword_layers", [])
         effective_metadata = hf_config.get("keyword_metadata", [])
@@ -115,18 +216,24 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
     debug_print(f"Processing file: {file_path}")
 
     if open_in_photoshop(file_path):
-        debug_print(f"Opened {file_path} in Photoshop.")
+        debug_print(f"Opened {file_path} in Photoshop (open -a).")
     else:
         debug_print(f"Failed to open {file_path} in Photoshop.")
 
-    tmp_jsx_path = create_temp_jsx_with_config(contentcheck_jsx_path, keyword_check_enabled, keyword_check_word, effective_layers, effective_metadata, logfiles_dir)
+    tmp_jsx_path = create_temp_jsx_with_config(
+        contentcheck_jsx_path,
+        keyword_check_enabled,
+        keyword_check_word,
+        effective_layers,
+        effective_metadata,
+        logfiles_dir
+    )
     if not tmp_jsx_path:
         debug_print("Could not create dynamic JSX. Aborting content check.")
         dest = os.path.join(fault_dir, os.path.basename(file_path))
         move_file(file_path, dest)
         if on_status_update:
             on_status_update(f"Processed (no script): {os.path.basename(file_path)}", True)
-        # E-Mail-Benachrichtigung bei Fehler ohne Log
         send_fail_email_from_content({}, file_path)
         return
 
@@ -143,7 +250,7 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
     # Warte bis zu 10 Sekunden, damit das Logfile geschrieben wird
     baseName = os.path.basename(file_path).rsplit(".", 1)[0]
     contentLogPath = os.path.join(logfiles_dir, baseName + "_01_log_contentcheck.json")
-    timeout = 10.0  # Sekunden
+    timeout = 10.0
     waited = 0.0
     interval = 0.5
     while not os.path.exists(contentLogPath) and waited < timeout:
@@ -155,7 +262,7 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
     contentCheck = read_json_file(contentLogPath)
     debug_print(f"ContentCheck Log ({contentLogPath}): {contentCheck}")
 
-    # Entscheide basierend auf dem Contentcheck, ob die Datei in den Success- oder Fault-Ordner soll
+    # Erfolg/Fehlschlag entscheiden
     if contentCheck:
         details = contentCheck.get("details", {})
         layerStatus = details.get("layerStatus", "FAIL")
@@ -283,6 +390,9 @@ class HotfolderMonitor:
         debug_print("HotfolderMonitor stopped.")
 
 if __name__ == "__main__":
+    from PySide6.QtWidgets import QApplication
+    import sys
+    app = QApplication(sys.argv)
     hf_config = {
         "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/11_BoYinRa",
         "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",

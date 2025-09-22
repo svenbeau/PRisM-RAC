@@ -175,6 +175,7 @@ def run():
 
 # Damit auch wrapper.py auf main.run zugreifen kann:
 run = run
+run = run
 
 if __name__ == "__main__":
     sys.exit(run())
