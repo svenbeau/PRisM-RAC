@@ -73,10 +73,8 @@ class FtpTransferWidget(QtWidgets.QWidget):
       - Remote Pane (mit Suchfeld, Remote-Verwaltungsbuttons)
       - "Saved Servers"-Dropdown (aus ftp_servers.json)
       - Buttons: Refresh, Up, Neuer Ordner, Umbenennen, Löschen, Upload, Download
-      - Lokaler RootPath "/Volumes" (auf macOS) als Ausgangspunkt – der aktuelle lokale Zielpfad wird über Klick in der TreeView aktualisiert.
-      - Interaktive Abfrage bei Dateikonflikt (Überschreiben, Suffix oder Abbrechen)
-
-      **Hinweis:** Es werden nur Dateien transferiert.
+      - Verbinden / Trennen
+      - Initiales Syncen der Serverauswahl in die Eingabefelder (ohne Extra-Klick)
     """
 
     def __init__(self, parent=None):
@@ -147,9 +145,15 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.save_btn.clicked.connect(self.save_settings_slot)
         ftp_layout.addWidget(self.save_btn)
 
+        # Neu: Verbinden / Trennen
         self.connect_btn = QtWidgets.QPushButton("Verbinden")
         self.connect_btn.clicked.connect(self.connect_ftp)
         ftp_layout.addWidget(self.connect_btn)
+
+        self.disconnect_btn = QtWidgets.QPushButton("Trennen")
+        self.disconnect_btn.clicked.connect(self.disconnect_ftp)
+        self.disconnect_btn.setEnabled(False)
+        ftp_layout.addWidget(self.disconnect_btn)
 
         main_layout.addWidget(ftp_group)
 
@@ -297,7 +301,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.folder_icon = style.standardIcon(QtWidgets.QStyle.SP_DirIcon)
         self.file_icon = style.standardIcon(QtWidgets.QStyle.SP_FileIcon)
 
-        self.load_server_combo()
+        self.load_server_combo()  # lädt + sync't jetzt initial in die Felder
 
     # ----------------------------------------
     # Lokaler Pfad aktualisieren bei Klick in der TreeView
@@ -329,6 +333,13 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
         self.server_combo.blockSignals(False)
 
+        # WICHTIG: Initial die 1. Auswahl in Felder spiegeln,
+        # damit ohne zusätzlichen Benutzerklick die Manager-Daten benutzt werden.
+        if self.server_combo.count() > 0:
+            self.server_combo.setCurrentIndex(0)  # löst Signal aus
+            # Safety: explizit nochmal aufrufen (falls blockSignals gesetzt war)
+            self.server_combo_changed(0)
+
     def server_combo_changed(self, index):
         debug_print(f"server_combo_changed({index})")
         servers = load_ftp_servers()
@@ -341,6 +352,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.user_edit.setText(srv.get("user", ""))
         self.port_edit.setText(str(srv.get("port", 21)))
         self.protocol_combo.setCurrentText(srv.get("protocol", "ftp"))
+        # Passwortfeld bewusst nicht vorausfüllen (Keyring wird genutzt)
 
     def open_server_manager(self):
         debug_print("open_server_manager() aufgerufen")
@@ -378,10 +390,15 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 item.setIcon(0, self.file_icon)
 
     # ----------------------------------------
-    # CONNECT
+    # CONNECT / DISCONNECT
     # ----------------------------------------
     def connect_ftp(self):
         debug_print("connect_ftp() aufgerufen")
+        # Immer sicherstellen, dass aktuelle Combo-Auswahl in Felder gespiegelt ist
+        idx = self.server_combo.currentIndex()
+        if idx >= 0:
+            self.server_combo_changed(idx)
+
         if self.ftp:
             self.ftp.disconnect()
 
@@ -412,15 +429,30 @@ class FtpTransferWidget(QtWidgets.QWidget):
         try:
             self.ftp.connect()
             QtWidgets.QMessageBox.information(self, "Verbunden", "FTP-Verbindung erfolgreich.")
+            self.connect_btn.setEnabled(False)
+            self.disconnect_btn.setEnabled(True)
             debug_print("connect_ftp() => refresh_remote()")
             self.refresh_remote()
         except Exception as e:
             debug_print(f"Fehler beim Verbinden: {e}")
             QtWidgets.QMessageBox.critical(self, "Cannot connect", f"{e}")
+            self.connect_btn.setEnabled(True)
+            self.disconnect_btn.setEnabled(False)
+
+    def disconnect_ftp(self):
+        debug_print("disconnect_ftp() aufgerufen")
+        if self.ftp:
+            try:
+                self.ftp.disconnect()
+            except Exception as e:
+                debug_print(f"Fehler beim Trennen: {e}")
+        self.connect_btn.setEnabled(True)
+        self.disconnect_btn.setEnabled(False)
+        QtWidgets.QMessageBox.information(self, "Getrennt", "FTP-Verbindung wurde getrennt.")
 
     def refresh_remote(self):
         debug_print(f"refresh_remote() => current_remote_path={self.current_remote_path}")
-        if not self.ftp or not self.ftp.conn:
+        if not self.ftp or not getattr(self.ftp, "conn", None):
             QtWidgets.QMessageBox.information(self, "Info", "Bitte erst verbinden.")
             return
         try:
@@ -462,10 +494,13 @@ class FtpTransferWidget(QtWidgets.QWidget):
             self.refresh_remote()
 
     # ----------------------------------------
-    # Neue Funktionen: Remote Folder Management
+    # Remote Folder Management
     # ----------------------------------------
     def create_remote_folder(self):
         debug_print("create_remote_folder() aufgerufen")
+        if not self.ftp or not getattr(self.ftp, "conn", None):
+            QtWidgets.QMessageBox.information(self, "Info", "Bitte erst verbinden.")
+            return
         folder_name, ok = QtWidgets.QInputDialog.getText(self, "Neuer Ordner", "Ordnername:")
         if ok and folder_name:
             new_path = self.current_remote_path.rstrip("/") + "/" + folder_name
@@ -480,6 +515,9 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
     def rename_remote_item(self):
         debug_print("rename_remote_item() aufgerufen")
+        if not self.ftp or not getattr(self.ftp, "conn", None):
+            QtWidgets.QMessageBox.information(self, "Info", "Bitte erst verbinden.")
+            return
         items = self.remote_list.selectedItems()
         if not items:
             QtWidgets.QMessageBox.information(self, "Info", "Bitte wählen Sie einen Eintrag zum Umbenennen aus.")
@@ -501,6 +539,9 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
     def delete_remote_item(self):
         debug_print("delete_remote_item() aufgerufen")
+        if not self.ftp or not getattr(self.ftp, "conn", None):
+            QtWidgets.QMessageBox.information(self, "Info", "Bitte erst verbinden.")
+            return
         items = self.remote_list.selectedItems()
         if not items:
             QtWidgets.QMessageBox.information(self, "Info", "Bitte wählen Sie einen Eintrag zum Löschen aus.")
@@ -528,11 +569,11 @@ class FtpTransferWidget(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Fehler", str(e))
 
     # ----------------------------------------
-    # UPLOAD: Interaktive Abfrage bei Dateikonflikt und Transfer-Info sammeln
+    # UPLOAD
     # ----------------------------------------
     def upload_selected(self):
         debug_print("upload_selected() aufgerufen")
-        if not self.ftp or not self.ftp.conn:
+        if not self.ftp or not getattr(self.ftp, "conn", None):
             QtWidgets.QMessageBox.information(self, "Info", "Keine Verbindung.")
             return
 
@@ -625,11 +666,11 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.ftp.send_transfer_summary_email(transfer_results)
 
     # ----------------------------------------
-    # DOWNLOAD: Interaktive Abfrage bei Dateikonflikt und Transfer-Info sammeln
+    # DOWNLOAD
     # ----------------------------------------
     def download_selected(self):
         debug_print("download_selected() aufgerufen")
-        if not self.ftp or not self.ftp.conn:
+        if not self.ftp or not getattr(self.ftp, "conn", None):
             QtWidgets.QMessageBox.information(self, "Info", "Keine Verbindung.")
             return
 
@@ -719,7 +760,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.ftp.send_transfer_summary_email(transfer_results)
 
     # ----------------------------------------
-    # Fragt den Nutzer bei Dateikonflikt ab
+    # Dateikonflikt-Dialog
     # ----------------------------------------
     def ask_file_conflict_action(self, filename, location="local"):
         msg = QtWidgets.QMessageBox(self)

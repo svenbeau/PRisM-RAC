@@ -4,17 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Fehlerbehebung: Contentcheck und Keywordbased Contentcheck funktioniert überhaupt nicht">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="FTP-Fehler beheben">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/HF_Settings_01 Grisebach Render.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/HF_Settings_01 Grisebach Render_lokal.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/HF_Settings_02 Griesbach Wand.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/HF_Settings_02 Griesbach Wand_lokal.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/HF_Settings_03 Bo Yin Ra.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,7 +74,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;stable-v31&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;stable-v32&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
@@ -107,14 +100,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00029" summary="Umbau zu globaler Konfiguration">
-      <option name="closed" value="true" />
-      <created>1740941705618</created>
-      <option name="number" value="00029" />
-      <option name="presentableId" value="LOCAL-00029" />
-      <option name="project" value="LOCAL" />
-      <updated>1740941705618</updated>
     </task>
     <task id="LOCAL-00030" summary="Umbau zu globaler Konfiguration">
       <option name="closed" value="true" />
@@ -500,7 +485,15 @@
       <option name="project" value="LOCAL" />
       <updated>1758454059819</updated>
     </task>
-    <option name="localTasksCounter" value="78" />
+    <task id="LOCAL-00078" summary="Contentcheck und Keywordbased Contentcheck funktionieren korrekt&#10;Logfiles werden in den konfigurierten Ordner geschrieben">
+      <option name="closed" value="true" />
+      <created>1758569785082</created>
+      <option name="number" value="00078" />
+      <option name="presentableId" value="LOCAL-00078" />
+      <option name="project" value="LOCAL" />
+      <updated>1758569785082</updated>
+    </task>
+    <option name="localTasksCounter" value="79" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -520,6 +513,7 @@
     <MESSAGE value="Bedienelemete werden mit kopiert" />
     <MESSAGE value="weiterentwicklung von -v22 (da wurde das Logfile auf einen fixen Pfad erzeugt.) das funktioniert schon mal" />
     <MESSAGE value="Fehlerbehebung: Contentcheck und Keywordbased Contentcheck" />
-    <option name="LAST_COMMIT_MESSAGE" value="Fehlerbehebung: Contentcheck und Keywordbased Contentcheck" />
+    <MESSAGE value="Contentcheck und Keywordbased Contentcheck funktionieren korrekt&#10;Logfiles werden in den konfigurierten Ordner geschrieben" />
+    <option name="LAST_COMMIT_MESSAGE" value="Contentcheck und Keywordbased Contentcheck funktionieren korrekt&#10;Logfiles werden in den konfigurierten Ordner geschrieben" />
   </component>
 </project>
