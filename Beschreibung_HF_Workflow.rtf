@@ -1,0 +1,37 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww33460\viewh11000\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 Hotfolder Szenario.\
+\
+\
+Hotfolder bedeutet, dass ein Ordner \'fcberwacht wird.\
+Ist eine Datei in diesem Ordner stabil, d.h. die Datenmenge wird \'fcber einen bestimmten Zeitraum nicht mehr gr\'f6\'dfer, wird eine Aktion ausgel\'f6st.\
+\
+Was ausgel\'f6st wird wird in einer Hotfolder-Konfiguration (HF-Config) ausgew\'e4hlt.\
+Dort gibt es folgenden Men\'fcpunkte\
+\
+\pard\tqr\tx1821\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf0 	ID:	ist eine x-stellige ID die von der Software selbst vergeben wird um eindeutig zuzuordnen zu welchen Set diese Konfiguration geh\'f6rt.\
+	Hauptpfad:	Wenn keine Individuellen Pfade vergeben werden werden hier automatisch die Unterorder zugeordnet, die Unterordner werden im folgenden beschrieben, hier k\'f6nnen sie dann ganz individuell ausgew\'e4hlt werden\
+	01_Monitor:	Das ist der Ordner der \'fcberwacht wird\
+	02_Success:	sind die Pflichten aus dem Contentcheck erf\'fcllt wird die Datei verarbeitet. In diesen Ordner werden Daten verschoben nachdem sie erfolgreich verarbeitet wurden.\
+	03_Fautlt:	sind die Pflichten aus dem Contentcheck nicht erf\'fcllt wird die Datei nicht verarbeitet und in diesen Ordner verschoben\
+	04_Logfiles:	in diesen Ordner werden die Logfiles geschrieben\
+\
+	Contentcheck:	es gibt zwei verschiedene Contentchecks\
+		A - Standard Countercheck (SCC)\
+		B - Keyword-basierte Contentcheck (KWCC)\
+\
+Ablauf ist folgender\
+\
+1 - es wird gepr\'fcft ob in den Metadaten unter Keywords an einer beliebigen Stelle das Keyword das in der Konfiguration des KWCC eingetragen ist\
+		Wenn Ja (also das Keyword steht so in den Metadaten der Datei unter dem Punkt Keywords) > dann soll die Konfiguration des KWCC gepr\'fcft werden. Die Einstellungen in \'84Erforderliche Ebenen (Keyword)\'93 und bei \'84Erforderlichen Metadaten (Keyword)\'93 sind dann zu pr\'fcfen\
+		Wenn Nein (also das Keyword nicht in den Metadaten der Datei unter dem Punkt Keywords steht) > dann soll die Konfiguration des SCC gepr\'fcft werden. Die Einstellungen in \'84Erforderliche Ebenen\'93 und bei \'84Erforderlichen Metadaten\'93 sind dann zu pr\'fcfen\
+2 - sind die Pr\'fcfkriterien nicht erf\'fcllt wird die Datei in Photoshop geschlossen und in den konfigurierten Fault-Ordner verschoben\
+3 - sind die Pr\'fcfkriterien erf\'fcllt wird das Script welches in JSX-Script Auswahl konfiguriert ist gestartet, ist in \'84Zus\'e4tzliches JSX\'93 ein Script ausgew\'e4hlt wird das im Anschluss ebenfalls gestartet\
+4 - nachdem das/die Script(s) abgearbeitet wurden wird die Datei geschlossen und in den konfigurierten Succes-Ordner verschoben\
+5 - es wird ein Logfile erstellt das beschreibt was durchgef\'fchrt wurde, ist ein oder mehrere Fehler aufgrund der Pr\'fcfkriterien festgestellt worden werden diese Fehler nochmal extra protokolliert}
