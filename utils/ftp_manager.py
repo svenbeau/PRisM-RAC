@@ -37,7 +37,18 @@ class TransferError(Exception):
 
 class FTPManager:
     """
-    Kapselt alle FTP-/SFTP-Funktionen.
+    Kapselt alle FTP-/SFTP-Funktionen (unverändert + Owner-Erweiterung):
+      - Verbindung aufbauen (FTP oder SFTP)
+      - Dateien hoch-/runterladen
+      - Versionierung: mirror/suffix
+      - Logging in ftptransfer_log.json (mit status)
+      - E-Mail/Notification bei Fehler
+      - Timestamp-Erhaltung optional
+      - Remote-Verzeichnis erstellen
+      - Remote Dateimanagement
+      - list_directory() liefert jetzt Tupel mit 4 oder 5 Feldern:
+            (name, is_dir, size, mod_time_str[, owner])
+        => Owner ist optional und kann leer sein.
     """
 
     def __init__(self):
@@ -46,7 +57,7 @@ class FTPManager:
         self.host = self.settings.get("ftp_host", "")
         self.user = self.settings.get("ftp_user", "")
         self.password = None
-        self.port = self.settings.get("ftp_port", 21 if self.ftp_protocol == "ftp" else 22)
+        self.port = 21 if self.ftp_protocol == "ftp" else 22
 
         self.versioning_mode = self.settings.get("versioning_mode", "mirror")
         self.keep_timestamp = self.settings.get("keep_timestamp", False)
@@ -70,7 +81,6 @@ class FTPManager:
         self.password = passwd
 
     def connect(self):
-        """Baut je nach Protocol (FTP oder SFTP) eine Verbindung auf."""
         self._load_password_from_keyring()
         debug_print(f"Versuche {self.ftp_protocol.upper()}-Connect zu {self.host}:{self.port}, user={self.user}")
 
@@ -99,7 +109,11 @@ class FTPManager:
                 if self.ftp_protocol == "ftp":
                     self.conn.quit()
                 else:
-                    # SFTPClient von Paramiko hat .close()
+                    # Paramiko SFTPClient
+                    try:
+                        self.conn.get_channel().close()
+                    except Exception:
+                        pass
                     self.conn.close()
             except Exception:
                 pass
@@ -107,7 +121,6 @@ class FTPManager:
             debug_print("Verbindung geschlossen.")
 
     def ensure_remote_directory(self, remote_dir):
-        """Stellt sicher, dass das Remote-Verzeichnis existiert (rekursiv)."""
         if self.ftp_protocol == "ftp":
             try:
                 self.conn.cwd(remote_dir)
@@ -135,8 +148,6 @@ class FTPManager:
                         self.conn.chdir(cwd)
                     except IOError:
                         self.conn.mkdir(cwd)
-
-    # --- Dateioperationen -----------------------------------------------------
 
     def _upload_file_ftp(self, local_path, remote_path, progress_callback=None):
         file_size = os.path.getsize(local_path)
@@ -186,7 +197,6 @@ class FTPManager:
             pass
 
         self.ensure_remote_directory(remote_dir)
-
         try:
             if self.ftp_protocol == "ftp":
                 self._upload_file_ftp(local_path, remote_path, progress_callback)
@@ -216,49 +226,67 @@ class FTPManager:
                 if self.keep_timestamp:
                     attr = sftp.stat(remote_path)
                     os.utime(local_path, (attr.st_atime, attr.st_mtime))
+
             self.log_transfer(remote_path, local_path, "DOWNLOAD", status="SUCCESS")
         except Exception as e:
             debug_print(f"Download fehlgeschlagen: {e}")
             self.log_transfer(remote_path, local_path, "DOWNLOAD", status="FAILED")
             raise
 
-    # --- Directory Listing ----------------------------------------------------
-
     def list_directory(self, remote_path):
-        """Gibt Liste von Tupeln zurück: (name, is_dir, size, mod_time, owner)"""
         if self.ftp_protocol == "ftp":
             return self._listdir_ftp(remote_path)
         else:
             return self._listdir_sftp(remote_path)
 
     def _listdir_ftp(self, remote_path):
+        """
+        Liefert Liste aus Tupeln:
+           (name, is_dir, size, mod_time_str, owner?)
+        Owner kann leer sein, wenn Ausgabeformat das nicht hergibt.
+        """
         items = []
 
         def parse_line(line: str):
-            # typisches UNIX-LIST: perms links owner group size month day time/year name...
+            # typische Unix-LIST-Zeile:
+            # drwxr-xr-x  2 owner group      4096 Sep 24 12:34  dirname
             parts = line.split()
             if len(parts) < 9:
                 return
-            is_dir = line.startswith("d")
-            owner = parts[2] if len(parts) >= 9 else ""
-            size = 0
+            is_dir = line.startswith("d") or parts[0].startswith("d")
+            # Owner versuchen:
+            owner = ""
+            try:
+                owner = parts[2]
+            except Exception:
+                owner = ""
+            # Größe
             try:
                 size = int(parts[4])
             except Exception:
-                pass
+                size = 0
+            # Datum
             mod_time_str = f"{parts[5]} {parts[6]} {parts[7]}"
+            # Name (kann Leerzeichen enthalten → ab Index 8 joinen)
             name = " ".join(parts[8:])
             items.append((name, is_dir, size, mod_time_str, owner))
 
-        self.conn.retrlines(f"LIST {remote_path}", parse_line)
+        try:
+            self.conn.retrlines(f"LIST {remote_path}", parse_line)
+        except Exception as e:
+            debug_print(f"LIST-Fehler auf '{remote_path}': {e}")
+            raise
         return items
 
     def _listdir_sftp(self, remote_path):
+        """
+        Für SFTP: Owner kann ggf. als UID geliefert werden. Wir geben die UID als String aus.
+        """
         sftp = self.conn
         filelist = []
         for f in sftp.listdir_attr(remote_path):
             name = f.filename
-            # Verzeichnis testen
+            # Ordnererkennung robust:
             is_dir = False
             try:
                 sftp.listdir(remote_path.rstrip("/") + "/" + name)
@@ -267,11 +295,9 @@ class FTPManager:
                 is_dir = False
             size = getattr(f, "st_size", 0)
             mod_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(getattr(f, "st_mtime", 0)))
-            owner = str(getattr(f, "st_uid", ""))  # ohne Nameservice -> UID
+            owner = str(getattr(f, "st_uid", ""))  # UID als Fallback
             filelist.append((name, is_dir, size, mod_time, owner))
         return filelist
-
-    # --- Logging & Benachrichtigung ------------------------------------------
 
     def log_transfer(self, source, target, direction, status="SUCCESS"):
         logfile_path = get_ftp_transfer_log_path()
@@ -357,8 +383,7 @@ class FTPManager:
             except Exception as e:
                 debug_print(f"Fehler beim Senden der E-Mail: {e}")
 
-    # --- Remote File Management ----------------------------------------------
-
+    # --- Remote File Management (unverändert) ---
     def mkdir_remote(self, remote_path):
         if self.ftp_protocol == "ftp":
             try:
@@ -418,7 +443,10 @@ class FTPManager:
     def upload_folder(self, local_folder, remote_folder):
         for root, dirs, files in os.walk(local_folder):
             relative_sub = os.path.relpath(root, local_folder)
-            remote_sub = remote_folder if relative_sub == "." else remote_folder.rstrip("/") + "/" + relative_sub
+            if relative_sub == ".":
+                remote_sub = remote_folder
+            else:
+                remote_sub = remote_folder.rstrip("/") + "/" + relative_sub
             for file in files:
                 local_path = os.path.join(root, file)
                 try:
