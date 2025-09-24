@@ -37,38 +37,28 @@ class TransferError(Exception):
 
 class FTPManager:
     """
-    Kapselt alle FTP-/SFTP-Funktionen:
-      - Verbindung aufbauen (FTP oder SFTP)
-      - Dateien hoch-/runterladen
-      - Versionierungsoption ("mirror" = überschreiben, "suffix" = neue Version)
-      - Logging in ftptransfer_log.json (JSON) (jetzt mit "status"=SUCCESS/FAILED)
-      - E-Mail/Notification bei Fehler
-      - ggf. Timestamp-Erhaltung
-      - Remote-Verzeichnis erstellen (ensure_remote_directory)
-      - Methoden zum Erstellen, Umbenennen, Löschen von Remote-Dateien/Ordnern
+    Kapselt alle FTP-/SFTP-Funktionen.
     """
 
     def __init__(self):
-        # 1) FTP-Einstellungen => aus settings.json
         self.settings = load_settings()
         self.ftp_protocol = self.settings.get("ftp_protocol", "ftp")  # "ftp" oder "sftp"
         self.host = self.settings.get("ftp_host", "")
         self.user = self.settings.get("ftp_user", "")
         self.password = None
-        self.port = 21
-        if self.ftp_protocol == "sftp":
-            self.port = 22
+        self.port = self.settings.get("ftp_port", 21 if self.ftp_protocol == "ftp" else 22)
 
         self.versioning_mode = self.settings.get("versioning_mode", "mirror")
         self.keep_timestamp = self.settings.get("keep_timestamp", False)
 
-        # 2) SMTP-Einstellungen => aus smtp_settings.json
         smtp_conf = load_smtp_settings()
         self.smtp_enabled = smtp_conf.get("enabled", False)
         self.smtp_host = smtp_conf.get("host", "")
         self.smtp_port = smtp_conf.get("port", 587)
         self.smtp_user = smtp_conf.get("user", "")
         self.notify_email = smtp_conf.get("notify_email", "")
+
+        self.conn = None
 
     def _load_password_from_keyring(self):
         if not self.user:
@@ -95,30 +85,30 @@ class FTPManager:
         elif self.ftp_protocol == "sftp":
             if paramiko is None:
                 raise TransferError("paramiko ist nicht installiert, kann kein SFTP aufbauen.")
-            self.conn = paramiko.Transport((self.host, self.port))
-            self.conn.connect(None, self.user, self.password)
-            sftp = paramiko.SFTPClient.from_transport(self.conn)
-            self.conn = sftp
+            transport = paramiko.Transport((self.host, self.port))
+            transport.connect(None, self.user, self.password)
+            self.conn = paramiko.SFTPClient.from_transport(transport)
         else:
             raise TransferError("Unbekanntes Protokoll: " + self.ftp_protocol)
 
         debug_print(f"Verbindung zu {self.host} via {self.ftp_protocol} aufgebaut.")
 
     def disconnect(self):
-        if hasattr(self, "conn") and self.conn:
+        if self.conn:
             try:
                 if self.ftp_protocol == "ftp":
                     self.conn.quit()
                 else:
+                    # SFTPClient von Paramiko hat .close()
                     self.conn.close()
             except Exception:
                 pass
+            self.conn = None
             debug_print("Verbindung geschlossen.")
 
     def ensure_remote_directory(self, remote_dir):
         """Stellt sicher, dass das Remote-Verzeichnis existiert (rekursiv)."""
         if self.ftp_protocol == "ftp":
-            import ftplib
             try:
                 self.conn.cwd(remote_dir)
             except ftplib.error_perm:
@@ -146,7 +136,8 @@ class FTPManager:
                     except IOError:
                         self.conn.mkdir(cwd)
 
-    # Neuer Callback-Upload für FTP (optional)
+    # --- Dateioperationen -----------------------------------------------------
+
     def _upload_file_ftp(self, local_path, remote_path, progress_callback=None):
         file_size = os.path.getsize(local_path)
         uploaded = 0
@@ -196,7 +187,6 @@ class FTPManager:
 
         self.ensure_remote_directory(remote_dir)
 
-        # Neu: Wir erfassen success/fail => log_transfer(..., status="...")
         try:
             if self.ftp_protocol == "ftp":
                 self._upload_file_ftp(local_path, remote_path, progress_callback)
@@ -226,14 +216,16 @@ class FTPManager:
                 if self.keep_timestamp:
                     attr = sftp.stat(remote_path)
                     os.utime(local_path, (attr.st_atime, attr.st_mtime))
-
             self.log_transfer(remote_path, local_path, "DOWNLOAD", status="SUCCESS")
         except Exception as e:
             debug_print(f"Download fehlgeschlagen: {e}")
             self.log_transfer(remote_path, local_path, "DOWNLOAD", status="FAILED")
             raise
 
+    # --- Directory Listing ----------------------------------------------------
+
     def list_directory(self, remote_path):
+        """Gibt Liste von Tupeln zurück: (name, is_dir, size, mod_time, owner)"""
         if self.ftp_protocol == "ftp":
             return self._listdir_ftp(remote_path)
         else:
@@ -241,15 +233,23 @@ class FTPManager:
 
     def _listdir_ftp(self, remote_path):
         items = []
-        def parse_line(line):
+
+        def parse_line(line: str):
+            # typisches UNIX-LIST: perms links owner group size month day time/year name...
             parts = line.split()
             if len(parts) < 9:
                 return
-            name = " ".join(parts[8:])
-            size = int(parts[4])
             is_dir = line.startswith("d")
+            owner = parts[2] if len(parts) >= 9 else ""
+            size = 0
+            try:
+                size = int(parts[4])
+            except Exception:
+                pass
             mod_time_str = f"{parts[5]} {parts[6]} {parts[7]}"
-            items.append((name, is_dir, size, mod_time_str))
+            name = " ".join(parts[8:])
+            items.append((name, is_dir, size, mod_time_str, owner))
+
         self.conn.retrlines(f"LIST {remote_path}", parse_line)
         return items
 
@@ -258,22 +258,22 @@ class FTPManager:
         filelist = []
         for f in sftp.listdir_attr(remote_path):
             name = f.filename
+            # Verzeichnis testen
             is_dir = False
             try:
-                sftp.listdir(remote_path + "/" + name)
+                sftp.listdir(remote_path.rstrip("/") + "/" + name)
                 is_dir = True
             except IOError:
-                pass
-            size = f.st_size
-            mod_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(f.st_mtime))
-            filelist.append((name, is_dir, size, mod_time))
+                is_dir = False
+            size = getattr(f, "st_size", 0)
+            mod_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(getattr(f, "st_mtime", 0)))
+            owner = str(getattr(f, "st_uid", ""))  # ohne Nameservice -> UID
+            filelist.append((name, is_dir, size, mod_time, owner))
         return filelist
 
+    # --- Logging & Benachrichtigung ------------------------------------------
+
     def log_transfer(self, source, target, direction, status="SUCCESS"):
-        """
-        Schreibt in ftptransfer_log.json
-        mit den Feldern: index, timestamp, direction, source, target, status
-        """
         logfile_path = get_ftp_transfer_log_path()
         entries = []
         if os.path.exists(logfile_path):
@@ -308,9 +308,6 @@ class FTPManager:
             json.dump(entries, lf, indent=2)
 
     def send_transfer_summary_email(self, results):
-        """
-        'results' ist eine Liste von Dictionaries mit den Transfer-Ergebnissen.
-        """
         from utils.config_manager import get_mail_transfer_info_path
         info_path = get_mail_transfer_info_path()
         try:
@@ -360,7 +357,8 @@ class FTPManager:
             except Exception as e:
                 debug_print(f"Fehler beim Senden der E-Mail: {e}")
 
-    # --- Neue Methoden für Remote File Management ---
+    # --- Remote File Management ----------------------------------------------
+
     def mkdir_remote(self, remote_path):
         if self.ftp_protocol == "ftp":
             try:
@@ -420,10 +418,7 @@ class FTPManager:
     def upload_folder(self, local_folder, remote_folder):
         for root, dirs, files in os.walk(local_folder):
             relative_sub = os.path.relpath(root, local_folder)
-            if relative_sub == ".":
-                remote_sub = remote_folder
-            else:
-                remote_sub = remote_folder.rstrip("/") + "/" + relative_sub
+            remote_sub = remote_folder if relative_sub == "." else remote_folder.rstrip("/") + "/" + relative_sub
             for file in files:
                 local_path = os.path.join(root, file)
                 try:
