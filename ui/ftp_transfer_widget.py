@@ -139,10 +139,14 @@ class FtpTransferWidget(QtWidgets.QWidget):
     """
     FileZilla-ähnliche Oberfläche:
       - Local & Remote: Ordnerbaum + Inhalt
-      - Remote-Ordnerbaum als Breadcrumb-Kette (Root → … → aktueller Ordner) + Lazy-Load für Unterordner
+      - Remote-Ordnerbaum Finder-like (ohne sichtbare Dummy-Zeilen), Lazy-Load per Expand
       - Remote-Dateiliste akzeptiert Drag&Drop → Auto-Upload inkl. Queue/Status/Progress
       - Status-Log + Warteschlange
     """
+
+    # UserRole Keys
+    ROLE_PATH = QtCore.Qt.UserRole
+    ROLE_NEEDS_LOAD = QtCore.Qt.UserRole + 1
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -229,7 +233,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.disconnect_btn.clicked.connect(self.disconnect_ftp)
         ftp_layout.addWidget(self.disconnect_btn)
 
-        # ---------- SMTP-Einstellungen (vorerst hier) ----------
+        # ---------- SMTP-Einstellungen ----------
         smtp_group = QtWidgets.QGroupBox("SMTP-Einstellungen (Fehlermeldungen)")
         smtp_layout = QtWidgets.QHBoxLayout(smtp_group)
 
@@ -376,7 +380,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
         right_vsplit = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
-        # Ordnerbaum (Breadcrumb-Kette, lazy für Unterordner)
+        # Ordnerbaum (Finder-like, Lazy-Load per Expand)
         self.remote_folders = QtWidgets.QTreeWidget()
         self.remote_folders.setColumnCount(5)
         self.remote_folders.setHeaderLabels(["Name", "Owner", "Size", "Kind", "Modified"])
@@ -386,6 +390,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.remote_folders.setColumnWidth(0, 320)
         self.remote_folders.itemDoubleClicked.connect(self.enter_remote_dir)
         self.remote_folders.itemExpanded.connect(self.on_remote_folder_expanded)
+        self.remote_folders.itemClicked.connect(self.on_remote_folder_clicked)
 
         right_vsplit.addWidget(self.remote_folders)
 
@@ -712,7 +717,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
             self.remote_items_all = normalized
             self.remote_path_combo.setEditText(self.current_remote_path)
 
-            # ▸ Ordnerbaum als Breadcrumb-Kette (Root → … → aktueller Pfad)
+            # ▸ Ordnerbaum entlang des aktuellen Pfades erstellen/zeigen
             self.populate_remote_folder_tree_breadcrumb()
             # ▸ Inhalte unten
             self.populate_remote_views(self.remote_items_all, self.remote_search_edit.text().lower().strip())
@@ -735,14 +740,15 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 it.setIcon(0, self.file_icon)
             self.remote_files.addTopLevelItem(it)
 
-    # --- Ordnerbaum (Breadcrumb) ---
+    # --- Ordnerbaum (Finder-like Lazy-Load, ohne sichtbares Dummy) ---
     def populate_remote_folder_tree_breadcrumb(self):
         """Zeigt die Kette '/', 'foo', 'bar' … bis zum aktuellen Pfad.
-        Unter dem letzten Knoten werden die Unterordner (falls vorhanden) per Lazy-Load angezeigt.
+        Unter JEDEM Knoten kann per Expand die nächste Ebene lazy geladen werden.
+        Keine sichtbaren Dummy-Zeilen.
         """
         self.remote_folders.clear()
 
-        # 1) Kette aus Pfad bauen
+        # 1) Pfadkette bauen
         parts = [p for p in self.current_remote_path.split("/") if p]
         full_paths = []
         cur = "/"
@@ -757,57 +763,76 @@ class FtpTransferWidget(QtWidgets.QWidget):
             name = fp if fp == "/" else fp.split("/")[-1]
             it = QtWidgets.QTreeWidgetItem([name, "", "", "Folder", ""])
             it.setIcon(0, self.folder_icon)
-            it.setData(0, QtCore.Qt.UserRole, fp)
+            it.setData(0, self.ROLE_PATH, fp)
+            # Indikator anzeigen, obwohl (noch) keine Kinder gesetzt sind
+            it.setChildIndicatorPolicy(QtWidgets.QTreeWidgetItem.ShowIndicator)
+            it.setData(0, self.ROLE_NEEDS_LOAD, True)
             if parent_item is None:
                 self.remote_folders.addTopLevelItem(it)
             else:
                 parent_item.addChild(it)
             parent_item = it
 
-        # expandiere die Kette
+        # 3) automatisch entlang des Pfads expandieren und Kinder laden
         root = self.remote_folders.topLevelItem(0)
-        self.remote_folders.expandItem(root)
-        # gehe alle runter expandieren
-        node = root
-        while node and node.childCount() > 0:
-            node = node.child(0)
-            self.remote_folders.expandItem(node)
+        if root:
+            self._ensure_children_loaded(root)
+            self.remote_folders.expandItem(root)
+            node = root
+            # gehe die Kette runter und expandiere/fülle jedes Element
+            for i in range(1, len(full_paths)):
+                if node and node.childCount() > 0:
+                    # finde das Kind mit passendem Namen
+                    want = full_paths[i].split("/")[-1]
+                    next_node = None
+                    for c in range(node.childCount()):
+                        ch = node.child(c)
+                        if (ch.data(0, self.ROLE_PATH) or "").rstrip("/") == full_paths[i].rstrip("/"):
+                            next_node = ch
+                            break
+                        if ch.text(0) == want:
+                            next_node = ch
+                            break
+                    if next_node:
+                        self._ensure_children_loaded(next_node)
+                        self.remote_folders.expandItem(next_node)
+                        node = next_node
 
-        # 3) Unterordner des letzten Knotens andeuten (Lazy-Dummies)
-        last = parent_item  # letzter Knoten der Kette
-        # entferne evtl. alte Kinder
-        while last.childCount() > 0:
-            last.takeChild(0)
-        # füge Dummy-Kind rein, damit expand triggern kann
-        # und wir bei Expand wirklich die Kinder laden
-        # (Wenn keine Unterordner existieren, bleibt einfach kein echtes Kind – der Knoten bleibt sichtbar.)
-        last.addChild(QtWidgets.QTreeWidgetItem(["…"]))
+    def _ensure_children_loaded(self, item: QtWidgets.QTreeWidgetItem):
+        """Lädt Unterordner für 'item', wenn noch nicht geladen."""
+        needs = item.data(0, self.ROLE_NEEDS_LOAD)
+        if not needs:
+            return
+        base = item.data(0, self.ROLE_PATH) or "/"
+        try:
+            entries = self.ftp.list_directory(base)
+        except Exception as e:
+            self.append_status(f"Ordnerbaum-Load Fehler: {e}")
+            return
+        # bestehende Kinder entfernen, wir bauen frisch auf
+        while item.childCount() > 0:
+            item.takeChild(0)
+        for e in entries:
+            if len(e) == 4:
+                name, is_dir, size, mod = e
+                owner = ""
+            else:
+                name, is_dir, size, mod, owner = e
+            if not is_dir:
+                continue
+            full = self._join_remote(base, name)
+            ch = QtWidgets.QTreeWidgetItem([name, owner or "", "", "Folder", str(mod)])
+            ch.setIcon(0, self.folder_icon)
+            ch.setData(0, self.ROLE_PATH, full)
+            ch.setChildIndicatorPolicy(QtWidgets.QTreeWidgetItem.ShowIndicator)
+            ch.setData(0, self.ROLE_NEEDS_LOAD, True)
+            item.addChild(ch)
+        # markiere als geladen
+        item.setData(0, self.ROLE_NEEDS_LOAD, False)
 
     def on_remote_folder_expanded(self, item: QtWidgets.QTreeWidgetItem):
-        # Nur reagieren, wenn das Item einen Dummy enthält
-        if item.childCount() == 1 and item.child(0).text(0) == "…":
-            item.takeChild(0)
-            base = item.data(0, QtCore.Qt.UserRole) or "/"
-            try:
-                entries = self.ftp.list_directory(base)
-            except Exception as e:
-                self.append_status(f"Ordnerbaum-Expand Fehler: {e}")
-                return
-            for e in entries:
-                if len(e) == 4:
-                    name, is_dir, size, mod = e
-                    owner = ""
-                else:
-                    name, is_dir, size, mod, owner = e
-                if not is_dir:
-                    continue
-                full = self._join_remote(base, name)
-                ch = QtWidgets.QTreeWidgetItem([name, owner or "", "", "Folder", str(mod)])
-                ch.setIcon(0, self.folder_icon)
-                ch.setData(0, QtCore.Qt.UserRole, full)
-                # wieder Dummy für nächste Ebene
-                ch.addChild(QtWidgets.QTreeWidgetItem(["…"]))
-                item.addChild(ch)
+        # lazy load, wenn noch nicht geladen
+        self._ensure_children_loaded(item)
 
     def _join_remote(self, base: str, name: str) -> str:
         if not base or base == "/":
@@ -830,12 +855,39 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
     def enter_remote_dir(self, item, _column):
         # Tree: nimm immer den im Item gespeicherten Vollpfad
-        path = item.data(0, QtCore.Qt.UserRole)
+        path = item.data(0, self.ROLE_PATH)
         if not path:
             dir_name = item.text(0)
             path = self._join_remote(self.current_remote_path, dir_name)
         self.current_remote_path = path
         self.refresh_remote()
+
+    def on_remote_folder_clicked(self, item: QtWidgets.QTreeWidgetItem, _column: int):
+        """Einfacher Klick auf Ordner aktualisiert nur unten die Dateiliste,
+        ohne den Ordnerbaum zu verändern."""
+        path = item.data(0, self.ROLE_PATH)
+        if not path:
+            return
+        self.current_remote_path = path
+        self.remote_path_combo.setEditText(path)
+        try:
+            raw = self.ftp.list_directory(path)
+            normalized = []
+            for entry in raw:
+                if len(entry) == 4:
+                    name, is_dir, size, mod = entry
+                    owner = ""
+                else:
+                    name, is_dir, size, mod, owner = entry
+                normalized.append((name, is_dir, size, mod, owner))
+            self.remote_items_all = normalized
+            self.populate_remote_views(
+                self.remote_items_all,
+                self.remote_search_edit.text().lower().strip()
+            )
+        except Exception as e:
+            self.append_status(f"Remote-Listing Fehler: {e}")
+            QtWidgets.QMessageBox.critical(self, "FTP Error", f"Cannot list directory: {e}")
 
     # ---------------- Drag&Drop Upload ----------------
     def handle_drop_upload_files(self, file_paths: list[str]):
@@ -1057,6 +1109,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
             return
 
         progress_dlg = TransferProgressDialog("Downloading...", parent=self)
+        progress_dlg.setFileMode = None
         progress_dlg.set_file_count(len(file_names))
         progress_dlg.show()
 
