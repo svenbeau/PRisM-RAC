@@ -6,7 +6,6 @@ import subprocess
 import traceback
 import keyring
 from datetime import datetime
-from typing import Optional, List
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from utils.config_manager import (
@@ -17,8 +16,8 @@ from utils.config_manager import (
     load_smtp_settings,
     save_smtp_settings,
 )
+    # falls dein Projekt die Pfade anders hat, bitte entsprechend anpassen
 from utils.ftp_manager import FTPManager
-    # Hinweis: Pfad anpassen, falls dein Projektlayout anders ist
 from ui.ftp_server_manager_dialog import FtpServerManagerDialog
 
 
@@ -282,6 +281,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         local_top = QtWidgets.QHBoxLayout()
         self.local_path_combo = QtWidgets.QComboBox()
         self.local_path_combo.setEditable(True)
+               # merkt zuletzt manuell eingegebene Pfade
         self.local_path_combo.setInsertPolicy(QtWidgets.QComboBox.InsertAtTop)
         self.local_path_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.local_path_combo.setEditText("/Volumes")
@@ -392,7 +392,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.remote_folders.setColumnWidth(0, 320)
         self.remote_folders.itemDoubleClicked.connect(self.enter_remote_dir)
         self.remote_folders.itemExpanded.connect(self.on_remote_folder_expanded)
-        # (bereits vorhandenes Verhalten: einfacher Klick soll unten die Dateiliste aktualisieren)
         self.remote_folders.itemClicked.connect(self.on_remote_folder_clicked)
 
         right_vsplit.addWidget(self.remote_folders)
@@ -865,10 +864,14 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.current_remote_path = path
         self.refresh_remote()
 
-    # === NEU: einfacher Klick auf Ordner im Tree aktualisiert unten die Dateiliste ===
     def on_remote_folder_clicked(self, item: QtWidgets.QTreeWidgetItem, _column: int):
-        path = item.data(0, self.ROLE_PATH) or "/"
-        # Inhalte dieses Ordners holen, aber current_remote_path NICHT ändern
+        """Einfacher Klick auf Ordner aktualisiert nur unten die Dateiliste,
+        ohne den Ordnerbaum zu verändern."""
+        path = item.data(0, self.ROLE_PATH)
+        if not path:
+            return
+        self.current_remote_path = path
+        self.remote_path_combo.setEditText(path)
         try:
             raw = self.ftp.list_directory(path)
             normalized = []
@@ -879,40 +882,23 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 else:
                     name, is_dir, size, mod, owner = entry
                 normalized.append((name, is_dir, size, mod, owner))
-            self.populate_remote_views(normalized, self.remote_search_edit.text().lower().strip())
+            self.remote_items_all = normalized
+            self.populate_remote_views(
+                self.remote_items_all,
+                self.remote_search_edit.text().lower().strip()
+            )
         except Exception as e:
-            self.append_status(f"Remote-Listing Fehler (Klick): {e}")
-
-    # === NEU: Hilfsfunktionen für korrekten Basispfad bei Dateioperationen ===
-    def _selected_folder_tree_path(self) -> Optional[str]:
-        """Vollpfad des im Tree selektierten Ordners (falls vorhanden)."""
-        items = self.remote_folders.selectedItems()
-        if not items:
-            return None
-        it = items[0]
-        p = it.data(0, self.ROLE_PATH)
-        return p or None
-
-    def _selected_files_folder_base(self) -> Optional[str]:
-        """Wenn im Dateifenster ein Ordner selektiert ist, dessen Vollpfad liefern."""
-        items = self.remote_files.selectedItems()
-        if not items:
-            return None
-        it = items[0]
-        is_dir = (it.text(3) == "Folder")
-        name = it.text(0)
-        if is_dir and name:
-            return self._join_remote(self.current_remote_path, name)
-        return None
+            self.append_status(f"Remote-Listing Fehler: {e}")
+            QtWidgets.QMessageBox.critical(self, "FTP Error", f"Cannot list directory: {e}")
 
     # ---------------- Drag&Drop Upload ----------------
-    def handle_drop_upload_files(self, file_paths: List[str]):
+    def handle_drop_upload_files(self, file_paths: list[str]):
         paths = [p for p in file_paths if os.path.isfile(p)]
         if paths:
             self.append_status(f"Drop: {len(paths)} Datei(en) empfangen.")
             self._do_upload_paths(paths)
 
-    def handle_drop_upload_names(self, names: List[str]):
+    def handle_drop_upload_names(self, names: list[str]):
         paths = []
         for n in names:
             full = os.path.join(self.current_local_path, n)
@@ -929,7 +915,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         except Exception:
             return []
 
-    def _do_upload_paths(self, file_paths: List[str]):
+    def _do_upload_paths(self, file_paths: list[str]):
         if not self.ftp or not self.ftp.conn:
             QtWidgets.QMessageBox.information(self, "Info", "Keine Verbindung.")
             return
@@ -993,19 +979,11 @@ class FtpTransferWidget(QtWidgets.QWidget):
     def create_remote_folder(self):
         name, ok = QtWidgets.QInputDialog.getText(self, "Neuer Ordner", "Ordnername:")
         if ok and name:
-            # Basis: 1) Tree-Selektion 2) unten selektierter Ordner 3) aktueller Pfad
-            base = (
-                self._selected_folder_tree_path()
-                or self._selected_files_folder_base()
-                or self.current_remote_path
-            )
-            new_path = self._join_remote(base, name)
+            new_path = self._join_remote(self.current_remote_path, name)
             try:
                 self.ftp.mkdir_remote(new_path)
                 QtWidgets.QMessageBox.information(self, "Erfolg", f"Ordner '{name}' wurde erstellt.")
                 self.append_status(f"Remote-Ordner erstellt: {new_path}")
-                # im Basisordner bleiben
-                self.current_remote_path = base
                 self.refresh_remote()
             except Exception as e:
                 self.append_status(f"Ordner erstellen Fehler: {e}")
@@ -1020,21 +998,8 @@ class FtpTransferWidget(QtWidgets.QWidget):
         old_name = item.text(0)
         new_name, ok = QtWidgets.QInputDialog.getText(self, "Umbenennen", "Neuer Name:", text=old_name)
         if ok and new_name and new_name != old_name:
-            # Quelle bestimmen: Tree-Item → ROLE_PATH; unten selektierter Ordner → Vollpfad aus current_remote_path
-            if item in self.remote_folders.selectedItems():
-                old_path = item.data(0, self.ROLE_PATH) or self._join_remote(self.current_remote_path, old_name)
-                base_dir = os.path.dirname(old_path.rstrip("/")) or "/"
-                new_path = self._join_remote(base_dir, new_name)
-            else:
-                is_dir = (item.text(3) == "Folder")
-                if is_dir:
-                    old_path = self._join_remote(self.current_remote_path, old_name)
-                    base_dir = os.path.dirname(old_path.rstrip("/")) or "/"
-                    new_path = self._join_remote(base_dir, new_name)
-                else:
-                    old_path = self._join_remote(self.current_remote_path, old_name)
-                    new_path = self._join_remote(self.current_remote_path, new_name)
-
+            old_path = self._join_remote(self.current_remote_path, old_name)
+            new_path = self._join_remote(self.current_remote_path, new_name)
             try:
                 self.ftp.rename_remote(old_path, new_path)
                 QtWidgets.QMessageBox.information(self, "Erfolg", f"'{old_name}' wurde umbenannt zu '{new_name}'.")
@@ -1055,19 +1020,14 @@ class FtpTransferWidget(QtWidgets.QWidget):
         if QtWidgets.QMessageBox.question(self, "Löschen?", f"Soll '{name}' wirklich gelöscht werden?",
                                           QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) != QtWidgets.QMessageBox.Yes:
             return
-
-        if item in self.remote_folders.selectedItems():
-            target_path = item.data(0, self.ROLE_PATH) or self._join_remote(self.current_remote_path, name)
-        else:
-            target_path = self._join_remote(self.current_remote_path, name)
-
+        remote_path = self._join_remote(self.current_remote_path, name)
         try:
             if is_dir:
-                self.ftp.delete_remote_directory(target_path)
+                self.ftp.delete_remote_directory(remote_path)
             else:
-                self.ftp.delete_remote_file(target_path)
+                self.ftp.delete_remote_file(remote_path)
             QtWidgets.QMessageBox.information(self, "Erfolg", f"'{name}' wurde gelöscht.")
-            self.append_status(f"Gelöscht: {target_path}")
+            self.append_status(f"Gelöscht: {remote_path}")
             self.refresh_remote()
         except Exception as e:
             self.append_status(f"Löschen Fehler: {e}")
