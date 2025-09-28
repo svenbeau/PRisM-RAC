@@ -2,47 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import os
-import smtplib
-import keyring
 from datetime import datetime
+
 from utils.config_manager import load_smtp_settings, debug_print
+from utils.mailer import Mailer
 
 
-def send_fail_email_from_content(content_check, file_path):
+def _format_contentcheck_mail(content_check: dict, file_path: str) -> str:
     """
-    Versendet eine E-Mail mit den Contentcheck-Informationen in einem menschenlesbaren Format.
-    Der Inhalt wird zeilenweise ausgegeben – z.B.:
-
-    Content Check Fail Log Report:
-
-    Datei: /Pfad/zur/Datei
-    Layer Status: OK
-    Metadata Status: FAIL
-    Fehlende Metadaten: author, description
-
-    metadata:
-      documentTitle: undefined
-      author: undefined
-      authorPosition: undefined
-      description: undefined
-      ...
-
-    details:
-      checkType: Standard
-      keywordCheck.enabled: True
-      keywordCheck.keyword: Rueckseite
-      ...
-
-    :param content_check: Dictionary mit den Contentcheck-Ergebnissen (z.B. aus [Dateiname]_01_log_contentcheck.json)
-    :param file_path: Pfad zur Datei, bei der der Contentcheck durchgeführt wurde
+    Baut den menschenlesbaren E-Mailtext für Contentcheck-Fehler.
     """
-    # Kopfzeile der E-Mail
     email_body = "Content Check Fail Log Report:\n\n"
     email_body += f"Datei: {file_path}\n\n"
 
-    # Prüfe, ob es ein Contentcheck-Dictionary gibt
     if content_check:
-        # Basisinformationen aus dem "details"-Block
         details = content_check.get("details", {})
         layer_status = details.get("layerStatus", "N/A")
         meta_status = details.get("metaStatus", "N/A")
@@ -57,7 +30,6 @@ def send_fail_email_from_content(content_check, file_path):
             email_body += f"Fehlende Metadaten: {', '.join(missing_metadata)}\n"
         email_body += "\n"
 
-        # Abschnitt "metadata"
         metadata = content_check.get("metadata", {})
         if metadata:
             email_body += "metadata:\n"
@@ -65,12 +37,10 @@ def send_fail_email_from_content(content_check, file_path):
                 email_body += f"  {key}: {value}\n"
             email_body += "\n"
 
-        # Weitere Details aus "details" (ohne die bereits ausgegebenen Felder)
         email_body += "details:\n"
         for key, value in details.items():
             if key in ["layerStatus", "metaStatus", "missingLayers", "missingMetadata"]:
                 continue
-            # Wenn der Wert ein verschachteltes Dictionary ist, iteriere auch darüber
             if isinstance(value, dict):
                 for sub_key, sub_value in value.items():
                     email_body += f"  {key}.{sub_key}: {sub_value}\n"
@@ -81,36 +51,32 @@ def send_fail_email_from_content(content_check, file_path):
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     email_body += f"\nGesendet am: {now_str}\n"
+    return email_body
 
-    subject = "Content Check Fail Log Report"
-    smtp_settings = load_smtp_settings()
-    smtp_user = smtp_settings.get("user", "")
-    notify_email = smtp_settings.get("notify_email", "")
 
-    message = (f"From: {smtp_user}\r\n"
-               f"To: {notify_email}\r\n"
-               f"Subject: {subject}\r\n\r\n{email_body}")
-
-    # SMTP-Einstellungen
-    smtp_enabled = smtp_settings.get("enabled", False)
-    smtp_host = smtp_settings.get("host", "")
-    smtp_port = smtp_settings.get("port", 587)
-
-    if not smtp_enabled or not notify_email:
-        debug_print("SMTP ist nicht aktiviert oder keine Notify-E-Mail konfiguriert. E-Mail wird nicht gesendet.")
+def send_fail_email_from_content(content_check: dict, file_path: str) -> None:
+    """
+    Versendet die Contentcheck-Fehler-E-Mail über utils.mailer.Mailer.
+    Nutzt die globalen SMTP-Einstellungen; notify_email wird automatisch gezogen.
+    """
+    # Vorab prüfen, ob SMTP überhaupt aktiviert/konfiguriert ist
+    smtp_settings = load_smtp_settings() or {}
+    if not smtp_settings.get("enabled", False):
+        debug_print("SMTP ist nicht aktiviert. Keine Contentcheck-E-Mail wird gesendet.")
         return
-
-    smtp_pass = keyring.get_password("PRisM-SMTP", smtp_user)
-    if smtp_pass is None:
-        debug_print("SMTP-Passwort nicht im Keyring, E-Mail kann nicht gesendet werden.")
+    if not smtp_settings.get("notify_email"):
+        debug_print("Kein notify_email konfiguriert. Keine Contentcheck-E-Mail wird gesendet.")
         return
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, [notify_email], message)
-        debug_print("Content Check Fail E-Mail erfolgreich gesendet.")
+        body = _format_contentcheck_mail(content_check, file_path)
+        subject = "Content Check Fail Log Report"
+
+        mailer = Mailer()
+        # Empfänger nicht explizit übergeben → Mailer nimmt notify_email
+        mailer.send_mail(subject=subject, body=body)
+
+        debug_print("Content Check Fail E-Mail erfolgreich gesendet (über Mailer).")
     except Exception as e:
         debug_print(f"Fehler beim Senden der Content Check Fail E-Mail: {e}")
 
@@ -146,5 +112,5 @@ if __name__ == "__main__":
             "keywordCheck": {"enabled": True, "keyword": "Rueckseite"}
         }
     }
-    test_file_path = "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/01_Render/4069284_Kirchner_3193_01_leer.psd"
+    test_file_path = "/Pfad/zur/Datei/beispiel.psd"
     send_fail_email_from_content(example_content_check, test_file_path)

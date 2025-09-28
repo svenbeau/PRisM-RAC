@@ -23,6 +23,11 @@ class SettingsWidget(QtWidgets.QWidget):
         self.smtp_user_edit = None
         self.smtp_pass_edit = None
         self.smtp_notify_edit = None
+        self.smtp_use_ssl_check = None     # NEU: SSL (Port 465)
+
+        # Buttons
+        self.smtp_test_btn = None
+        self.smtp_delete_pw_btn = None     # NEU: Passwort löschen
 
         self.init_ui()
         self._load_smtp_into_ui()
@@ -89,6 +94,11 @@ class SettingsWidget(QtWidgets.QWidget):
         self.smtp_port_spin.setValue(587)
         smtp_layout.addRow("Port:", self.smtp_port_spin)
 
+        # NEU: SSL (Port 465)
+        self.smtp_use_ssl_check = QtWidgets.QCheckBox("SSL (Port 465)")
+        self.smtp_use_ssl_check.setToolTip("Aktiviert SMTPS über Port 465. Deaktiviert: SMTP/STARTTLS.")
+        smtp_layout.addRow(self.smtp_use_ssl_check)
+
         self.smtp_user_edit = QtWidgets.QLineEdit()
         smtp_layout.addRow("SMTP User:", self.smtp_user_edit)
 
@@ -100,12 +110,19 @@ class SettingsWidget(QtWidgets.QWidget):
         self.smtp_notify_edit = QtWidgets.QLineEdit()
         smtp_layout.addRow("Notify E-Mail:", self.smtp_notify_edit)
 
-        test_row = QtWidgets.QHBoxLayout()
+        # Test & Passwort löschen
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_row.addStretch()
+        self.smtp_delete_pw_btn = QtWidgets.QPushButton("Passwort löschen")
+        self.smtp_delete_pw_btn.setToolTip("Löscht das SMTP-Passwort aus dem Schlüsselbund.")
+        self.smtp_delete_pw_btn.clicked.connect(self.on_delete_smtp_password)
+        btn_row.addWidget(self.smtp_delete_pw_btn)
+
         self.smtp_test_btn = QtWidgets.QPushButton("Testmail senden")
         self.smtp_test_btn.clicked.connect(self.on_send_testmail)
-        test_row.addStretch()
-        test_row.addWidget(self.smtp_test_btn)
-        smtp_layout.addRow("", test_row)
+        btn_row.addWidget(self.smtp_test_btn)
+
+        smtp_layout.addRow("", btn_row)
 
         # Unten ein Button zum Speichern (speichert ALLE Tabs)
         btn_hlay = QtWidgets.QHBoxLayout()
@@ -118,6 +135,9 @@ class SettingsWidget(QtWidgets.QWidget):
 
         # Gesamtlayout abschließen
         main_layout.addLayout(btn_hlay)
+
+        # kleine UX-Hilfe: SSL-Checkbox setzt Standard-Port 465, sonst 587 (ohne Zwang)
+        self.smtp_use_ssl_check.stateChanged.connect(self._maybe_adjust_port_for_ssl)
 
     # ---------------------- Allgemein ----------------------
     def browse_jsx_folder(self):
@@ -139,6 +159,7 @@ class SettingsWidget(QtWidgets.QWidget):
         self.smtp_port_spin.setValue(int(s.get("port", 587) or 587))
         self.smtp_user_edit.setText(s.get("user", ""))
         self.smtp_notify_edit.setText(s.get("notify_email", ""))
+        self.smtp_use_ssl_check.setChecked(bool(s.get("use_ssl", False)))
 
         # Passwort zeigen wir aus Sicherheitsgründen nicht an;
         # leeres Feld bedeutet: Schlüsselbund-Belegung bleibt unberührt.
@@ -150,7 +171,23 @@ class SettingsWidget(QtWidgets.QWidget):
             "port": self.smtp_port_spin.value(),
             "user": self.smtp_user_edit.text().strip(),
             "notify_email": self.smtp_notify_edit.text().strip(),
+            "use_ssl": self.smtp_use_ssl_check.isChecked(),  # NEU
         }
+
+    def _maybe_adjust_port_for_ssl(self, state: int):
+        """
+        UX: Wenn SSL aktiviert wird und Port ist 587 → auf 465 umstellen.
+            Wenn SSL deaktiviert wird und Port ist 465 → auf 587 umstellen.
+        Der User kann danach natürlich weiterhin manuell anpassen.
+        """
+        try:
+            cur = int(self.smtp_port_spin.value())
+        except Exception:
+            cur = 0
+        if state == QtCore.Qt.Checked and cur == 587:
+            self.smtp_port_spin.setValue(465)
+        elif state != QtCore.Qt.Checked and cur == 465:
+            self.smtp_port_spin.setValue(587)
 
     # ---------------------- Testmail ----------------------
     def on_send_testmail(self):
@@ -158,7 +195,8 @@ class SettingsWidget(QtWidgets.QWidget):
             # Speichere aktuelle SMTP-Eingaben temporär (inkl. Keyring falls PW angegeben)
             smtp_cfg = self._collect_smtp_from_ui()
             save_smtp_settings(smtp_cfg)
-            pw = self.smtp_pass_edit.text()
+
+            pw = self.smtp_pass_edit.text().strip()
             if pw:
                 # Nur wenn explizit eingetragen → Keyring aktualisieren
                 Mailer.set_password(smtp_cfg.get("user", ""), pw)
@@ -169,6 +207,16 @@ class SettingsWidget(QtWidgets.QWidget):
             QtWidgets.QMessageBox.information(self, "Erfolg", "Testmail wurde gesendet.")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Fehler", f"Testmail fehlgeschlagen:\n{e}")
+
+    # ---------------------- Passwort löschen ----------------------
+    def on_delete_smtp_password(self):
+        user = self.smtp_user_edit.text().strip()
+        if not user:
+            QtWidgets.QMessageBox.information(self, "Hinweis", "Bitte zuerst einen SMTP-Benutzer eintragen.")
+            return
+        Mailer.delete_password(user)
+        self.smtp_pass_edit.clear()
+        QtWidgets.QMessageBox.information(self, "Info", "SMTP-Passwort wurde (falls vorhanden) aus dem Schlüsselbund entfernt.")
 
     # ---------------------- Speichern ----------------------
     def on_save(self):
@@ -191,7 +239,7 @@ class SettingsWidget(QtWidgets.QWidget):
         smtp_cfg = self._collect_smtp_from_ui()
         save_smtp_settings(smtp_cfg)
 
-        pw = self.smtp_pass_edit.text()
+        pw = self.smtp_pass_edit.text().strip()
         if pw:
             try:
                 Mailer.set_password(smtp_cfg.get("user", ""), pw)

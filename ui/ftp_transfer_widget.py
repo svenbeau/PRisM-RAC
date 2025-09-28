@@ -13,8 +13,6 @@ from utils.config_manager import (
     load_settings,
     save_settings,
     load_ftp_servers,
-    load_smtp_settings,
-    save_smtp_settings,
 )
 from utils.ftp_manager import FTPManager
 from ui.ftp_server_manager_dialog import FtpServerManagerDialog
@@ -151,7 +149,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.settings = load_settings()
-        self.smtp_settings = load_smtp_settings()
         self.ftp = None
 
         self.current_remote_path = "/"
@@ -232,42 +229,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.disconnect_btn = QtWidgets.QPushButton("Trennen")
         self.disconnect_btn.clicked.connect(self.disconnect_ftp)
         ftp_layout.addWidget(self.disconnect_btn)
-
-        # ---------- SMTP-Einstellungen ----------
-        smtp_group = QtWidgets.QGroupBox("SMTP-Einstellungen (Fehlermeldungen)")
-        smtp_layout = QtWidgets.QHBoxLayout(smtp_group)
-
-        self.smtp_enabled_check = QtWidgets.QCheckBox("SMTP aktiviert")
-        smtp_layout.addWidget(self.smtp_enabled_check)
-
-        self.smtp_host_edit = QtWidgets.QLineEdit()
-        smtp_layout.addWidget(QtWidgets.QLabel("SMTP Host:"))
-        smtp_layout.addWidget(self.smtp_host_edit)
-
-        self.smtp_port_spin = QtWidgets.QSpinBox()
-        self.smtp_port_spin.setMaximum(65535)
-        self.smtp_port_spin.setValue(587)
-        smtp_layout.addWidget(QtWidgets.QLabel("Port:"))
-        smtp_layout.addWidget(self.smtp_port_spin)
-
-        self.smtp_user_edit = QtWidgets.QLineEdit()
-        smtp_layout.addWidget(QtWidgets.QLabel("SMTP User:"))
-        smtp_layout.addWidget(self.smtp_user_edit)
-
-        self.smtp_pass_edit = QtWidgets.QLineEdit()
-        self.smtp_pass_edit.setEchoMode(QtWidgets.QLineEdit.Password)
-        smtp_layout.addWidget(QtWidgets.QLabel("SMTP Pass:"))
-        smtp_layout.addWidget(self.smtp_pass_edit)
-
-        self.notify_email_edit = QtWidgets.QLineEdit()
-        smtp_layout.addWidget(QtWidgets.QLabel("Notify Email:"))
-        smtp_layout.addWidget(self.notify_email_edit)
-
-        top_container = QtWidgets.QWidget()
-        top_v = QtWidgets.QVBoxLayout(top_container)
-        top_v.setContentsMargins(0, 0, 0, 0)
-        top_v.addWidget(ftp_group)
-        top_v.addWidget(smtp_group)
 
         # ---------- Mittelteil (Local/Remote) ----------
         middle_hsplit = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
@@ -390,7 +351,8 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.remote_folders.setColumnWidth(0, 320)
         self.remote_folders.itemDoubleClicked.connect(self.enter_remote_dir)
         self.remote_folders.itemExpanded.connect(self.on_remote_folder_expanded)
-        self.remote_folders.itemClicked.connect(self.on_remote_folder_clicked)
+        # Optional: Bei einfachem Klick nur Dateien-Panel aktualisieren (ohne Pfadwechsel)
+        self.remote_folders.itemClicked.connect(self.preview_remote_dir)
 
         right_vsplit.addWidget(self.remote_folders)
 
@@ -468,7 +430,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         bottom_vsplit.setSizes([220, 120])
 
         top_mid_bottom = QtWidgets.QSplitter(QtCore.Qt.Vertical)
-        top_mid_bottom.addWidget(top_container)
+        top_mid_bottom.addWidget(ftp_group)
         top_mid_bottom.addWidget(middle_container)
         top_mid_bottom.addWidget(bottom_vsplit)
         top_mid_bottom.setSizes([160, 600, 180])
@@ -782,15 +744,13 @@ class FtpTransferWidget(QtWidgets.QWidget):
             # gehe die Kette runter und expandiere/fülle jedes Element
             for i in range(1, len(full_paths)):
                 if node and node.childCount() > 0:
-                    # finde das Kind mit passendem Namen
-                    want = full_paths[i].split("/")[-1]
+                    # finde das Kind mit passendem Namen/Vollpfad
+                    want_full = full_paths[i].rstrip("/")
                     next_node = None
                     for c in range(node.childCount()):
                         ch = node.child(c)
-                        if (ch.data(0, self.ROLE_PATH) or "").rstrip("/") == full_paths[i].rstrip("/"):
-                            next_node = ch
-                            break
-                        if ch.text(0) == want:
+                        ch_full = (ch.data(0, self.ROLE_PATH) or "").rstrip("/")
+                        if ch_full == want_full:
                             next_node = ch
                             break
                     if next_node:
@@ -834,6 +794,27 @@ class FtpTransferWidget(QtWidgets.QWidget):
         # lazy load, wenn noch nicht geladen
         self._ensure_children_loaded(item)
 
+    def preview_remote_dir(self, item: QtWidgets.QTreeWidgetItem, _column: int):
+        """
+        Einfache Vorschau: Klick auf Ordner im Tree aktualisiert nur die Dateienliste unten,
+        ohne self.current_remote_path zu ändern oder die Breadcrumbs neu zu bauen.
+        """
+        path = item.data(0, self.ROLE_PATH) or "/"
+        # Inhalt dieses Pfads listen, aber nicht den "aktuellen" Pfad ändern
+        try:
+            raw = self.ftp.list_directory(path)
+            normalized = []
+            for entry in raw:
+                if len(entry) == 4:
+                    name, is_dir, size, mod = entry
+                    owner = ""
+                else:
+                    name, is_dir, size, mod, owner = entry
+                normalized.append((name, is_dir, size, mod, owner))
+            self.populate_remote_views(normalized, self.remote_search_edit.text().lower().strip())
+        except Exception as e:
+            self.append_status(f"Vorschau-Listing Fehler: {e}")
+
     def _join_remote(self, base: str, name: str) -> str:
         if not base or base == "/":
             return "/" + name
@@ -861,33 +842,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
             path = self._join_remote(self.current_remote_path, dir_name)
         self.current_remote_path = path
         self.refresh_remote()
-
-    def on_remote_folder_clicked(self, item: QtWidgets.QTreeWidgetItem, _column: int):
-        """Einfacher Klick auf Ordner aktualisiert nur unten die Dateiliste,
-        ohne den Ordnerbaum zu verändern."""
-        path = item.data(0, self.ROLE_PATH)
-        if not path:
-            return
-        self.current_remote_path = path
-        self.remote_path_combo.setEditText(path)
-        try:
-            raw = self.ftp.list_directory(path)
-            normalized = []
-            for entry in raw:
-                if len(entry) == 4:
-                    name, is_dir, size, mod = entry
-                    owner = ""
-                else:
-                    name, is_dir, size, mod, owner = entry
-                normalized.append((name, is_dir, size, mod, owner))
-            self.remote_items_all = normalized
-            self.populate_remote_views(
-                self.remote_items_all,
-                self.remote_search_edit.text().lower().strip()
-            )
-        except Exception as e:
-            self.append_status(f"Remote-Listing Fehler: {e}")
-            QtWidgets.QMessageBox.critical(self, "FTP Error", f"Cannot list directory: {e}")
 
     # ---------------- Drag&Drop Upload ----------------
     def handle_drop_upload_files(self, file_paths: list[str]):
@@ -1109,7 +1063,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
             return
 
         progress_dlg = TransferProgressDialog("Downloading...", parent=self)
-        progress_dlg.setFileMode = None
         progress_dlg.set_file_count(len(file_names))
         progress_dlg.show()
 
@@ -1170,7 +1123,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
             return "cancel"
 
     # ----------------------------------------
-    # SAVE SETTINGS
+    # SAVE SETTINGS (nur FTP)
     # ----------------------------------------
     def save_settings_slot(self):
         self.settings["ftp_protocol"] = self.protocol_combo.currentText()
@@ -1184,24 +1137,13 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.settings["versioning_mode"] = self.version_combo.currentText()
         save_settings(self.settings)
 
-        self.smtp_settings["enabled"] = self.smtp_enabled_check.isChecked()
-        self.smtp_settings["host"] = self.smtp_host_edit.text().strip()
-        self.smtp_settings["port"] = self.smtp_port_spin.value()
-        self.smtp_settings["user"] = self.smtp_user_edit.text().strip()
-        self.smtp_settings["notify_email"] = self.notify_email_edit.text().strip()
-        save_smtp_settings(self.smtp_settings)
-
+        # FTP Passwort im Keyring ablegen (SMTP liegt jetzt im Settings-Tab)
         user = self.user_edit.text().strip()
         pw = self.pass_edit.text().strip()
         if pw and user:
             keyring.set_password("PRisM-FTP", user, pw)
 
-        smtp_user = self.smtp_user_edit.text().strip()
-        smtp_pass = self.smtp_pass_edit.text().strip()
-        if smtp_pass and smtp_user:
-            keyring.set_password("PRisM-SMTP", smtp_user, smtp_pass)
-
-        QtWidgets.QMessageBox.information(self, "Saved", "FTP- und SMTP-Einstellungen gespeichert.")
+        QtWidgets.QMessageBox.information(self, "Saved", "FTP-Einstellungen gespeichert.")
 
     def closeEvent(self, event: QtGui.QCloseEvent):
         if self.ftp:

@@ -5,7 +5,6 @@ import os
 import sys
 import time
 import keyring
-import smtplib
 import platform
 import json
 from datetime import datetime
@@ -28,27 +27,31 @@ from utils.config_manager import (
     load_settings,
     load_smtp_settings,
     get_ftp_transfer_log_path,
-    debug_print
+    debug_print,
+    get_mail_transfer_info_path,
 )
+from utils.mailer import Mailer
+
 
 class TransferError(Exception):
     """Eigene Exception für FTP-/SFTP-Fehler."""
     pass
 
+
 class FTPManager:
     """
-    Kapselt alle FTP-/SFTP-Funktionen (unverändert + Owner-Erweiterung):
+    Kapselt alle FTP-/SFTP-Funktionen:
       - Verbindung aufbauen (FTP oder SFTP)
       - Dateien hoch-/runterladen
       - Versionierung: mirror/suffix
       - Logging in ftptransfer_log.json (mit status)
-      - E-Mail/Notification bei Fehler
+      - E-Mail/Notification bei Fehler (über utils.mailer.Mailer)
       - Timestamp-Erhaltung optional
       - Remote-Verzeichnis erstellen
       - Remote Dateimanagement
-      - list_directory() liefert jetzt Tupel mit 4 oder 5 Feldern:
+      - list_directory() liefert Tupel mit 4 oder 5 Feldern:
             (name, is_dir, size, mod_time_str[, owner])
-        => Owner ist optional und kann leer sein.
+        -> Owner ist optional und kann leer sein.
     """
 
     def __init__(self):
@@ -62,15 +65,12 @@ class FTPManager:
         self.versioning_mode = self.settings.get("versioning_mode", "mirror")
         self.keep_timestamp = self.settings.get("keep_timestamp", False)
 
-        smtp_conf = load_smtp_settings()
-        self.smtp_enabled = smtp_conf.get("enabled", False)
-        self.smtp_host = smtp_conf.get("host", "")
-        self.smtp_port = smtp_conf.get("port", 587)
-        self.smtp_user = smtp_conf.get("user", "")
-        self.notify_email = smtp_conf.get("notify_email", "")
-
+        # Verbindungshandle (ftplib.FTP oder paramiko.SFTPClient)
         self.conn = None
 
+    # ------------------------------------------------------------------ #
+    # Verbindungsmanagement
+    # ------------------------------------------------------------------ #
     def _load_password_from_keyring(self):
         if not self.user:
             raise TransferError("Kein FTP-Benutzername definiert.")
@@ -91,6 +91,7 @@ class FTPManager:
             self.conn.set_pasv(True)
             if hasattr(self.conn, "sock") and self.conn.sock:
                 self.conn.sock.settimeout(30)
+            # Encoding hängt vom Server ab; latin-1 ist oft robust
             self.conn.encoding = "latin-1"
         elif self.ftp_protocol == "sftp":
             if paramiko is None:
@@ -109,7 +110,6 @@ class FTPManager:
                 if self.ftp_protocol == "ftp":
                     self.conn.quit()
                 else:
-                    # Paramiko SFTPClient
                     try:
                         self.conn.get_channel().close()
                     except Exception:
@@ -120,7 +120,10 @@ class FTPManager:
             self.conn = None
             debug_print("Verbindung geschlossen.")
 
-    def ensure_remote_directory(self, remote_dir):
+    # ------------------------------------------------------------------ #
+    # Helper
+    # ------------------------------------------------------------------ #
+    def ensure_remote_directory(self, remote_dir: str) -> None:
         if self.ftp_protocol == "ftp":
             try:
                 self.conn.cwd(remote_dir)
@@ -149,7 +152,10 @@ class FTPManager:
                     except IOError:
                         self.conn.mkdir(cwd)
 
-    def _upload_file_ftp(self, local_path, remote_path, progress_callback=None):
+    # ------------------------------------------------------------------ #
+    # Upload / Download
+    # ------------------------------------------------------------------ #
+    def _upload_file_ftp(self, local_path: str, remote_path: str, progress_callback=None) -> None:
         file_size = os.path.getsize(local_path)
         uploaded = 0
         chunk_size = 8192
@@ -158,7 +164,7 @@ class FTPManager:
                 nonlocal uploaded
                 uploaded += len(data)
                 if progress_callback:
-                    percent = int((uploaded / file_size) * 100)
+                    percent = int((uploaded / file_size) * 100) if file_size else 100
                     progress_callback(percent)
             self.conn.storbinary(f"STOR {remote_path}", f, blocksize=chunk_size, callback=callback)
         if self.keep_timestamp:
@@ -168,7 +174,7 @@ class FTPManager:
             except Exception:
                 pass
 
-    def _upload_file_sftp(self, local_path, remote_path):
+    def _upload_file_sftp(self, local_path: str, remote_path: str) -> None:
         sftp = self.conn
         sftp.put(local_path, remote_path)
         if self.keep_timestamp:
@@ -176,7 +182,7 @@ class FTPManager:
             mtime = os.path.getmtime(local_path)
             sftp.utime(remote_path, (atime, mtime))
 
-    def upload_file(self, local_path, remote_dir, progress_callback=None):
+    def upload_file(self, local_path: str, remote_dir: str, progress_callback=None) -> None:
         base_name = os.path.basename(local_path)
         remote_path = remote_dir.rstrip("/") + "/" + base_name
         try:
@@ -208,7 +214,7 @@ class FTPManager:
             self.log_transfer(local_path, remote_path, "UPLOAD", status="FAILED")
             raise
 
-    def download_file(self, remote_path, local_dir):
+    def download_file(self, remote_path: str, local_dir: str) -> None:
         filename = os.path.basename(remote_path)
         local_path = os.path.join(local_dir, filename)
         try:
@@ -233,17 +239,20 @@ class FTPManager:
             self.log_transfer(remote_path, local_path, "DOWNLOAD", status="FAILED")
             raise
 
-    def list_directory(self, remote_path):
+    # ------------------------------------------------------------------ #
+    # Listing
+    # ------------------------------------------------------------------ #
+    def list_directory(self, remote_path: str):
         if self.ftp_protocol == "ftp":
             return self._listdir_ftp(remote_path)
         else:
             return self._listdir_sftp(remote_path)
 
-    def _listdir_ftp(self, remote_path):
+    def _listdir_ftp(self, remote_path: str):
         """
         Liefert Liste aus Tupeln:
            (name, is_dir, size, mod_time_str, owner?)
-        Owner kann leer sein, wenn Ausgabeformat das nicht hergibt.
+        Owner kann leer sein, wenn LIST-Ausgabe das nicht hergibt.
         """
         items = []
 
@@ -254,20 +263,16 @@ class FTPManager:
             if len(parts) < 9:
                 return
             is_dir = line.startswith("d") or parts[0].startswith("d")
-            # Owner versuchen:
             owner = ""
             try:
                 owner = parts[2]
             except Exception:
                 owner = ""
-            # Größe
             try:
                 size = int(parts[4])
             except Exception:
                 size = 0
-            # Datum
             mod_time_str = f"{parts[5]} {parts[6]} {parts[7]}"
-            # Name (kann Leerzeichen enthalten → ab Index 8 joinen)
             name = " ".join(parts[8:])
             items.append((name, is_dir, size, mod_time_str, owner))
 
@@ -278,9 +283,9 @@ class FTPManager:
             raise
         return items
 
-    def _listdir_sftp(self, remote_path):
+    def _listdir_sftp(self, remote_path: str):
         """
-        Für SFTP: Owner kann ggf. als UID geliefert werden. Wir geben die UID als String aus.
+        Für SFTP: Owner ggf. als UID (String).
         """
         sftp = self.conn
         filelist = []
@@ -299,6 +304,9 @@ class FTPManager:
             filelist.append((name, is_dir, size, mod_time, owner))
         return filelist
 
+    # ------------------------------------------------------------------ #
+    # Logging
+    # ------------------------------------------------------------------ #
     def log_transfer(self, source, target, direction, status="SUCCESS"):
         logfile_path = get_ftp_transfer_log_path()
         entries = []
@@ -306,7 +314,7 @@ class FTPManager:
             try:
                 with open(logfile_path, "r", encoding="utf-8") as lf:
                     entries = json.load(lf)
-            except:
+            except Exception:
                 entries = []
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         last_index = 0
@@ -316,7 +324,7 @@ class FTPManager:
                     idx_val = int(e["index"])
                     if idx_val > last_index:
                         last_index = idx_val
-                except:
+                except Exception:
                     pass
         new_index = last_index + 1
         idx_str = f"{new_index:07d}"
@@ -333,8 +341,13 @@ class FTPManager:
         with open(logfile_path, "w", encoding="utf-8") as lf:
             json.dump(entries, lf, indent=2)
 
-    def send_transfer_summary_email(self, results):
-        from utils.config_manager import get_mail_transfer_info_path
+    # ------------------------------------------------------------------ #
+    # E-Mail / Notifications (neu über utils.mailer.Mailer)
+    # ------------------------------------------------------------------ #
+    def send_transfer_summary_email(self, results: List[dict]) -> None:
+        """
+        Schreibt eine Info-Datei und sendet (falls SMTP aktiviert) eine kurze Zusammenfassung.
+        """
         info_path = get_mail_transfer_info_path()
         try:
             with open(info_path, "w", encoding="utf-8") as f:
@@ -343,47 +356,62 @@ class FTPManager:
         except Exception as e:
             debug_print(f"Fehler beim Schreiben von {info_path}: {e}")
 
-        if self.smtp_enabled and self.notify_email:
-            summary = "Transfer Summary:\n\n"
-            for r in results:
-                summary += f"{r['direction']} | {r['file']} -> {r.get('destination', '')}\n"
-                if r["status"] == "FAILED":
-                    summary += f"   Fehler: {r.get('error', 'Unbekannter Fehler')}\n"
-            subject = "Transfer Summary Report"
-            msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\nSubject: {subject}\r\n\r\n{summary}"
-            smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
-            if smtp_pass is None:
-                debug_print("SMTP-Passwort nicht im Keyring, kann keine Transfer Summary Mail senden.")
-                return
-            try:
-                with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
-                    server.starttls()
-                    server.login(self.smtp_user, smtp_pass)
-                    server.sendmail(self.smtp_user, [self.notify_email], msg)
-                debug_print("Transfer summary email sent successfully.")
-            except Exception as e:
-                debug_print(f"Fehler beim Senden der Transfer summary Mail: {e}")
+        # SMTP prüfen
+        cfg = load_smtp_settings() or {}
+        if not cfg.get("enabled", False):
+            debug_print("SMTP deaktiviert – keine Transfer-Summary-E-Mail.")
+            return
+        if not cfg.get("notify_email"):
+            debug_print("Kein notify_email konfiguriert – keine Transfer-Summary-E-Mail.")
+            return
 
-    def send_failure_notification(self, error_message):
+        summary = "Transfer Summary:\n\n"
+        for r in results:
+            summary += f"{r.get('direction','')} | {r.get('file','')} -> {r.get('destination','')}\n"
+            if r.get("status") == "FAILED":
+                summary += f"   Fehler: {r.get('error', 'Unbekannter Fehler')}\n"
+
+        subject = "Transfer Summary Report"
+
+        try:
+            mailer = Mailer()
+            # Empfänger leer lassen → Mailer nutzt notify_email; JSON als Attachment beilegen
+            mailer.send_mail(subject=subject, body=summary, attachments=[info_path])
+            debug_print("Transfer summary email sent successfully (über Mailer).")
+        except Exception as e:
+            debug_print(f"Fehler beim Senden der Transfer summary Mail: {e}")
+
+    def send_failure_notification(self, error_message: str) -> None:
+        """
+        Zeigt unter macOS eine System-Notification und sendet (falls SMTP aktiviert) eine Fehler-E-Mail.
+        """
         if platform.system() == "Darwin" and pync is not None:
-            pync.notify(f"FTP-Transfer fehlgeschlagen: {error_message}", title="PRisM-RAC")
-        if self.smtp_enabled and self.notify_email:
-            smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
-            if smtp_pass is None:
-                debug_print("SMTP-Passwort nicht im Keyring, kann keine E-Mail senden.")
-                return
-            subject = "FTP-Transfer fehlgeschlagen"
-            body = f"Folgender Fehler ist aufgetreten:\n\n{error_message}"
-            msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\nSubject: {subject}\r\n\r\n{body}"
             try:
-                with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
-                    server.starttls()
-                    server.login(self.smtp_user, smtp_pass)
-                    server.sendmail(self.smtp_user, [self.notify_email], msg)
-            except Exception as e:
-                debug_print(f"Fehler beim Senden der E-Mail: {e}")
+                pync.notify(f"FTP-Transfer fehlgeschlagen: {error_message}", title="PRisM-RAC")
+            except Exception:
+                pass
 
-    # --- Remote File Management (unverändert) ---
+        cfg = load_smtp_settings() or {}
+        if not cfg.get("enabled", False):
+            debug_print("SMTP deaktiviert – keine Fehler-E-Mail.")
+            return
+        if not cfg.get("notify_email"):
+            debug_print("Kein notify_email konfiguriert – keine Fehler-E-Mail.")
+            return
+
+        subject = "FTP-Transfer fehlgeschlagen"
+        body = f"Folgender Fehler ist aufgetreten:\n\n{error_message}"
+
+        try:
+            mailer = Mailer()
+            mailer.send_mail(subject=subject, body=body)  # Empfänger -> notify_email
+            debug_print("Fehler-E-Mail gesendet (über Mailer).")
+        except Exception as e:
+            debug_print(f"Fehler beim Senden der Fehler-E-Mail: {e}")
+
+    # ------------------------------------------------------------------ #
+    # Remote File Management
+    # ------------------------------------------------------------------ #
     def mkdir_remote(self, remote_path):
         if self.ftp_protocol == "ftp":
             try:
@@ -454,6 +482,7 @@ class FTPManager:
                 except Exception as e:
                     self.send_failure_notification(str(e))
                     raise
+
 
 if __name__ == "__main__":
     mgr = FTPManager()

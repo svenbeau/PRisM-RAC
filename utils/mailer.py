@@ -8,22 +8,37 @@ import keyring
 
 from utils.config_manager import load_smtp_settings, debug_print
 
+
 class Mailer:
     """
     Zentrale SMTP-Sendeinstanz.
     Liest Settings bei jedem Sendevorgang frisch (damit UI-Änderungen sofort wirken).
     Passwort liegt im Keyring (Service-Name: 'PRisM-SMTP').
+    Unterstützt:
+      - STARTTLS (Standard)
+      - SSL/SMTPS (Port 465), via Settings-Feld 'use_ssl' (Bool)
     """
     SERVICE_NAME = "PRisM-SMTP"
 
     def __init__(self):
         pass
 
+    # ---------------- Keychain Helpers ----------------
     @staticmethod
     def get_settings() -> dict:
+        """
+        Lädt SMTP-Settings und reichert sie — falls vorhanden — mit dem Keychain-Passwort an.
+        Erwartete Felder in smtp_settings.json:
+          - enabled: bool
+          - host: str
+          - port: int
+          - user: str
+          - notify_email: str
+          - use_ssl: bool (NEU) -> True => SMTP_SSL; False => SMTP(+optional STARTTLS)
+        """
         settings = load_smtp_settings() or {}
         user = settings.get("user", "").strip()
-        # Passwort NICHT aus JSON lesen/speichern; aus dem Keyring holen
+        # Passwort NICHT in der Datei speichern; wenn vorhanden, aus Keyring holen
         if user and not settings.get("password"):
             try:
                 pw = keyring.get_password(Mailer.SERVICE_NAME, user) or ""
@@ -39,6 +54,20 @@ class Mailer:
         if user and password is not None:
             keyring.set_password(Mailer.SERVICE_NAME, user.strip(), password)
 
+    @staticmethod
+    def delete_password(user: str):
+        """PW aus dem Keyring entfernen (falls vorhanden)."""
+        if not user:
+            return
+        try:
+            keyring.delete_password(Mailer.SERVICE_NAME, user.strip())
+        except keyring.errors.PasswordDeleteError:
+            # Kein Eintrag vorhanden – ist okay
+            pass
+        except Exception as e:
+            debug_print(f"[Mailer] Passwort löschen fehlgeschlagen: {e}")
+
+    # ---------------- Versand ----------------
     def send_mail(
         self,
         subject: str,
@@ -59,11 +88,12 @@ class Mailer:
             debug_print("[Mailer] SMTP deaktiviert – E-Mail nicht gesendet.")
             return
 
-        host = cfg.get("host", "").strip()
+        host = (cfg.get("host") or "").strip()
         port = int(cfg.get("port", 587) or 587)
-        user = cfg.get("user", "").strip()
+        user = (cfg.get("user") or "").strip()
         password = cfg.get("password", "")
         default_to = (cfg.get("notify_email") or "").strip()
+        use_ssl = bool(cfg.get("use_ssl", False) or port == 465)  # Port 465 ⇒ SSL erzwingen
 
         if not host or not user:
             raise RuntimeError("SMTP nicht korrekt konfiguriert (host/user fehlen).")
@@ -84,7 +114,7 @@ class Mailer:
         msg["To"] = ", ".join(to_list)
         msg.set_content(body)
 
-        # Attachments (ohne mimetypes-Komplexität – robust als octet-stream)
+        # Attachments (robust als octet-stream)
         if attachments:
             for path in attachments:
                 try:
@@ -99,17 +129,26 @@ class Mailer:
                 except Exception as e:
                     debug_print(f"[Mailer] Attachment konnte nicht gelesen werden: {path} ({e})")
 
-        # Versand (STARTTLS bevorzugt)
+        # Versand
         context = ssl.create_default_context()
-        with smtplib.SMTP(host, port, timeout=20) as server:
-            server.ehlo()
-            try:
-                server.starttls(context=context)
+        if use_ssl:
+            # SMTPS (Port 465)
+            with smtplib.SMTP_SSL(host, port, context=context, timeout=20) as server:
+                if user:
+                    server.login(user, password or "")
+                server.send_message(msg)
+                debug_print(f"[Mailer] (SSL) E-Mail gesendet an {to_list}")
+        else:
+            # SMTP, optional STARTTLS
+            with smtplib.SMTP(host, port, timeout=20) as server:
                 server.ehlo()
-            except Exception:
-                # falls z. B. Port 465/25 genutzt wird – einfach ohne STARTTLS weitermachen
-                pass
-            if user:
-                server.login(user, password or "")
-            server.send_message(msg)
-            debug_print(f"[Mailer] E-Mail gesendet an {to_list}")
+                try:
+                    server.starttls(context=context)
+                    server.ehlo()
+                except Exception:
+                    # falls z. B. Port 25 ohne STARTTLS – weiter ohne TLS
+                    pass
+                if user:
+                    server.login(user, password or "")
+                server.send_message(msg)
+                debug_print(f"[Mailer] E-Mail gesendet an {to_list}")
