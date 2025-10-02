@@ -679,11 +679,8 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.ftp.keep_timestamp = self.keep_ts_check.isChecked()
         self.ftp.versioning_mode = self.version_combo.currentText()
 
-        # Passwort auch direkt setzen (ohne Keyring-Zwang)
         user = self.user_edit.text().strip()
         pw = self.pass_edit.text().strip()
-        if pw:
-            self.ftp.password = pw
         if pw and user:
             keyring.set_password("PRisM-FTP", user, pw)
 
@@ -745,22 +742,29 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
     # --- Ordnerbaum (Finder-like Lazy-Load, ohne sichtbares Dummy) ---
     def populate_remote_folder_tree_breadcrumb(self):
+        """Zeigt die Kette '/', 'foo', 'bar' … bis zum aktuellen Pfad.
+        Unter JEDEM Knoten kann per Expand die nächste Ebene lazy geladen werden.
+        Keine sichtbaren Dummy-Zeilen.
+        """
         self.remote_folders.clear()
 
+        # 1) Pfadkette bauen
         parts = [p for p in self.current_remote_path.split("/") if p]
         full_paths = []
         cur = "/"
-        full_paths.append(cur)
+        full_paths.append(cur)  # Root zuerst
         for p in parts:
             cur = cur.rstrip("/") + "/" + p
             full_paths.append(cur)
 
+        # 2) Kette in Tree legen
         parent_item = None
         for fp in full_paths:
             name = fp if fp == "/" else fp.split("/")[-1]
             it = QtWidgets.QTreeWidgetItem([name, "", "", "Folder", ""])
             it.setIcon(0, self.folder_icon)
             it.setData(0, self.ROLE_PATH, fp)
+            # Indikator anzeigen, obwohl (noch) keine Kinder gesetzt sind
             it.setChildIndicatorPolicy(QtWidgets.QTreeWidgetItem.ShowIndicator)
             it.setData(0, self.ROLE_NEEDS_LOAD, True)
             if parent_item is None:
@@ -769,13 +773,16 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 parent_item.addChild(it)
             parent_item = it
 
+        # 3) automatisch entlang des Pfads expandieren und Kinder laden
         root = self.remote_folders.topLevelItem(0)
         if root:
             self._ensure_children_loaded(root)
             self.remote_folders.expandItem(root)
             node = root
+            # gehe die Kette runter und expandiere/fülle jedes Element
             for i in range(1, len(full_paths)):
                 if node and node.childCount() > 0:
+                    # finde das Kind mit passendem Namen
                     want = full_paths[i].split("/")[-1]
                     next_node = None
                     for c in range(node.childCount()):
@@ -792,6 +799,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
                         node = next_node
 
     def _ensure_children_loaded(self, item: QtWidgets.QTreeWidgetItem):
+        """Lädt Unterordner für 'item', wenn noch nicht geladen."""
         needs = item.data(0, self.ROLE_NEEDS_LOAD)
         if not needs:
             return
@@ -801,6 +809,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         except Exception as e:
             self.append_status(f"Ordnerbaum-Load Fehler: {e}")
             return
+        # bestehende Kinder entfernen, wir bauen frisch auf
         while item.childCount() > 0:
             item.takeChild(0)
         for e in entries:
@@ -818,9 +827,11 @@ class FtpTransferWidget(QtWidgets.QWidget):
             ch.setChildIndicatorPolicy(QtWidgets.QTreeWidgetItem.ShowIndicator)
             ch.setData(0, self.ROLE_NEEDS_LOAD, True)
             item.addChild(ch)
+        # markiere als geladen
         item.setData(0, self.ROLE_NEEDS_LOAD, False)
 
     def on_remote_folder_expanded(self, item: QtWidgets.QTreeWidgetItem):
+        # lazy load, wenn noch nicht geladen
         self._ensure_children_loaded(item)
 
     def _join_remote(self, base: str, name: str) -> str:
@@ -843,6 +854,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.refresh_remote()
 
     def enter_remote_dir(self, item, _column):
+        # Tree: nimm immer den im Item gespeicherten Vollpfad
         path = item.data(0, self.ROLE_PATH)
         if not path:
             dir_name = item.text(0)
@@ -851,6 +863,8 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.refresh_remote()
 
     def on_remote_folder_clicked(self, item: QtWidgets.QTreeWidgetItem, _column: int):
+        """Einfacher Klick auf Ordner aktualisiert nur unten die Dateiliste,
+        ohne den Ordnerbaum zu verändern."""
         path = item.data(0, self.ROLE_PATH)
         if not path:
             return
@@ -974,9 +988,12 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.critical(self, "Fehler", str(e))
 
     def rename_remote_item(self):
-        items = self.remote_files.selectedItems()  # nur Dateien-Fenster
+        items = self.remote_files.selectedItems()
         if not items:
             QtWidgets.QMessageBox.information(self, "Info", "Bitte wählen Sie einen Eintrag zum Umbenennen aus.")
+            return
+        if len(items) > 1:
+            QtWidgets.QMessageBox.information(self, "Info", "Bitte genau einen Eintrag auswählen.")
             return
         item = items[0]
         old_name = item.text(0)
@@ -995,51 +1012,55 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
     def delete_remote_item(self):
         """
-        Löscht **nur** die im Server/Dateien-Fenster (self.remote_files) markierten Elemente.
-        Auswahl im Ordnerbaum wird ignoriert.
+        Löscht NUR die Auswahl im Server/Dateien-Fenster (self.remote_files).
+        Ordnerbaum-Selektion wird ignoriert.
         """
-        items = self.remote_files.selectedItems()  # <-- einzig zulässige Quelle
+        items = self.remote_files.selectedItems()
         if not items:
-            QtWidgets.QMessageBox.information(self, "Info", "Bitte wählen Sie Einträge zum Löschen aus (Dateien-Fenster).")
+            QtWidgets.QMessageBox.information(self, "Info", "Bitte wählen Sie Dateien/Ordner in der Dateiliste aus.")
             return
 
-        # Namen für Bestätigungsdialog
-        names = [it.text(0) for it in items]
-        preview = "\n".join(names[:12])
-        if len(names) > 12:
-            preview += f"\n… (+{len(names)-12} weitere)"
+        # Übersicht der Ziele
+        entries = []
+        for it in items:
+            name = it.text(0)
+            is_dir = (it.text(3) == "Folder")
+            entries.append((name, is_dir, self._join_remote(self.current_remote_path, name)))
 
+        # Bestätigung
+        cnt_files = sum(1 for _, d, _ in entries if not d)
+        cnt_dirs = len(entries) - cnt_files
+        msg_lines = ["Sollen die markierten Einträge wirklich gelöscht werden?"]
+        if cnt_files:
+            msg_lines.append(f"- Dateien: {cnt_files}")
+        if cnt_dirs:
+            msg_lines.append(f"- Ordner: {cnt_dirs}")
         if QtWidgets.QMessageBox.question(
-            self,
-            "Löschen?",
-            f"Sollen die folgenden {len(items)} Einträge wirklich gelöscht werden?\n\n{preview}",
+            self, "Löschen bestätigen", "\n".join(msg_lines),
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
         ) != QtWidgets.QMessageBox.Yes:
             return
 
-        deleted = 0
-        errors = 0
-
-        for it in items:
-            is_dir = (it.text(3) == "Folder")
-            remote_path = self._join_remote(self.current_remote_path, it.text(0))
-
+        # Löschen – jede Auswahl einzeln, mit Fehlerbehandlung
+        had_error = False
+        for (name, is_dir, remote_path) in entries:
             try:
                 if is_dir:
                     self.ftp.delete_remote_directory(remote_path)
                 else:
                     self.ftp.delete_remote_file(remote_path)
                 self.append_status(f"Gelöscht: {remote_path}")
-                deleted += 1
             except Exception as e:
+                had_error = True
                 self.append_status(f"Löschen Fehler bei '{remote_path}': {e}")
-                errors += 1
 
-        msg = f"{deleted} Eintrag/Einträge gelöscht."
-        if errors:
-            msg += f" {errors} Fehler."
-        QtWidgets.QMessageBox.information(self, "Löschvorgang", msg)
         self.refresh_remote()
+
+        if had_error:
+            QtWidgets.QMessageBox.warning(
+                self, "Löschvorgang",
+                "Einige Einträge konnten nicht gelöscht werden. Details siehe Status."
+            )
 
     # ----------------------------------------
     # TRANSFERS (Buttons)

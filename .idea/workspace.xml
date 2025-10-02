@@ -4,10 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="SMPT Einstellung umziehen">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Transferplan Check">
+      <change afterPath="$PROJECT_DIR$/processors/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/processors/contentcheck_runner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/ftp_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ftp_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,7 +79,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;stable-v35&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;stable-v36&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
@@ -89,7 +93,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-8753aad8314d-d902c0275401-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-252.25557.178" />
+        <option value="bundled-python-sdk-b030e9c4a83c-d902c0275401-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-252.26199.168" />
       </set>
     </attachedChunks>
   </component>
@@ -101,14 +105,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00036" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741532277899</created>
-      <option name="number" value="00036" />
-      <option name="presentableId" value="LOCAL-00036" />
-      <option name="project" value="LOCAL" />
-      <updated>1741532277899</updated>
     </task>
     <task id="LOCAL-00037" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
@@ -494,7 +490,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759063525376</updated>
     </task>
-    <option name="localTasksCounter" value="85" />
+    <task id="LOCAL-00085" summary="FTP-Upload stabiler bei Abbrüchen">
+      <option name="closed" value="true" />
+      <created>1759402073510</created>
+      <option name="number" value="00085" />
+      <option name="presentableId" value="LOCAL-00085" />
+      <option name="project" value="LOCAL" />
+      <updated>1759402073510</updated>
+    </task>
+    <option name="localTasksCounter" value="86" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -519,6 +523,7 @@
     <MESSAGE value="FTP-Widget Ordneransicht neu, Drag&amp;Drop" />
     <MESSAGE value="Mailermodul ändern" />
     <MESSAGE value="SMPT Einstellung umziehen" />
-    <option name="LAST_COMMIT_MESSAGE" value="SMPT Einstellung umziehen" />
+    <MESSAGE value="FTP-Upload stabiler bei Abbrüchen" />
+    <option name="LAST_COMMIT_MESSAGE" value="FTP-Upload stabiler bei Abbrüchen" />
   </component>
 </project>

@@ -61,6 +61,11 @@ def create_temp_jsx_with_config(
       - keywordCheckEnabled, keywordCheckWord
       - logFolderPath
       - DEBUG_OUTPUT (optional)
+
+    WICHTIG:
+    - Hier werden IMMER die *Roh*-Arrays injiziert (genau so, wie sie aus der Hotfolder-Config kommen).
+      Keine Vorab-Entscheidung „Standard vs Keyword-based“ in Python.
+      Die Entscheidung trifft ausschließlich das JSX.
     """
 
     # 1) Template lesen
@@ -75,7 +80,7 @@ def create_temp_jsx_with_config(
         debug_print(f"[DynamicJSX] Error reading base JSX script {base_jsx_path}: {e}")
         return None
 
-    # 2) Werte serialisieren
+    # 2) Werte serialisieren (immer Rohwerte!)
     js_required_layers   = _js_array(required_layers)
     js_required_metadata = _js_array(required_metadata)
     js_keyword_layers    = _js_array(keyword_layers)
@@ -138,7 +143,7 @@ def create_temp_jsx_with_config(
             tmp_f.write(injection_header)
             tmp_f.write(tmpl_after_fallback)
 
-        # Zusammenfassung ins Debug
+        # Zusammenfassung ins Debug – **nur Rohwerte** (keine „effective_*“-Begriffe mehr!)
         debug_print(
             "[DynamicJSX] Temporary JSX created: {path} "
             "(keywordCheckEnabled={kw_enabled}, keywordCheckWord={kw_word}, "
@@ -187,11 +192,11 @@ if __name__ == "__main__":
         base_jsx_path=base_jsx,
         keyword_check_enabled=True,
         keyword_check_word="Rueckseite",
-        required_layers=["Freisteller", "Messwerte", "Korrektur"],
+        required_layers=["Freisteller", "Messwerte", "Korrektur", "Bildausschnitt"],
         required_metadata=["author", "description", "keywords"],
-        keyword_layers=["Freisteller", "Messwerte"],
+        keyword_layers=[],
         keyword_metadata=["author", "description"],
-        logfiles_dir="/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
+        logfiles_dir="/tmp",
         debug_output=True,
     )
     print("Generated temporary JSX script:", temp_jsx)
