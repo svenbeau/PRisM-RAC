@@ -5,10 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="SMPT Einstellung umziehen">
-      <change afterPath="$PROJECT_DIR$/utils/helpers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/ftp_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ftp_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

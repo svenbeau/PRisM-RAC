@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import time
 import subprocess
 import traceback
 import keyring
@@ -14,6 +13,8 @@ from utils.config_manager import (
     load_settings,
     save_settings,
     load_ftp_servers,
+    load_smtp_settings,
+    save_smtp_settings,
 )
 from utils.ftp_manager import FTPManager
 from ui.ftp_server_manager_dialog import FtpServerManagerDialog
@@ -62,10 +63,9 @@ class LocalFilterProxyModel(QtCore.QSortFilterProxyModel):
         self.setFilterWildcard(f"*{text}*")
 
 
-# ---- Remote-Dateiliste mit Drop-Unterstützung ----
 class RemoteFilesWidget(QtWidgets.QTreeWidget):
-    filesDropped = QtCore.Signal(list)   # absolute Pfade (Finder)
-    namesDropped = QtCore.Signal(list)   # Dateinamen (interner Drag von local_files)
+    filesDropped = QtCore.Signal(list)
+    namesDropped = QtCore.Signal(list)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -91,7 +91,6 @@ class RemoteFilesWidget(QtWidgets.QTreeWidget):
 
     def dropEvent(self, event: QtGui.QDropEvent):
         md = event.mimeData()
-        # 1) Finder-URLs
         if md.hasUrls():
             paths = []
             for u in md.urls():
@@ -102,7 +101,6 @@ class RemoteFilesWidget(QtWidgets.QTreeWidget):
                 self.filesDropped.emit(paths)
                 event.acceptProposedAction()
                 return
-        # 2) Interner Drag aus QTreeWidget (local_files)
         if md.hasFormat("application/x-qabstractitemmodeldatalist"):
             try:
                 data = bytes(md.data("application/x-qabstractitemmodeldatalist"))
@@ -135,21 +133,13 @@ class RemoteFilesWidget(QtWidgets.QTreeWidget):
 
 
 class FtpTransferWidget(QtWidgets.QWidget):
-    """
-    FileZilla-ähnliche Oberfläche:
-      - Local & Remote: Ordnerbaum + Inhalt
-      - Remote-Ordnerbaum Finder-like (ohne sichtbare Dummy-Zeilen), Lazy-Load per Expand
-      - Remote-Dateiliste akzeptiert Drag&Drop → Auto-Upload inkl. Queue/Status/Progress
-      - Status-Log + Warteschlange
-    """
-
-    # UserRole Keys
     ROLE_PATH = QtCore.Qt.UserRole
     ROLE_NEEDS_LOAD = QtCore.Qt.UserRole + 1
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.settings = load_settings()
+        self.smtp_settings = load_smtp_settings()
         self.ftp = None
 
         self.current_remote_path = "/"
@@ -159,21 +149,18 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.local_history = []
         self.remote_history = []
 
-        self.queue_items = []  # list of QTreeWidgetItem
+        self.queue_items = []
 
         debug_print("FtpTransferWidget: __init__()")
         self.init_ui()
 
-    # ----------------------------------------------------------------------
-    # UI
-    # ----------------------------------------------------------------------
     def init_ui(self):
         root_vsplit = QtWidgets.QSplitter(QtCore.Qt.Vertical, self)
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
         main_layout.addWidget(root_vsplit)
 
-        # ---------- FTP-Einstellungen ----------
+        # ---------- FTP ----------
         ftp_group = QtWidgets.QGroupBox("FTP-Einstellungen")
         ftp_layout = QtWidgets.QHBoxLayout(ftp_group)
 
@@ -231,16 +218,46 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.disconnect_btn.clicked.connect(self.disconnect_ftp)
         ftp_layout.addWidget(self.disconnect_btn)
 
-        # --- Oberer Container ohne SMTP-Block ---
+        # ---------- SMTP ----------
+        smtp_group = QtWidgets.QGroupBox("SMTP-Einstellungen (Fehlermeldungen)")
+        smtp_layout = QtWidgets.QHBoxLayout(smtp_group)
+
+        self.smtp_enabled_check = QtWidgets.QCheckBox("SMTP aktiviert")
+        smtp_layout.addWidget(self.smtp_enabled_check)
+
+        self.smtp_host_edit = QtWidgets.QLineEdit()
+        smtp_layout.addWidget(QtWidgets.QLabel("SMTP Host:"))
+        smtp_layout.addWidget(self.smtp_host_edit)
+
+        self.smtp_port_spin = QtWidgets.QSpinBox()
+        self.smtp_port_spin.setMaximum(65535)
+        self.smtp_port_spin.setValue(587)
+        smtp_layout.addWidget(QtWidgets.QLabel("Port:"))
+        smtp_layout.addWidget(self.smtp_port_spin)
+
+        self.smtp_user_edit = QtWidgets.QLineEdit()
+        smtp_layout.addWidget(QtWidgets.QLabel("SMTP User:"))
+        smtp_layout.addWidget(self.smtp_user_edit)
+
+        self.smtp_pass_edit = QtWidgets.QLineEdit()
+        self.smtp_pass_edit.setEchoMode(QtWidgets.QLineEdit.Password)
+        smtp_layout.addWidget(QtWidgets.QLabel("SMTP Pass:"))
+        smtp_layout.addWidget(self.smtp_pass_edit)
+
+        self.notify_email_edit = QtWidgets.QLineEdit()
+        smtp_layout.addWidget(QtWidgets.QLabel("Notify Email:"))
+        smtp_layout.addWidget(self.notify_email_edit)
+
         top_container = QtWidgets.QWidget()
         top_v = QtWidgets.QVBoxLayout(top_container)
         top_v.setContentsMargins(0, 0, 0, 0)
         top_v.addWidget(ftp_group)
+        top_v.addWidget(smtp_group)
 
-        # ---------- Mittelteil (Local/Remote) ----------
+        # ---------- Mittelteil ----------
         middle_hsplit = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
 
-        # ===== LINKES PANEL (LOKAL) =====
+        # Left (Local)
         left = QtWidgets.QWidget()
         left_v = QtWidgets.QVBoxLayout(left)
         left_v.setContentsMargins(0, 0, 0, 0)
@@ -305,7 +322,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.local_files.itemDoubleClicked.connect(self.local_item_double_clicked)
         self.local_files.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.local_files.customContextMenuRequested.connect(self.on_local_context_menu)
-        # interner Drag (für Drop auf Remote)
         self.local_files.setDragEnabled(True)
 
         left_vsplit.addWidget(self.local_files)
@@ -313,7 +329,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         left_v.addWidget(left_vsplit)
         middle_hsplit.addWidget(left)
 
-        # ===== RECHTES PANEL (REMOTE) =====
+        # Right (Remote)
         right = QtWidgets.QWidget()
         right_v = QtWidgets.QVBoxLayout(right)
         right_v.setContentsMargins(0, 0, 0, 0)
@@ -348,7 +364,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
         right_vsplit = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
-        # Ordnerbaum (Finder-like, Lazy-Load per Expand)
         self.remote_folders = QtWidgets.QTreeWidget()
         self.remote_folders.setColumnCount(5)
         self.remote_folders.setHeaderLabels(["Name", "Owner", "Size", "Kind", "Modified"])
@@ -362,7 +377,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
         right_vsplit.addWidget(self.remote_folders)
 
-        # Dateien/Unterordner – mit Drop
         self.remote_files = RemoteFilesWidget()
         self.remote_files.setColumnCount(5)
         self.remote_files.setHeaderLabels(["Name", "Owner", "Size", "Kind", "Modified"])
@@ -379,7 +393,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         right_v.addWidget(right_vsplit)
         middle_hsplit.addWidget(right)
 
-        # ===== Buttons =====
+        # Buttons
         button_row = QtWidgets.QHBoxLayout()
         self.upload_btn = QtWidgets.QPushButton("Upload Selected")
         self.upload_btn.clicked.connect(self.upload_selected)
@@ -409,7 +423,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         middle_vbox.addWidget(middle_hsplit, stretch=1)
         middle_vbox.addLayout(button_row)
 
-        # ---------- Unten ----------
+        # Bottom
         bottom_vsplit = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         status_group = QtWidgets.QGroupBox("Status")
@@ -439,7 +453,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         top_mid_bottom.addWidget(top_container)
         top_mid_bottom.addWidget(middle_container)
         top_mid_bottom.addWidget(bottom_vsplit)
-        top_mid_bottom.setSizes([120, 600, 180])
+        top_mid_bottom.setSizes([160, 600, 180])
 
         root_vsplit.addWidget(top_mid_bottom)
 
@@ -452,6 +466,16 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.load_server_combo()
         self.populate_local_files(self.current_local_path)
 
+        # SMTP Feldwerte setzen
+        self.smtp_enabled_check.setChecked(self.smtp_settings.get("enabled", False))
+        self.smtp_host_edit.setText(self.smtp_settings.get("host", ""))
+        try:
+            self.smtp_port_spin.setValue(int(self.smtp_settings.get("port", 587)))
+        except Exception:
+            self.smtp_port_spin.setValue(587)
+        self.smtp_user_edit.setText(self.smtp_settings.get("user", ""))
+        self.notify_email_edit.setText(self.smtp_settings.get("notify_email", ""))
+
         # Timer Auto-Refresh
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(2000)
@@ -460,9 +484,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
         self.append_status("Bereit.")
 
-    # ----------------------------------------------------------------------
-    # Status + Queue
-    # ----------------------------------------------------------------------
+    # ---- Status + Queue
     def append_status(self, msg: str):
         ts = datetime.now().strftime("%H:%M:%S")
         line = f"[{ts}] {msg}"
@@ -488,16 +510,14 @@ class FtpTransferWidget(QtWidgets.QWidget):
         if error:
             item.setText(7, error)
 
-    # ----------------------------------------------------------------------
-    # Timer
-    # ----------------------------------------------------------------------
+    # ---- Timer
     def on_timer_tick(self):
         if self.local_auto_refresh.isChecked():
             self.refresh_local_views()
         if self.auto_refresh.isChecked() and self.ftp and self.ftp.conn:
             self.refresh_remote()
 
-    # ---- Local side ----
+    # ---- Local
     def local_path_entered(self):
         path = self.local_path_combo.currentText().strip()
         if os.path.isdir(path):
@@ -537,7 +557,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
         if not os.path.isdir(folder):
             return
         try:
-            # Ordner
             for name in sorted(os.listdir(folder)):
                 full = os.path.join(folder, name)
                 if os.path.isdir(full):
@@ -545,7 +564,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
                     it = QtWidgets.QTreeWidgetItem([name, "", "Folder", mtime])
                     it.setIcon(0, self.folder_icon)
                     self.local_files.addTopLevelItem(it)
-            # Dateien
             for name in sorted(os.listdir(folder)):
                 full = os.path.join(folder, name)
                 if os.path.isfile(full):
@@ -587,7 +605,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         except Exception as e:
             self.append_status(f"Kontextmenü-Fehler: {e}")
 
-    # ---- Remote side ----
+    # ---- Remote
     def remote_path_entered(self):
         path = self.remote_path_combo.currentText().strip() or "/"
         self.current_remote_path = path if path.startswith("/") else "/" + path
@@ -623,19 +641,37 @@ class FtpTransferWidget(QtWidgets.QWidget):
     def apply_local_filter(self, text):
         self.local_proxy.setFilterString(text)
 
-    def apply_remote_filter(self):
+    def apply_remote_filter(self, _text=None):
         filter_text = self.remote_search_edit.text().lower().strip()
         self.populate_remote_views(self.remote_items_all, filter_text)
 
-    # CONNECT/DISCONNECT
+    # ---- CONNECT/DISCONNECT (Kompatibilitäts-Fix)
     def connect_ftp(self):
         if self.ftp:
             self.ftp.disconnect()
-        self.ftp = FTPManager()
+
+        # Erst ohne Argumente versuchen (neue FTPManager-Version)
+        try:
+            self.ftp = FTPManager()
+        except TypeError as e:
+            # Fallback: ältere Version erwartet server_config
+            if "server_config" in str(e):
+                server_config = {
+                    "protocol": self.protocol_combo.currentText(),
+                    "host": self.host_edit.text().strip(),
+                    "user": self.user_edit.text().strip(),
+                    "port": int(self.port_edit.text().strip() or ("22" if self.protocol_combo.currentText() == "sftp" else "21")),
+                    "keep_timestamp": self.keep_ts_check.isChecked(),
+                    "versioning_mode": self.version_combo.currentText(),
+                }
+                self.ftp = FTPManager(server_config)
+            else:
+                raise
+
+        # Felder auch auf self.ftp spiegeln (wir ändern nichts am Manager-Interface)
         self.ftp.ftp_protocol = self.protocol_combo.currentText()
         self.ftp.host = self.host_edit.text().strip()
         self.ftp.user = self.user_edit.text().strip()
-
         try:
             port = int(self.port_edit.text().strip())
         except ValueError:
@@ -643,10 +679,10 @@ class FtpTransferWidget(QtWidgets.QWidget):
         if self.ftp.ftp_protocol == "sftp":
             port = 22
         self.ftp.port = port
-
         self.ftp.keep_timestamp = self.keep_ts_check.isChecked()
         self.ftp.versioning_mode = self.version_combo.currentText()
 
+        # Keyring speichern, falls Passwort eingetragen wurde
         user = self.user_edit.text().strip()
         pw = self.pass_edit.text().strip()
         if pw and user:
@@ -667,109 +703,13 @@ class FtpTransferWidget(QtWidgets.QWidget):
             self.append_status("Verbindung getrennt.")
             QtWidgets.QMessageBox.information(self, "Getrennt", "FTP-Verbindung beendet.")
 
-    # ---------- Helpers: robustes Listing & Upload-Verifikation ----------
-    def _safe_list_directory(self, path: str, retries: int = 2, delay: float = 0.6):
-        last_exc = None
-        for attempt in range(retries + 1):
-            try:
-                return self.ftp.list_directory(path)
-            except Exception as e:
-                last_exc = e
-                msg = str(e).lower()
-                self.append_status(f"LIST-Fehler auf '{path}': {e}")
-                if "timed out" in msg or "temporarily" in msg or "broken pipe" in msg:
-                    try:
-                        self.append_status("Versuche Reconnect wegen LIST-Fehler …")
-                        self.ftp.disconnect()
-                    except Exception:
-                        pass
-                    try:
-                        self.ftp.connect()
-                    except Exception as ce:
-                        last_exc = ce
-                if attempt < retries:
-                    time.sleep(delay)
-                else:
-                    raise last_exc
-
-    def _get_remote_file_size(self, remote_dir: str, filename: str):
-        try:
-            entries = self._safe_list_directory(remote_dir)
-            for e in entries:
-                # e: (name, is_dir, size, mod[, owner])
-                name = e[0]
-                is_dir = e[1]
-                if not is_dir and name == filename:
-                    return int(e[2])
-        except Exception as e:
-            self.append_status(f"Größe prüfen fehlgeschlagen: {e}")
-        return None
-
-    def _verify_and_fix_upload(self, local_path: str, remote_dir: str, filename: str,
-                               qitem: QtWidgets.QTreeWidgetItem,
-                               max_retries: int = 2) -> bool:
-        """
-        Verifiziert, dass der Remote-Upload vollständig ist (Size==local).
-        Falls nicht, versucht es einen erneuten Upload (mit Reconnect bei 426/Timeout).
-        """
-        local_size = os.path.getsize(local_path)
-        for attempt in range(max_retries + 1):
-            size = self._get_remote_file_size(remote_dir, filename)
-            if size == local_size:
-                return True
-            # Server-Delay → kurz warten & erneut messen
-            if size is None or size == 0:
-                time.sleep(0.5)
-                size = self._get_remote_file_size(remote_dir, filename)
-                if size == local_size:
-                    return True
-
-            self.append_status(
-                f"Remote hat falsche Größe ({size} statt {local_size}) – erneuter Upload (Versuch {attempt+1}) …"
-            )
-            self.queue_update(qitem, status="RETRYING", progress=0)
-            try:
-                # Verbindung prüfen/neu aufbauen
-                try:
-                    _ = self._safe_list_directory(remote_dir, retries=0)
-                except Exception:
-                    self.append_status("Reconnect vor erneutem Upload …")
-                    try:
-                        self.ftp.disconnect()
-                    except Exception:
-                        pass
-                    self.ftp.connect()
-
-                cb = (lambda p, qi=qitem: (self.queue_update(qi, progress=p),
-                                           QtWidgets.QApplication.processEvents()))
-                if self.ftp.ftp_protocol == "ftp":
-                    self.ftp.upload_file(local_path, remote_dir, progress_callback=cb)
-                else:
-                    self.queue_update(qitem, progress=None)  # „–“ für sftp
-                    self.ftp.upload_file(local_path, remote_dir)
-
-            except Exception as e:
-                emsg = str(e)
-                self.append_status(f"Erneuter Upload fehlgeschlagen: {emsg}")
-                if attempt < max_retries and ("426" in emsg or "timed out" in emsg.lower()):
-                    try:
-                        self.ftp.disconnect()
-                    except Exception:
-                        pass
-                    time.sleep(0.5)
-                    self.ftp.connect()
-                else:
-                    return False
-
-        return False
-
-    # ---------------- Remote-Ansichten ----------------
+    # ---- Remote-Ansichten
     def refresh_remote(self):
         if not self.ftp or not self.ftp.conn:
             QtWidgets.QMessageBox.information(self, "Info", "Bitte erst verbinden.")
             return
         try:
-            raw = self._safe_list_directory(self.current_remote_path)
+            raw = self.ftp.list_directory(self.current_remote_path)
             normalized = []
             for entry in raw:
                 if len(entry) == 4:
@@ -780,12 +720,8 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 normalized.append((name, is_dir, size, mod, owner))
             self.remote_items_all = normalized
             self.remote_path_combo.setEditText(self.current_remote_path)
-
-            # ▸ Ordnerbaum entlang des aktuellen Pfades erstellen/zeigen
             self.populate_remote_folder_tree_breadcrumb()
-            # ▸ Inhalte unten
             self.populate_remote_views(self.remote_items_all, self.remote_search_edit.text().lower().strip())
-
             self.append_status(f"Remote aktualisiert: {self.current_remote_path}")
         except Exception as e:
             self.append_status(f"Remote-Listing Fehler: {e}")
@@ -804,24 +740,16 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 it.setIcon(0, self.file_icon)
             self.remote_files.addTopLevelItem(it)
 
-    # --- Ordnerbaum (Finder-like Lazy-Load, ohne sichtbares Dummy) ---
     def populate_remote_folder_tree_breadcrumb(self):
-        """Zeigt die Kette '/', 'foo', 'bar' … bis zum aktuellen Pfad.
-        Unter JEDEM Knoten kann per Expand die nächste Ebene lazy geladen werden.
-        Keine sichtbaren Dummy-Zeilen.
-        """
         self.remote_folders.clear()
-
-        # 1) Pfadkette bauen
         parts = [p for p in self.current_remote_path.split("/") if p]
         full_paths = []
         cur = "/"
-        full_paths.append(cur)  # Root zuerst
+        full_paths.append(cur)
         for p in parts:
             cur = cur.rstrip("/") + "/" + p
             full_paths.append(cur)
 
-        # 2) Kette in Tree legen
         parent_item = None
         for fp in full_paths:
             name = fp if fp == "/" else fp.split("/")[-1]
@@ -836,7 +764,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 parent_item.addChild(it)
             parent_item = it
 
-        # 3) automatisch entlang des Pfads expandieren und Kinder laden
         root = self.remote_folders.topLevelItem(0)
         if root:
             self._ensure_children_loaded(root)
@@ -860,13 +787,12 @@ class FtpTransferWidget(QtWidgets.QWidget):
                         node = next_node
 
     def _ensure_children_loaded(self, item: QtWidgets.QTreeWidgetItem):
-        """Lädt Unterordner für 'item', wenn noch nicht geladen."""
         needs = item.data(0, self.ROLE_NEEDS_LOAD)
         if not needs:
             return
         base = item.data(0, self.ROLE_PATH) or "/"
         try:
-            entries = self._safe_list_directory(base)
+            entries = self.ftp.list_directory(base)
         except Exception as e:
             self.append_status(f"Ordnerbaum-Load Fehler: {e}")
             return
@@ -920,15 +846,13 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.refresh_remote()
 
     def on_remote_folder_clicked(self, item: QtWidgets.QTreeWidgetItem, _column: int):
-        """Einfacher Klick auf Ordner aktualisiert nur unten die Dateiliste,
-        ohne den Ordnerbaum zu verändern."""
         path = item.data(0, self.ROLE_PATH)
         if not path:
             return
         self.current_remote_path = path
         self.remote_path_combo.setEditText(path)
         try:
-            raw = self._safe_list_directory(path)
+            raw = self.ftp.list_directory(path)
             normalized = []
             for entry in raw:
                 if len(entry) == 4:
@@ -946,7 +870,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
             self.append_status(f"Remote-Listing Fehler: {e}")
             QtWidgets.QMessageBox.critical(self, "FTP Error", f"Cannot list directory: {e}")
 
-    # ---------------- Drag&Drop Upload ----------------
+    # ---- Drag&Drop Upload
     def handle_drop_upload_files(self, file_paths: list[str]):
         paths = [p for p in file_paths if os.path.isfile(p)]
         if paths:
@@ -965,7 +889,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
     def _existing_remote_names(self) -> list:
         try:
-            raw = self._safe_list_directory(self.current_remote_path)
+            raw = self.ftp.list_directory(self.current_remote_path)
             return [e[0] for e in raw]
         except Exception:
             return []
@@ -987,7 +911,6 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 base_name = os.path.basename(local_path)
                 remote_file_path = self._join_remote(self.current_remote_path, base_name)
 
-                # Konfliktabfrage
                 final_remote_folder = os.path.dirname(remote_file_path)
                 final_name = base_name
                 if base_name in existing:
@@ -1010,60 +933,27 @@ class FtpTransferWidget(QtWidgets.QWidget):
                 self.append_status(f"Upload gestartet (Drop): {local_path} → {remote_file_path}")
                 progress.set_current_file(final_name, i)
 
-                # Upload + Verifikation + ggf. Retry
-                success = False
                 try:
                     if self.ftp.ftp_protocol == "ftp":
                         cb = (lambda p, qi=qitem: (self.queue_update(qi, progress=p),
                                                    QtWidgets.QApplication.processEvents()))
                         self.ftp.upload_file(local_path, final_remote_folder, progress_callback=cb)
                     else:
-                        self.queue_update(qitem, progress=None)  # „–“
+                        self.queue_update(qitem, progress=None)
                         self.ftp.upload_file(local_path, final_remote_folder)
 
-                    success = self._verify_and_fix_upload(
-                        local_path, final_remote_folder, final_name, qitem
-                    )
-                except Exception as e:
-                    self.append_status(f"Upload Fehler: {e}")
-                    emsg = str(e)
-                    if "426" in emsg or "timed out" in emsg.lower():
-                        try:
-                            self.ftp.disconnect()
-                        except Exception:
-                            pass
-                        time.sleep(0.5)
-                        self.ftp.connect()
-                        try:
-                            if self.ftp.ftp_protocol == "ftp":
-                                cb = (lambda p, qi=qitem: (self.queue_update(qi, progress=p),
-                                                           QtWidgets.QApplication.processEvents()))
-                                self.ftp.upload_file(local_path, final_remote_folder, progress_callback=cb)
-                            else:
-                                self.queue_update(qitem, progress=None)
-                                self.ftp.upload_file(local_path, final_remote_folder)
-                            success = self._verify_and_fix_upload(
-                                local_path, final_remote_folder, final_name, qitem
-                            )
-                        except Exception as e2:
-                            self.append_status(f"Upload (Reconnect) erneut fehlgeschlagen: {e2}")
-                            success = False
-                    else:
-                        success = False
-
-                if success:
                     self.queue_update(qitem, status="SUCCESS", progress=100, finished=True)
                     self.append_status(f"Upload fertig: {remote_file_path}")
                     existing.add(final_name)
-                else:
-                    self.queue_update(qitem, status="FAILED", finished=True,
-                                      error="Upload unvollständig/fehlgeschlagen")
+                except Exception as e:
+                    self.queue_update(qitem, status="FAILED", error=str(e), finished=True)
+                    self.append_status(f"Upload Fehler: {e}")
         finally:
             progress.close()
 
         self.refresh_remote()
 
-    # ---------------- Remote Dateimanagement ----------------
+    # ---- Remote Dateimanagement
     def create_remote_folder(self):
         name, ok = QtWidgets.QInputDialog.getText(self, "Neuer Ordner", "Ordnername:")
         if ok and name:
@@ -1100,154 +990,97 @@ class FtpTransferWidget(QtWidgets.QWidget):
     def delete_remote_item(self):
         items = self.remote_files.selectedItems() or self.remote_folders.selectedItems()
         if not items:
-            QtWidgets.QMessageBox.information(self, "Info", "Bitte wählen Sie Einträge zum Löschen aus.")
+            QtWidgets.QMessageBox.information(self, "Info", "Bitte wählen Sie einen Eintrag zum Löschen aus.")
             return
-
-        names = [it.text(0) for it in items]
-        if QtWidgets.QMessageBox.question(
-                self,
-                "Löschen?",
-                f"Sollen die ausgewählten {len(names)} Elemente wirklich gelöscht werden?\n\n" +
-                "\n".join(names[:10]) + ("..." if len(names) > 10 else ""),
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
-        ) != QtWidgets.QMessageBox.Yes:
+        item = items[0]
+        name = item.text(0)
+        is_dir = (item.text(3) == "Folder")
+        if QtWidgets.QMessageBox.question(self, "Löschen?", f"Soll '{name}' wirklich gelöscht werden?",
+                                          QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) != QtWidgets.QMessageBox.Yes:
             return
+        remote_path = self._join_remote(self.current_remote_path, name)
+        try:
+            if is_dir:
+                self.ftp.delete_remote_directory(remote_path)
+            else:
+                self.ftp.delete_remote_file(remote_path)
+            QtWidgets.QMessageBox.information(self, "Erfolg", f"'{name}' wurde gelöscht.")
+            self.append_status(f"Gelöscht: {remote_path}")
+            self.refresh_remote()
+        except Exception as e:
+            self.append_status(f"Löschen Fehler: {e}")
+            QtWidgets.QMessageBox.critical(self, "Fehler", str(e))
 
-        for item in items:
-            name = item.text(0)
-            is_dir = (item.text(3) == "Folder")
-            remote_path = self._join_remote(self.current_remote_path, name)
-            try:
-                if is_dir:
-                    self.ftp.delete_remote_directory(remote_path)
-                else:
-                    self.ftp.delete_remote_file(remote_path)
-                self.append_status(f"Gelöscht: {remote_path}")
-            except Exception as e:
-                self.append_status(f"Löschen Fehler ({remote_path}): {e}")
-                QtWidgets.QMessageBox.critical(self, "Fehler", f"{remote_path}\n{e}")
-
-        self.refresh_remote()
-
-    # ----------------------------------------
-    # TRANSFERS (Buttons)
-    # ----------------------------------------
+    # ---- Transfers
     def upload_selected(self):
         if not self.ftp or not self.ftp.conn:
             QtWidgets.QMessageBox.information(self, "Info", "Keine Verbindung.")
             return
-
         items = self.local_files.selectedItems()
         if not items:
             QtWidgets.QMessageBox.information(self, "Info", "Keine Dateien/Ordner ausgewählt.")
             return
-
         file_paths = []
         for it in items:
             if it.text(2) != "Folder":
                 file_paths.append(os.path.join(self.current_local_path, it.text(0)))
-
         if not file_paths:
             QtWidgets.QMessageBox.information(self, "Info", "Keine Dateien ausgewählt.")
             return
-
         progress_dlg = TransferProgressDialog("Uploading...", parent=self)
         progress_dlg.set_file_count(len(file_paths))
         progress_dlg.show()
-
         try:
             for i, local_path in enumerate(file_paths, start=1):
                 if progress_dlg.canceled:
                     break
                 base_name = os.path.basename(local_path)
                 remote_file_path = self._join_remote(self.current_remote_path, base_name)
-                remote_dir = os.path.dirname(remote_file_path)
-
                 qitem = self.queue_add("UPLOAD", local_path, remote_file_path)
                 self.queue_update(qitem, status="Running", progress=0)
-
                 progress_dlg.set_current_file(local_path, i)
                 self.append_status(f"Upload gestartet: {local_path} → {remote_file_path}")
-
-                success = False
+                callback = (lambda p, qi=qitem: (self.queue_update(qi, progress=p),
+                                                 QtWidgets.QApplication.processEvents()))
                 try:
-                    callback = (lambda p, qi=qitem: (self.queue_update(qi, progress=p),
-                                                     QtWidgets.QApplication.processEvents()))
                     if self.ftp.ftp_protocol == "ftp":
-                        self.ftp.upload_file(local_path, remote_dir, progress_callback=callback)
+                        self.ftp.upload_file(local_path, os.path.dirname(remote_file_path), progress_callback=callback)
                     else:
-                        self.queue_update(qitem, progress=None)  # „–“
-                        self.ftp.upload_file(local_path, remote_dir)
-
-                    success = self._verify_and_fix_upload(
-                        local_path, remote_dir, base_name, qitem
-                    )
-                except Exception as e:
-                    self.append_status(f"Upload Fehler: {e}")
-                    emsg = str(e)
-                    if "426" in emsg or "timed out" in emsg.lower():
-                        try:
-                            self.ftp.disconnect()
-                        except Exception:
-                            pass
-                        time.sleep(0.5)
-                        self.ftp.connect()
-                        try:
-                            if self.ftp.ftp_protocol == "ftp":
-                                self.ftp.upload_file(local_path, remote_dir, progress_callback=callback)
-                            else:
-                                self.queue_update(qitem, progress=None)
-                                self.ftp.upload_file(local_path, remote_dir)
-                            success = self._verify_and_fix_upload(
-                                local_path, remote_dir, base_name, qitem
-                            )
-                        except Exception as e2:
-                            self.append_status(f"Upload (Reconnect) erneut fehlgeschlagen: {e2}")
-                            success = False
-                    else:
-                        success = False
-
-                if success:
+                        self.queue_update(qitem, progress=None)
+                        self.ftp.upload_file(local_path, os.path.dirname(remote_file_path))
                     self.queue_update(qitem, status="SUCCESS", progress=100, finished=True)
                     self.append_status(f"Upload fertig: {remote_file_path}")
-                else:
-                    self.queue_update(qitem, status="FAILED", error="Upload unvollständig/fehlgeschlagen",
-                                      finished=True)
+                except Exception as e:
+                    self.queue_update(qitem, status="FAILED", error=str(e), finished=True)
+                    self.append_status(f"Upload Fehler: {e}")
                     traceback.print_exc()
         finally:
             progress_dlg.close()
-
         self.refresh_remote()
 
     def download_selected(self):
         if not self.ftp or not self.ftp.conn:
             QtWidgets.QMessageBox.information(self, "Info", "Keine Verbindung.")
             return
-
         local_root = self.current_local_path
         if not os.path.isdir(local_root) or not os.access(local_root, os.W_OK):
             local_root = QtCore.QDir.homePath()
-
         items = self.remote_files.selectedItems()
         if not items:
             QtWidgets.QMessageBox.information(self, "Info", "Keine Dateien/Ordner ausgewählt.")
             return
-
         file_names = [it.text(0) for it in items if it.text(3) != "Folder"]
         if not file_names:
             QtWidgets.QMessageBox.information(self, "Info", "Keine Dateien ausgewählt.")
             return
-
         progress_dlg = TransferProgressDialog("Downloading...", parent=self)
         progress_dlg.setFileMode = None
         progress_dlg.set_file_count(len(file_names))
         progress_dlg.show()
-
         try:
             for i, fname in enumerate(file_names, start=1):
                 remote_path = self._join_remote(self.current_remote_path, fname)
                 local_file = os.path.join(local_root, fname)
-
                 if os.path.exists(local_file):
                     action = self.ask_file_conflict_action(fname, "local")
                     if action == "cancel":
@@ -1261,13 +1094,10 @@ class FtpTransferWidget(QtWidgets.QWidget):
                             ver += 1
                             new_name = f"{root}_v{ver}{ext}"
                         local_file = os.path.join(local_root, new_name)
-
                 qitem = self.queue_add("DOWNLOAD", fname, local_file)
                 self.queue_update(qitem, status="Running", progress=0)
-
                 progress_dlg.set_current_file(remote_path, i)
                 self.append_status(f"Download gestartet: {remote_path} → {local_file}")
-
                 try:
                     self.ftp.download_file(remote_path, os.path.dirname(local_file))
                     self.queue_update(qitem, status="SUCCESS", progress=100, finished=True)
@@ -1278,12 +1108,9 @@ class FtpTransferWidget(QtWidgets.QWidget):
                     traceback.print_exc()
         finally:
             progress_dlg.close()
-
         self.populate_local_files(self.current_local_path)
 
-    # ----------------------------------------
-    # Dateikonflikt-Dialog
-    # ----------------------------------------
+    # ---- Konflikt-Dialog
     def ask_file_conflict_action(self, filename, location="local"):
         msg = QtWidgets.QMessageBox(self)
         msg.setWindowTitle("Datei existiert")
@@ -1299,9 +1126,7 @@ class FtpTransferWidget(QtWidgets.QWidget):
         else:
             return "cancel"
 
-    # ----------------------------------------
-    # SAVE SETTINGS
-    # ----------------------------------------
+    # ---- SAVE SETTINGS
     def save_settings_slot(self):
         self.settings["ftp_protocol"] = self.protocol_combo.currentText()
         self.settings["ftp_host"] = self.host_edit.text().strip()
@@ -1314,12 +1139,24 @@ class FtpTransferWidget(QtWidgets.QWidget):
         self.settings["versioning_mode"] = self.version_combo.currentText()
         save_settings(self.settings)
 
+        self.smtp_settings["enabled"] = self.smtp_enabled_check.isChecked()
+        self.smtp_settings["host"] = self.smtp_host_edit.text().strip()
+        self.smtp_settings["port"] = self.smtp_port_spin.value()
+        self.smtp_settings["user"] = self.smtp_user_edit.text().strip()
+        self.smtp_settings["notify_email"] = self.notify_email_edit.text().strip()
+        save_smtp_settings(self.smtp_settings)
+
         user = self.user_edit.text().strip()
         pw = self.pass_edit.text().strip()
         if pw and user:
             keyring.set_password("PRisM-FTP", user, pw)
 
-        QtWidgets.QMessageBox.information(self, "Saved", "FTP-Einstellungen gespeichert.")
+        smtp_user = self.smtp_user_edit.text().strip()
+        smtp_pass = self.smtp_pass_edit.text().strip()
+        if smtp_pass and smtp_user:
+            keyring.set_password("PRisM-SMTP", smtp_user, smtp_pass)
+
+        QtWidgets.QMessageBox.information(self, "Saved", "FTP- und SMTP-Einstellungen gespeichert.")
 
     def closeEvent(self, event: QtGui.QCloseEvent):
         if self.ftp:
