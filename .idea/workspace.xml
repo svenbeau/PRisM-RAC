@@ -4,8 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Mailermodul ändern">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="SMPT Einstellung umziehen">
+      <change afterPath="$PROJECT_DIR$/utils/helpers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/ftp_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ftp_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -99,14 +102,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00035" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741519028690</created>
-      <option name="number" value="00035" />
-      <option name="presentableId" value="LOCAL-00035" />
-      <option name="project" value="LOCAL" />
-      <updated>1741519028690</updated>
     </task>
     <task id="LOCAL-00036" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
@@ -492,7 +487,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759049578058</updated>
     </task>
-    <option name="localTasksCounter" value="84" />
+    <task id="LOCAL-00084" summary="SMPT Einstellung umziehen">
+      <option name="closed" value="true" />
+      <created>1759063525376</created>
+      <option name="number" value="00084" />
+      <option name="presentableId" value="LOCAL-00084" />
+      <option name="project" value="LOCAL" />
+      <updated>1759063525376</updated>
+    </task>
+    <option name="localTasksCounter" value="85" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -516,6 +519,7 @@
     <MESSAGE value="FTP-Fehler Servermanager behoben" />
     <MESSAGE value="FTP-Widget Ordneransicht neu, Drag&amp;Drop" />
     <MESSAGE value="Mailermodul ändern" />
-    <option name="LAST_COMMIT_MESSAGE" value="Mailermodul ändern" />
+    <MESSAGE value="SMPT Einstellung umziehen" />
+    <option name="LAST_COMMIT_MESSAGE" value="SMPT Einstellung umziehen" />
   </component>
 </project>
