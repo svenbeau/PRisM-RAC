@@ -4,14 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Transferplan Check">
-      <change afterPath="$PROJECT_DIR$/processors/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/processors/contentcheck_runner.py" afterDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Contentcheck funktioniert besser">
+      <change afterPath="$PROJECT_DIR$/test/test_dynamic_jsx_recipe_injector.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/dynamic_jsx.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/dynamic_jsx_recipe_injector.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/script_recipe_loader.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -105,14 +105,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00037" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741532802207</created>
-      <option name="number" value="00037" />
-      <option name="presentableId" value="LOCAL-00037" />
-      <option name="project" value="LOCAL" />
-      <updated>1741532802207</updated>
     </task>
     <task id="LOCAL-00038" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
@@ -498,7 +490,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759402073510</updated>
     </task>
-    <option name="localTasksCounter" value="86" />
+    <task id="LOCAL-00086" summary="Contentcheck funktioniert besser">
+      <option name="closed" value="true" />
+      <created>1759421588339</created>
+      <option name="number" value="00086" />
+      <option name="presentableId" value="LOCAL-00086" />
+      <option name="project" value="LOCAL" />
+      <updated>1759421588339</updated>
+    </task>
+    <option name="localTasksCounter" value="87" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -524,6 +524,7 @@
     <MESSAGE value="Mailermodul ändern" />
     <MESSAGE value="SMPT Einstellung umziehen" />
     <MESSAGE value="FTP-Upload stabiler bei Abbrüchen" />
-    <option name="LAST_COMMIT_MESSAGE" value="FTP-Upload stabiler bei Abbrüchen" />
+    <MESSAGE value="Contentcheck funktioniert besser" />
+    <option name="LAST_COMMIT_MESSAGE" value="Contentcheck funktioniert besser" />
   </component>
 </project>

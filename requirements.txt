@@ -12,4 +12,7 @@ pyinstaller
 keyring
 ## PyQt6>=6.4.0 pip uninstall PyQt6
 
+# Test dependencies
+pytest>=7.0.0
+
 ##pip install -r requirements.txt

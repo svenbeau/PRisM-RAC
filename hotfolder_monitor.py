@@ -6,6 +6,7 @@ import time
 import threading
 import json
 from datetime import datetime
+from typing import Optional
 
 from utils.utils import (
     debug_print,
@@ -17,10 +18,120 @@ from utils.utils import (
 )
 from utils.contentcheck_email_notifier import send_fail_email_from_content
 
-# WEG A: zentralen Generator nutzen
+# WEG A: zentralen Generator (Contentcheck) nutzen
 from dynamic_jsx_generator import create_temp_jsx_with_config
 
+# WEG B: zentralen Recipe-Injektor (für Produktions-JSX) nutzen
+from utils.dynamic_jsx_recipe_injector import create_temp_jsx_with_recipe
+
 IDLE_THRESHOLD = 60  # Sekunden Inaktivität bis zum Idle-Zustand
+
+# Pfade für Script-Recipe-Config im User Application Support (wird von Tests gemonkeypatched)
+APP_SUPPORT_DIR = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "PRisM-CC")
+# FIX: Die Config liegt im Unterordner "config/script_config.json"
+APP_SUPPORT_SCRIPT_CONFIG = os.path.join(APP_SUPPORT_DIR, "config", "script_config.json")
+
+
+def _load_script_config() -> Optional[dict]:
+    """
+    Lädt die zentrale Script-Recipe-Konfiguration.
+    Gibt ein dict zurück oder None bei Fehler / nicht vorhanden.
+    """
+    try:
+        if not os.path.exists(APP_SUPPORT_SCRIPT_CONFIG):
+            debug_print(f"Script config not found: {APP_SUPPORT_SCRIPT_CONFIG}")
+            return None
+        with open(APP_SUPPORT_SCRIPT_CONFIG, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except Exception as e:
+        debug_print(f"Error reading script config {APP_SUPPORT_SCRIPT_CONFIG}: {e}")
+        return None
+
+
+def _find_recipe_for_script(script_path: str) -> Optional[dict]:
+    """
+    Sucht im Script-Config nach dem passenden Recipe für ein gegebenes JSX-Skript.
+    Matching-Regeln:
+      1) Pfad-normalisiert (case-insensitive, / vs \\) – enthält / ist enthalten
+      2) Fallback: Basename (Dateiname) identisch
+    Rückgabe: Recipe-Dict oder None.
+    """
+    cfg = _load_script_config()
+    if not cfg:
+        return None
+
+    scripts = cfg.get("scripts", [])
+    if not isinstance(scripts, list):
+        return None
+
+    # Normalisieren
+    sp_norm = script_path.replace("\\", "/").lower()
+    sp_name = os.path.basename(sp_norm)
+
+    # 1) Pfad-Containment
+    for entry in scripts:
+        try:
+            ep = str(entry.get("script_path", "")).replace("\\", "/").lower()
+            if not ep:
+                continue
+            if sp_norm in ep or ep in sp_norm:
+                return entry
+        except Exception:
+            continue
+
+    # 2) Fallback: Basename
+    for entry in scripts:
+        try:
+            ep = str(entry.get("script_path", "")).replace("\\", "/").lower()
+            if not ep:
+                continue
+            if os.path.basename(ep) == sp_name:
+                return entry
+        except Exception:
+            continue
+
+    return None
+
+
+def _run_jsx_with_recipe_injection(script_path: str, *, debug_output: bool = False) -> bool:
+    """
+    Führt ein Produktions-JSX aus. Falls ein passendes Recipe in script_config.json
+    gefunden wird, wird zuerst eine temporäre, injizierte JSX erstellt und diese ausgeführt.
+    Fallback: direktes Ausführen von script_path.
+    """
+    try:
+        recipe = _find_recipe_for_script(script_path)
+        if recipe:
+            debug_print(f"[RecipeInjector] Recipe gefunden für {script_path}: "
+                        f"name={recipe.get('name','(no-name)')}")
+            # Neu: explizit loggen, welche CSV injiziert wird (falls vorhanden)
+            if 'csvWandFile' in recipe:
+                debug_print(f"[RecipeInjector] Using csvWandFile={recipe.get('csvWandFile')}")
+            tmp_jsx = create_temp_jsx_with_recipe(
+                recipe=recipe,
+                base_jsx_path=script_path,
+                extra=None,
+                debug_output=debug_output,
+            )
+            if tmp_jsx:
+                try:
+                    ok = run_jsx_in_photoshop(tmp_jsx)
+                    return ok
+                finally:
+                    try:
+                        os.remove(tmp_jsx)
+                    except Exception as e:
+                        debug_print(f"[RecipeInjector] Konnte Temp-JSX nicht löschen: {tmp_jsx} ({e})")
+            else:
+                debug_print(f"[RecipeInjector] Erzeugen der temporären JSX fehlgeschlagen für: {script_path}")
+        else:
+            debug_print(f"[RecipeInjector] Kein Recipe gefunden für {script_path}. Fallback auf Direktaufruf.")
+    except Exception as e:
+        debug_print(f"[RecipeInjector] Fehler bei der Injektion für {script_path}: {e}")
+
+    # Fallback: direkt ausführen
+    return run_jsx_in_photoshop(script_path)
 
 
 def is_hidden(file_path: str) -> bool:
@@ -136,17 +247,20 @@ def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=N
             dest_dir = success_dir
             debug_print("Contentcheck OK: Datei -> Success")
 
-            # optionale Folgeskripte
+            # Produktions-JSX: jetzt mit automatischer Recipe-Injektion
             selected_jsx = hf_config.get("selected_jsx", "")
             additional_jsx = hf_config.get("additional_jsx", "")
+
             if selected_jsx:
-                debug_print(f"Running selected JSX script: {selected_jsx}")
-                if not run_jsx_in_photoshop(selected_jsx):
+                debug_print(f"Running selected JSX script (with optional recipe injection): {selected_jsx}")
+                if not _run_jsx_with_recipe_injection(selected_jsx, debug_output=False):
                     debug_print(f"Failed to execute selected_jsx: {selected_jsx}")
+
             if additional_jsx:
-                debug_print(f"Running additional JSX script: {additional_jsx}")
-                if not run_jsx_in_photoshop(additional_jsx):
+                debug_print(f"Running additional JSX script (with optional recipe injection): {additional_jsx}")
+                if not _run_jsx_with_recipe_injection(additional_jsx, debug_output=False):
                     debug_print(f"Failed to execute additional_jsx: {additional_jsx}")
+
         else:
             dest_dir = fault_dir
             debug_print("Contentcheck FAIL: Datei -> Fault")
