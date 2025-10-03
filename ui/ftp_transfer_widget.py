@@ -5,7 +5,7 @@ import os
 import subprocess
 import traceback
 import keyring
-from datetime import datetime
+from datetime import datetime, timedelta
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from utils.config_manager import (
@@ -18,6 +18,7 @@ from utils.config_manager import (
 )
 from utils.ftp_manager import FTPManager
 from ui.ftp_server_manager_dialog import FtpServerManagerDialog
+from utils.transfer_plan_config_manager import TransferPlanConfigManager  # ← NEU
 
 
 class TransferProgressDialog(QtWidgets.QDialog):
@@ -165,6 +166,14 @@ class FtpTransferWidget(QtWidgets.QWidget):
 
         debug_print("FtpTransferWidget: __init__()")
         self.init_ui()
+
+        # ------------------------------------------------------------------
+        # NEU: Scheduler-Timer (für Transfer-Pläne)
+        # ------------------------------------------------------------------
+        self.plan_timer = QtCore.QTimer(self)
+        self.plan_timer.setInterval(10000)  # alle 10s prüfen
+        self.plan_timer.timeout.connect(self._check_scheduled_transfers)
+        self.plan_timer.start()
 
     # ----------------------------------------------------------------------
     # UI
@@ -1238,3 +1247,197 @@ class FtpTransferWidget(QtWidgets.QWidget):
         if self.ftp:
             self.ftp.disconnect()
         super().closeEvent(event)
+
+    # ======================================================================
+    #                               SCHEDULER
+    # ======================================================================
+    def _parse_plan_datetime(self, dt_str: str):
+        """Erwartetes Format: 'YYYY-MM-DD HH:MM' (wie im JSON)."""
+        try:
+            return datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
+        except Exception:
+            return None
+
+    def _check_scheduled_transfers(self):
+        """Prüft regelmäßig auf fällige Pläne in transfer_plans.json."""
+        try:
+            mgr = TransferPlanConfigManager()
+            plans = mgr.get_plans()
+        except Exception as e:
+            debug_print(f"[Scheduler] Konnte Pläne nicht laden: {e}")
+            return
+
+        now = datetime.now()
+        window = timedelta(seconds=60)  # Triggerfenster ±60s
+
+        for plan in plans:
+            schedule_type = plan.get("schedule_type", "once")
+            dt = self._parse_plan_datetime(plan.get("schedule_time", ""))
+            if not dt:
+                continue
+
+            # once schon erledigt?
+            if schedule_type == "once" and plan.get("completed_once_at"):
+                continue
+
+            # Schon in diesem Fenster gelaufen?
+            last_run = plan.get("last_run")
+            if last_run:
+                try:
+                    lr = datetime.fromisoformat(last_run)
+                    if abs(now - lr) < window:
+                        continue
+                except Exception:
+                    pass
+
+            due = False
+            if schedule_type == "once":
+                due = abs(now - dt) <= window
+            elif schedule_type == "daily":
+                # gleiche Uhrzeit (± Fenster)
+                tnow = now.replace(second=0, microsecond=0)
+                tplan = now.replace(hour=dt.hour, minute=dt.minute, second=0, microsecond=0)
+                due = abs(tnow - tplan) <= window
+            elif schedule_type == "weekly":
+                tnow = now.replace(second=0, microsecond=0)
+                tplan = now.replace(hour=dt.hour, minute=dt.minute, second=0, microsecond=0)
+                due = (now.weekday() == dt.weekday()) and (abs(tnow - tplan) <= window)
+            else:
+                # unbekannt → ignoriere
+                continue
+
+            if not due:
+                continue
+
+            self.append_status(f"[Scheduler] Trigger für Plan '{plan.get('name','')}' ({schedule_type})")
+            try:
+                self._run_plan(plan)
+                plan["last_run"] = now.isoformat(timespec="seconds")
+                if schedule_type == "once":
+                    plan["completed_once_at"] = plan["last_run"]
+                # speichern
+                mgr.update_plan(plan.get("id"), plan)
+            except Exception as e:
+                self.append_status(f"[Scheduler] Fehler beim Ausführen: {e}")
+
+    def _run_plan(self, plan: dict):
+        """Ausführung eines Plans:
+           - use_ftp=True  → Upload ganzer Quellordner zum Zielpfad (FTP/SFTP)
+           - use_ftp=False → Lokales Mirror-Kopieren
+        Beachtet 'move_after' (falls gesetzt).
+        """
+        src = plan.get("source_path") or ""
+        if not src or not os.path.isdir(src):
+            raise RuntimeError(f"Quelle existiert nicht: {src}")
+
+        move_after = (plan.get("move_after") or "").strip()
+        use_ftp = bool(plan.get("use_ftp", False))
+
+        if use_ftp:
+            # Server anhand Name laden
+            server_name = plan.get("ftp_server", "")
+            servers = load_ftp_servers()
+            srv = next((s for s in servers if s.get("name") == server_name), None)
+            if not srv:
+                raise RuntimeError(f"FTP-Server '{server_name}' nicht gefunden.")
+
+            ftp = FTPManager()
+            ftp.ftp_protocol = srv.get("protocol", "ftp")
+            ftp.host = srv.get("host", "")
+            ftp.user = srv.get("user", "")
+            ftp.port = srv.get("port", 21 if ftp.ftp_protocol == "ftp" else 22)
+
+            # optionale Plan-Settings
+            ftp.keep_timestamp = plan.get("keep_timestamp", False)
+            ftp.versioning_mode = plan.get("versioning_mode", "mirror")
+
+            target_path = plan.get("target_path") or "/"
+            if not target_path.startswith("/"):
+                target_path = "/" + target_path
+
+            try:
+                ftp.connect()
+                self.append_status(f"[Scheduler] Verbunden zu {ftp.user}@{ftp.host}:{ftp.port} ({ftp.ftp_protocol})")
+                self._upload_folder_via_manager(ftp, src, target_path)
+                self.append_status("[Scheduler] Upload abgeschlossen.")
+            finally:
+                try:
+                    ftp.disconnect()
+                except Exception:
+                    pass
+        else:
+            target_path = plan.get("target_path") or ""
+            if not target_path:
+                raise RuntimeError("Zielordner fehlt.")
+            self._local_mirror_copy(src, target_path)
+            self.append_status("[Scheduler] Lokale Kopie abgeschlossen.")
+
+        # Optional: move_after
+        if move_after:
+            try:
+                os.makedirs(move_after, exist_ok=True)
+                for root, dirs, files in os.walk(src):
+                    for f in files:
+                        sp = os.path.join(root, f)
+                        dest = os.path.join(move_after, f)
+                        # bei Kollisionen Suffix
+                        if os.path.exists(dest):
+                            base, ext = os.path.splitext(f)
+                            ver = 2
+                            new_name = f"{base}_v{ver}{ext}"
+                            while os.path.exists(os.path.join(move_after, new_name)):
+                                ver += 1
+                                new_name = f"{base}_v{ver}{ext}"
+                            dest = os.path.join(move_after, new_name)
+                        try:
+                            from shutil import move
+                            move(sp, dest)
+                        except Exception as e:
+                            self.append_status(f"[Scheduler] Move-Fehler '{sp}' → '{dest}': {e}")
+            except Exception as e:
+                self.append_status(f"[Scheduler] Move-After Fehler: {e}")
+
+    # --- Helper: kompletten Ordner via FTPManager hochladen (mirror) ---
+    def _upload_folder_via_manager(self, ftp: FTPManager, local_root: str, remote_root: str):
+        """Läuft rekursiv durch local_root und lädt Dateien in remote_root hoch.
+        Erzeugt fehlende Remote-Ordner bei Bedarf.
+        """
+        # Ziel-Root sicherstellen
+        try:
+            ftp.mkdir_remote(remote_root)
+        except Exception:
+            pass  # existiert vermutlich schon
+
+        for root, dirs, files in os.walk(local_root):
+            rel = os.path.relpath(root, local_root)
+            remote_dir = remote_root if rel == "." else self._join_remote(remote_root, rel.replace("\\", "/"))
+            try:
+                ftp.mkdir_remote(remote_dir)
+            except Exception:
+                pass
+            for f in files:
+                lp = os.path.join(root, f)
+                try:
+                    if ftp.ftp_protocol == "ftp":
+                        ftp.upload_file(lp, remote_dir, progress_callback=None)
+                    else:
+                        ftp.upload_file(lp, remote_dir)
+                    self.append_status(f"[Scheduler] ↑ {lp} → {remote_dir}/{f}")
+                except Exception as e:
+                    self.append_status(f"[Scheduler] Upload-Fehler {lp}: {e}")
+
+    # --- Helper: lokale Spiegelkopie ---
+    def _local_mirror_copy(self, src: str, dst: str):
+        os.makedirs(dst, exist_ok=True)
+        from shutil import copy2
+        for root, dirs, files in os.walk(src):
+            rel = os.path.relpath(root, src)
+            out_dir = dst if rel == "." else os.path.join(dst, rel)
+            os.makedirs(out_dir, exist_ok=True)
+            for f in files:
+                sp = os.path.join(root, f)
+                try:
+                    copy2(sp, out_dir)
+                    self.append_status(f"[Scheduler] kopiert: {sp} → {out_dir}")
+                except Exception as e:
+                    self.append_status(f"[Scheduler] Kopierfehler {sp}: {e}")

@@ -9,8 +9,7 @@ import smtplib
 import platform
 import json
 from datetime import datetime
-from typing import List
-from pathlib import Path
+from typing import List, Callable, Any
 
 try:
     import pync  # Für macOS-Notification
@@ -35,9 +34,26 @@ class TransferError(Exception):
     """Eigene Exception für FTP-/SFTP-Fehler."""
     pass
 
+
+def _is_transient_ftp_error(e: Exception) -> bool:
+    """
+    Erkennung temporärer Fehler, bei denen ein Reconnect + Retry sinnvoll ist.
+    """
+    msg = str(e).lower()
+    return (
+        isinstance(e, (ftplib.error_temp, ftplib.error_reply, OSError, ConnectionError))
+        or "timeout" in msg
+        or "timed out" in msg
+        or "broken pipe" in msg
+        or "connection reset" in msg
+        or "not connected" in msg
+        or "closed" in msg
+    )
+
+
 class FTPManager:
     """
-    Kapselt alle FTP-/SFTP-Funktionen (unverändert + Owner-Erweiterung):
+    Kapselt alle FTP-/SFTP-Funktionen (Auto-Reconnect & Retry ergänzt):
       - Verbindung aufbauen (FTP oder SFTP)
       - Dateien hoch-/runterladen
       - Versionierung: mirror/suffix
@@ -46,14 +62,12 @@ class FTPManager:
       - Timestamp-Erhaltung optional
       - Remote-Verzeichnis erstellen
       - Remote Dateimanagement
-      - list_directory() liefert jetzt Tupel mit 4 oder 5 Feldern:
-            (name, is_dir, size, mod_time_str[, owner])
-        => Owner ist optional und kann leer sein.
+      - list_directory() liefert Tupel (name, is_dir, size, mod_time_str[, owner])
     """
 
     def __init__(self):
         self.settings = load_settings()
-        self.ftp_protocol = self.settings.get("ftp_protocol", "ftp")  # "ftp" oder "sftp"
+        self.ftp_protocol = self.settings.get("ftp_protocol", "ftp")  # "ftp" | "sftp"
         self.host = self.settings.get("ftp_host", "")
         self.user = self.settings.get("ftp_user", "")
         self.password = None
@@ -71,10 +85,14 @@ class FTPManager:
 
         self.conn = None
 
-    # --- Passwortauflösung: bevorzugt explizit gesetztes Passwort, sonst Keyring ---
+        # Retry-Parameter (per settings überschreibbar)
+        self.max_retries = int(self.settings.get("ftp_max_retries", 3))
+        self.retry_sleep_sec = float(self.settings.get("ftp_retry_sleep_sec", 2.0))
+
+    # --- Passwortauflösung ---
     def _resolve_password(self):
         """Setzt self.password, falls noch leer: zuerst expliziter Wert, dann Keyring."""
-        if self.password:  # bereits gesetzt (z. B. aus der UI)
+        if self.password:
             return
         if not self.user:
             raise TransferError("Kein FTP-Benutzername definiert.")
@@ -112,9 +130,12 @@ class FTPManager:
         if self.conn:
             try:
                 if self.ftp_protocol == "ftp":
+                    try:
+                        self.conn.voidcmd("NOOP")
+                    except Exception:
+                        pass
                     self.conn.quit()
                 else:
-                    # Paramiko SFTPClient
                     try:
                         self.conn.get_channel().close()
                     except Exception:
@@ -125,11 +146,36 @@ class FTPManager:
             self.conn = None
             debug_print("Verbindung geschlossen.")
 
-    def ensure_remote_directory(self, remote_dir):
-        if self.ftp_protocol == "ftp":
+    # ---------- interner Retry-Wrapper ----------
+    def _retry_op(self, label: str, fn: Callable[[], Any]) -> Any:
+        """
+        Führt fn() mit Auto-Reconnect + Retry aus, wenn transienter Fehler auftritt.
+        """
+        attempt = 0
+        while True:
+            attempt += 1
             try:
-                self.conn.cwd(remote_dir)
-            except ftplib.error_perm:
+                return fn()
+            except Exception as e:
+                if not _is_transient_ftp_error(e) or attempt >= self.max_retries:
+                    debug_print(f"[{label}] Fehler (final): {e}")
+                    raise
+                debug_print(f"[{label}] transienter Fehler: {e} — Versuch {attempt}/{self.max_retries}, Reconnect…")
+                try:
+                    self.disconnect()
+                finally:
+                    time.sleep(self.retry_sleep_sec)
+                    self.connect()
+                time.sleep(self.retry_sleep_sec)
+
+    def ensure_remote_directory(self, remote_dir):
+        def _impl():
+            if self.ftp_protocol == "ftp":
+                try:
+                    self.conn.cwd(remote_dir)
+                    return
+                except ftplib.error_perm:
+                    pass
                 dirs = remote_dir.strip("/").split("/")
                 cwd = ""
                 for d in dirs:
@@ -137,14 +183,13 @@ class FTPManager:
                     try:
                         self.conn.cwd(cwd)
                     except ftplib.error_perm:
-                        try:
-                            self.conn.mkd(cwd)
-                        except Exception as e:
-                            debug_print(f"Fehler beim Erstellen des Ordners {cwd}: {e}")
-        else:
-            try:
-                self.conn.chdir(remote_dir)
-            except IOError:
+                        self.conn.mkd(cwd)
+            else:
+                try:
+                    self.conn.chdir(remote_dir)
+                    return
+                except IOError:
+                    pass
                 dirs = remote_dir.strip("/").split("/")
                 cwd = ""
                 for d in dirs:
@@ -153,55 +198,70 @@ class FTPManager:
                         self.conn.chdir(cwd)
                     except IOError:
                         self.conn.mkdir(cwd)
+        return self._retry_op("ensure_remote_directory", _impl)
 
     def _upload_file_ftp(self, local_path, remote_path, progress_callback=None):
         file_size = os.path.getsize(local_path)
         uploaded = 0
         chunk_size = 8192
-        with open(local_path, "rb") as f:
-            def callback(data):
-                nonlocal uploaded
-                uploaded += len(data)
-                if progress_callback:
-                    percent = int((uploaded / file_size) * 100) if file_size > 0 else 100
-                    progress_callback(percent)
-            self.conn.storbinary(f"STOR {remote_path}", f, blocksize=chunk_size, callback=callback)
-        if self.keep_timestamp:
-            modtime = time.strftime("%Y%m%d%H%M%S", time.localtime(os.path.getmtime(local_path)))
-            try:
-                self.conn.sendcmd(f"MFMT {modtime} {remote_path}")
-            except Exception:
-                pass
+
+        def _impl():
+            nonlocal uploaded
+            with open(local_path, "rb") as f:
+                def callback(data):
+                    nonlocal uploaded
+                    uploaded += len(data)
+                    if progress_callback:
+                        percent = int((uploaded / file_size) * 100) if file_size > 0 else 100
+                        progress_callback(percent)
+                self.conn.storbinary(f"STOR {remote_path}", f, blocksize=chunk_size, callback=callback)
+            if self.keep_timestamp:
+                modtime = time.strftime("%Y%m%d%H%M%S", time.localtime(os.path.getmtime(local_path)))
+                try:
+                    self.conn.sendcmd(f"MFMT {modtime} {remote_path}")
+                except Exception:
+                    pass
+
+        self._retry_op(f"upload_file_ftp:{remote_path}", _impl)
 
     def _upload_file_sftp(self, local_path, remote_path):
-        sftp = self.conn
-        sftp.put(local_path, remote_path)
-        if self.keep_timestamp:
-            atime = os.path.getatime(local_path)
-            mtime = os.path.getmtime(local_path)
-            sftp.utime(remote_path, (atime, mtime))
+        def _impl():
+            sftp = self.conn
+            sftp.put(local_path, remote_path)
+            if self.keep_timestamp:
+                atime = os.path.getatime(local_path)
+                mtime = os.path.getmtime(local_path)
+                sftp.utime(remote_path, (atime, mtime))
+        self._retry_op(f"upload_file_sftp:{remote_path}", _impl)
 
     def upload_file(self, local_path, remote_dir, progress_callback=None):
         base_name = os.path.basename(local_path)
         remote_path = remote_dir.rstrip("/") + "/" + base_name
-        try:
-            existing_files = self.list_directory(remote_dir)
-            existing_names = [x[0] for x in existing_files]
-            if base_name in existing_names:
-                if self.versioning_mode == "mirror":
-                    pass
-                elif self.versioning_mode == "suffix":
-                    ver = 2
-                    root, ext = os.path.splitext(base_name)
+
+        # Versionierung prüfen (suffix)
+        def _try_list_names() -> List[str]:
+            try:
+                existing_files = self.list_directory(remote_dir)
+                return [x[0] for x in existing_files]
+            except Exception as e:
+                debug_print(f"[upload_file] Konnte Verzeichnis nicht listen (fahre fort): {e}")
+                return []
+
+        existing_names = _try_list_names()
+        if base_name in existing_names:
+            if self.versioning_mode == "mirror":
+                pass
+            elif self.versioning_mode == "suffix":
+                ver = 2
+                root, ext = os.path.splitext(base_name)
+                new_name = f"{root}_v{ver}{ext}"
+                while new_name in existing_names:
+                    ver += 1
                     new_name = f"{root}_v{ver}{ext}"
-                    while new_name in existing_names:
-                        ver += 1
-                        new_name = f"{root}_v{ver}{ext}"
-                    remote_path = remote_dir.rstrip("/") + "/" + new_name
-        except Exception:
-            pass
+                remote_path = remote_dir.rstrip("/") + "/" + new_name
 
         self.ensure_remote_directory(remote_dir)
+
         try:
             if self.ftp_protocol == "ftp":
                 self._upload_file_ftp(local_path, remote_path, progress_callback)
@@ -216,22 +276,28 @@ class FTPManager:
     def download_file(self, remote_path, local_dir):
         filename = os.path.basename(remote_path)
         local_path = os.path.join(local_dir, filename)
+
+        def _impl_ftp():
+            if hasattr(self.conn, "sock") and self.conn.sock:
+                old_timeout = self.conn.sock.gettimeout()
+                self.conn.sock.settimeout(60)
+            with open(local_path, "wb") as f:
+                self.conn.retrbinary(f"RETR {remote_path}", f.write)
+            if hasattr(self.conn, "sock") and self.conn.sock:
+                self.conn.sock.settimeout(old_timeout)
+
+        def _impl_sftp():
+            sftp = self.conn
+            sftp.get(remote_path, local_path)
+            if self.keep_timestamp:
+                attr = sftp.stat(remote_path)
+                os.utime(local_path, (attr.st_atime, attr.st_mtime))
+
         try:
             if self.ftp_protocol == "ftp":
-                if hasattr(self.conn, "sock") and self.conn.sock:
-                    old_timeout = self.conn.sock.gettimeout()
-                    self.conn.sock.settimeout(60)
-                with open(local_path, "wb") as f:
-                    self.conn.retrbinary(f"RETR {remote_path}", f.write)
-                if hasattr(self.conn, "sock") and self.conn.sock:
-                    self.conn.sock.settimeout(old_timeout)
+                self._retry_op(f"download_file_ftp:{remote_path}", _impl_ftp)
             else:
-                sftp = self.conn
-                sftp.get(remote_path, local_path)
-                if self.keep_timestamp:
-                    attr = sftp.stat(remote_path)
-                    os.utime(local_path, (attr.st_atime, attr.st_mtime))
-
+                self._retry_op(f"download_file_sftp:{remote_path}", _impl_sftp)
             self.log_transfer(remote_path, local_path, "DOWNLOAD", status="SUCCESS")
         except Exception as e:
             debug_print(f"Download fehlgeschlagen: {e}")
@@ -252,56 +318,57 @@ class FTPManager:
         """
         items = []
 
-        def parse_line(line: str):
-            # typische Unix-LIST-Zeile:
-            # drwxr-xr-x  2 owner group      4096 Sep 24 12:34  dirname
-            parts = line.split()
-            if len(parts) < 9:
-                return
-            is_dir = line.startswith("d") or parts[0].startswith("d")
-            # Owner versuchen:
-            owner = ""
+        def _impl_list():
             try:
-                owner = parts[2]
+                self.conn.cwd(remote_path)
             except Exception:
-                owner = ""
-            # Größe
-            try:
-                size = int(parts[4])
-            except Exception:
-                size = 0
-            # Datum
-            mod_time_str = f"{parts[5]} {parts[6]} {parts[7]}"
-            # Name (kann Leerzeichen enthalten → ab Index 8 joinen)
-            name = " ".join(parts[8:])
-            items.append((name, is_dir, size, mod_time_str, owner))
+                pass
 
-        try:
+            def parse_line(line: str):
+                parts = line.split()
+                if len(parts) < 9:
+                    return
+                is_dir = line.startswith("d") or parts[0].startswith("d")
+                owner = ""
+                try:
+                    owner = parts[2]
+                except Exception:
+                    owner = ""
+                try:
+                    size = int(parts[4])
+                except Exception:
+                    size = 0
+                mod_time_str = f"{parts[5]} {parts[6]} {parts[7]}"
+                name = " ".join(parts[8:])
+                items.append((name, is_dir, size, mod_time_str, owner))
             self.conn.retrlines(f"LIST {remote_path}", parse_line)
-        except Exception as e:
-            debug_print(f"LIST-Fehler auf '{remote_path}': {e}")
-            raise
+
+        self._retry_op(f"listdir_ftp:{remote_path}", _impl_list)
         return items
 
     def _listdir_sftp(self, remote_path):
         """
         Für SFTP: Owner kann ggf. als UID geliefert werden. Wir geben die UID als String aus.
         """
-        sftp = self.conn
         filelist = []
-        for f in sftp.listdir_attr(remote_path):
-            name = f.filename
-            # Ordnererkennung robust:
-            is_dir = False
-            try:
-                sftp.listdir(remote_path.rstrip("/") + "/" + name)
-                is_dir = True
-            except IOError:
+
+        def _impl():
+            sftp = self.conn
+            for f in sftp.listdir_attr(remote_path):
+                name = f.filename
+                # Ordnererkennung robust:
                 is_dir = False
-            size = getattr(f, "st_size", 0)
-            mod_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(getattr(f, "st_mtime", 0)))
-            owner = str(getattr(f, "st_uid", ""))  # UID als Fallback
-            filelist.append((name, is_dir, size, mod_time, owner))
+                try:
+                    sftp.listdir(remote_path.rstrip("/") + "/" + name)
+                    is_dir = True
+                except IOError:
+                    is_dir = False
+                size = getattr(f, "st_size", 0)
+                mod_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(getattr(f, "st_mtime", 0)))
+                owner = str(getattr(f, "st_uid", ""))  # UID als Fallback
+                filelist.append((name, is_dir, size, mod_time, owner))
+
+        self._retry_op(f"listdir_sftp:{remote_path}", _impl)
         return filelist
 
     def log_transfer(self, source, target, direction, status="SUCCESS"):
@@ -388,62 +455,46 @@ class FTPManager:
             except Exception as e:
                 debug_print(f"Fehler beim Senden der E-Mail: {e}")
 
-    # --- Remote File Management (unverändert) ---
+    # --- Remote File Management (unverändert, aber mit Retry) ---
     def mkdir_remote(self, remote_path):
-        if self.ftp_protocol == "ftp":
-            try:
+        def _impl():
+            if self.ftp_protocol == "ftp":
                 self.conn.mkd(remote_path)
-            except ftplib.error_perm as e:
-                raise TransferError(f"Fehler beim Erstellen des Ordners {remote_path}: {e}")
-        elif self.ftp_protocol == "sftp":
-            try:
+            elif self.ftp_protocol == "sftp":
                 self.conn.mkdir(remote_path)
-            except Exception as e:
-                raise TransferError(f"Fehler beim Erstellen des Ordners {remote_path}: {e}")
-        else:
-            raise TransferError("Unbekanntes Protokoll")
+            else:
+                raise TransferError("Unbekanntes Protokoll")
+        self._retry_op(f"mkdir_remote:{remote_path}", _impl)
 
     def rename_remote(self, old_path, new_path):
-        if self.ftp_protocol == "ftp":
-            try:
+        def _impl():
+            if self.ftp_protocol == "ftp":
                 self.conn.rename(old_path, new_path)
-            except ftplib.error_perm as e:
-                raise TransferError(f"Fehler beim Umbenennen von {old_path} zu {new_path}: {e}")
-        elif self.ftp_protocol == "sftp":
-            try:
+            elif self.ftp_protocol == "sftp":
                 self.conn.rename(old_path, new_path)
-            except Exception as e:
-                raise TransferError(f"Fehler beim Umbenennen von {old_path} zu {new_path}: {e}")
-        else:
-            raise TransferError("Unbekanntes Protokoll")
+            else:
+                raise TransferError("Unbekanntes Protokoll")
+        self._retry_op(f"rename_remote:{old_path}->{new_path}", _impl)
 
     def delete_remote_file(self, remote_path):
-        if self.ftp_protocol == "ftp":
-            try:
+        def _impl():
+            if self.ftp_protocol == "ftp":
                 self.conn.delete(remote_path)
-            except ftplib.error_perm as e:
-                raise TransferError(f"Fehler beim Löschen der Datei {remote_path}: {e}")
-        elif self.ftp_protocol == "sftp":
-            try:
+            elif self.ftp_protocol == "sftp":
                 self.conn.remove(remote_path)
-            except Exception as e:
-                raise TransferError(f"Fehler beim Löschen der Datei {remote_path}: {e}")
-        else:
-            raise TransferError("Unbekanntes Protokoll")
+            else:
+                raise TransferError("Unbekanntes Protokoll")
+        self._retry_op(f"delete_remote_file:{remote_path}", _impl)
 
     def delete_remote_directory(self, remote_path):
-        if self.ftp_protocol == "ftp":
-            try:
+        def _impl():
+            if self.ftp_protocol == "ftp":
                 self.conn.rmd(remote_path)
-            except ftplib.error_perm as e:
-                raise TransferError(f"Fehler beim Löschen des Ordners {remote_path}: {e}")
-        elif self.ftp_protocol == "sftp":
-            try:
+            elif self.ftp_protocol == "sftp":
                 self.conn.rmdir(remote_path)
-            except Exception as e:
-                raise TransferError(f"Fehler beim Löschen des Ordners {remote_path}: {e}")
-        else:
-            raise TransferError("Unbekanntes Protokoll")
+            else:
+                raise TransferError("Unbekanntes Protokoll")
+        self._retry_op(f"delete_remote_dir:{remote_path}", _impl)
 
     def upload_folder(self, local_folder, remote_folder):
         for root, dirs, files in os.walk(local_folder):
@@ -459,6 +510,7 @@ class FTPManager:
                 except Exception as e:
                     self.send_failure_notification(str(e))
                     raise
+
 
 if __name__ == "__main__":
     mgr = FTPManager()

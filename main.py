@@ -4,10 +4,11 @@
 import sys
 import os
 import time
+import socket
 from PySide6 import QtWidgets, QtGui, QtCore
 
 from utils.splash_screen import SplashScreen  # Import des neuen Splash-Screens
-from utils.config_manager import load_settings, save_settings, debug_print
+from utils.config_manager import load_settings, save_settings, debug_print, load_ftp_servers
 from ui.hotfolder_widget import HotfolderListWidget
 from ui.logfile_widget import LogfileWidget
 from ui.json_explorer_widget import JSONExplorerWidget
@@ -15,6 +16,12 @@ from ui.settings_widget import SettingsWidget
 from ui.ftp_transfer_widget import FtpTransferWidget
 from ui.script_recipe_list_widget import ScriptRecipeListWidget
 from ui.transfer_plan_list_widget import TransferPlanListWidget
+
+from utils.transfer_plan_config_manager import TransferPlanConfigManager
+from utils.plan_scheduler import PlanScheduler, SchedulerConfig
+
+# NEU: Cleaner
+from utils.plan_cleaner import PlanCleaner, CleanerConfig
 
 from datetime import datetime, timedelta
 
@@ -164,6 +171,83 @@ def run():
 
     # Hauptfenster erstellen
     main_window = MainWindow()
+
+    # --- Scheduler starten (unverändert, nur zur Vollständigkeit hier) -------
+    cm = TransferPlanConfigManager()
+
+    def vpn_precheck(plan: dict) -> bool:
+        if not plan.get("use_ftp"):
+            return True
+        server_name = plan.get("ftp_server", "")
+        host, port, proto = None, None, "ftp"
+        for s in load_ftp_servers():
+            if s.get("name") == server_name:
+                host = s.get("host")
+                proto = s.get("protocol", "ftp")
+                port = int(s.get("port", 21))
+                if proto == "sftp":
+                    port = 22
+                break
+        if not host or not port:
+            return False
+        try:
+            with socket.create_connection((host, port), timeout=2.5):
+                return True
+        except Exception:
+            debug_print("[Scheduler] Precheck: Server nicht erreichbar (VPN/Netz?) – überspringe Tick.")
+            return False
+
+    sched = PlanScheduler(
+        config_manager=cm,
+        precheck=vpn_precheck,
+        config=SchedulerConfig(
+            scan_interval_ms=30_000,
+            once_guard_window_s=90,
+            retry_count=1,
+            retry_backoff_s=5,
+            connect_timeout_s=20,
+        ),
+    )
+    sched.sig_log.connect(lambda msg: debug_print(msg))
+    sched.sig_plan_started.connect(lambda pid, name: debug_print(f"[Scheduler] Start: {name} ({pid})"))
+    sched.sig_plan_finished.connect(
+        lambda pid, ok, msg: debug_print(f"[Scheduler] Ende ({'OK' if ok else 'FAIL'}): {pid} – {msg}")
+    )
+    sched.start()
+    main_window.scheduler = sched
+    # -------------------------------------------------------------------------
+
+    # --- NEU: Cleaner starten -----------------------------------------------
+    cleaner = PlanCleaner(
+        config_manager=cm,
+        config=CleanerConfig(
+            interval_ms=10 * 60 * 1000,  # alle 10 Minuten prüfen
+            remove_empty_dirs=True,
+            follow_symlinks=False,
+            dry_run=False,
+        ),
+    )
+    cleaner.sig_log.connect(lambda msg: debug_print(msg))
+    cleaner.sig_error.connect(lambda msg: debug_print(msg))
+    cleaner.sig_deleted.connect(lambda path: debug_print(f"[Cleaner] Gelöscht: {path}"))
+    cleaner.start()
+    main_window.cleaner = cleaner
+
+    # Beim Beenden Threads sauber stoppen
+    def _graceful_shutdown():
+        try:
+            if hasattr(main_window, "scheduler") and main_window.scheduler is not None:
+                main_window.scheduler.stop(wait=True)
+        except Exception:
+            pass
+        try:
+            if hasattr(main_window, "cleaner") and main_window.cleaner is not None:
+                main_window.cleaner.stop(wait=True)
+        except Exception:
+            pass
+
+    app.aboutToQuit.connect(_graceful_shutdown)
+    # -------------------------------------------------------------------------
 
     # Splash-Screen wird nach 2 Sekunden automatisch ausgeblendet
     splash.finish(main_window)

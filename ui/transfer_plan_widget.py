@@ -12,7 +12,7 @@ def resource_path(relative_path):
     """Gibt den absoluten Pfad zur Ressource zurück – funktioniert im Entwicklungsmodus und im PyInstaller-Bundle."""
     try:
         # Wenn wir per PyInstaller laufen:
-        base_path = sys._MEIPASS
+        base_path = sys._MEIPASS  # type: ignore[attr-defined]
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
@@ -140,11 +140,38 @@ class TransferPlanWidget(QtWidgets.QFrame):
         mgr.update_plan(self.plan_data["id"], self.plan_data)
 
     def on_edit(self):
-        dlg = TransferPlanDialog(self.plan_data, parent=self)
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+        """
+        Öffnet den Dialog robust gegen unterschiedliche __init__-Signaturen:
+          1) bevorzugt: TransferPlanDialog(plan_data, parent=self)
+          2) Fallback : TransferPlanDialog(plan_data, None, self)  # alter manager-Parameter
+        Zusätzlich kompatibel zu PySide6/PyQt: exec_() ODER exec()
+        """
+        # 1) Konstruktor ohne manager
+        try:
+            dlg = TransferPlanDialog(self.plan_data, parent=self)
+        except TypeError as e:
+            debug_print(f"[TransferPlanWidget] Dialog-Init ohne manager fehlgeschlagen: {e} -> Fallback mit manager=None")
+            try:
+                # 2) Fallback: mit manager=None (positionale Übergabe, damit parent korrekt zugeordnet wird)
+                dlg = TransferPlanDialog(self.plan_data, None, self)
+            except TypeError as e2:
+                debug_print(f"[TransferPlanWidget] Dialog-Init mit manager=None fehlgeschlagen: {e2}")
+                QtWidgets.QMessageBox.critical(self, "Fehler", f"Dialog konnte nicht geöffnet werden:\n{e2}")
+                return
+
+        # Kompatibel ausführen: exec_() (falls vorhanden) sonst exec()
+        exec_method = getattr(dlg, "exec_", None)
+        if callable(exec_method):
+            result = dlg.exec_()
+        else:
+            result = dlg.exec()
+
+        if result == QtWidgets.QDialog.Accepted:
             debug_print("TransferPlan geändert, update and reload.")
             mgr = TransferPlanConfigManager()
             mgr.update_plan(self.plan_data["id"], self.plan_data)
+
+            # Elternhierarchie nach load_plans() durchsuchen (wie gehabt)
             parent_widget = self.parent()
             while parent_widget and not hasattr(parent_widget, "load_plans"):
                 parent_widget = parent_widget.parent()
@@ -182,9 +209,8 @@ class TransferPlanWidget(QtWidgets.QFrame):
                 return norm
             return os.sep.join(components[-n:])
 
-        # Für den Subheader: Hier kannst du steuern, wie viele Ebenen angezeigt werden sollen.
-        # Beispiel: subheader_depth = 1 => nur letzter Ordner; = 2 => zwei letzte Ordner, usw.
-        subheader_depth = 2  # Ändere diesen Wert nach Bedarf (1, 2, 3, ...)
+        # Für den Subheader: Anzeige-Tiefe der Ordnerpfade steuern
+        subheader_depth = 2  # 1 => nur letzter Ordner; 2 => zwei Ebenen; etc.
         src_sub = get_last_n_components(src, subheader_depth) if src else "(none)"
         tgt_sub = get_last_n_components(tgt, subheader_depth) if tgt else "(none)"
         self.subheader_label.setText(f"{src_sub} -> {tgt_sub}")

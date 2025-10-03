@@ -4,14 +4,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="config auf Paket und Application-Support Pfade erweitert">
-      <change afterPath="$PROJECT_DIR$/utils/contentcheck_bridge.py" afterDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="keyword-contentcheck erweitert um und/oder/not">
+      <change afterPath="$PROJECT_DIR$/ui/transfer_reporter.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/plan_cleaner.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/plan_scheduler.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/transfer_reporter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/processors/contentcheck_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/processors/contentcheck_runner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/hotfolder_config_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_config_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/ftp_plan_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_plan_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/ftp_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_plan_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/ftp_schedule_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_schedule_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/ftp_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ftp_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/transfer_plan_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/transfer_plan_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -89,7 +97,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "stable-v37",
+    "git-widget-placeholder": "stable-v38",
     "last_opened_file_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC",
     "settings.editor.selected.configurable": "preferences.lookFeel"
   }
@@ -115,14 +123,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00039" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741542373150</created>
-      <option name="number" value="00039" />
-      <option name="presentableId" value="LOCAL-00039" />
-      <option name="project" value="LOCAL" />
-      <updated>1741542373150</updated>
     </task>
     <task id="LOCAL-00040" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
@@ -508,7 +508,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759473982243</updated>
     </task>
-    <option name="localTasksCounter" value="88" />
+    <task id="LOCAL-00088" summary="keyword-contentcheck erweitert um und/oder/not">
+      <option name="closed" value="true" />
+      <created>1759515029943</created>
+      <option name="number" value="00088" />
+      <option name="presentableId" value="LOCAL-00088" />
+      <option name="project" value="LOCAL" />
+      <updated>1759515029943</updated>
+    </task>
+    <option name="localTasksCounter" value="89" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -536,6 +544,7 @@
     <MESSAGE value="FTP-Upload stabiler bei Abbrüchen" />
     <MESSAGE value="Contentcheck funktioniert besser" />
     <MESSAGE value="config auf Paket und Application-Support Pfade erweitert" />
-    <option name="LAST_COMMIT_MESSAGE" value="config auf Paket und Application-Support Pfade erweitert" />
+    <MESSAGE value="keyword-contentcheck erweitert um und/oder/not" />
+    <option name="LAST_COMMIT_MESSAGE" value="keyword-contentcheck erweitert um und/oder/not" />
   </component>
 </project>
