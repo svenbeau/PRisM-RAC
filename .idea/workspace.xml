@@ -4,14 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Contentcheck funktioniert besser">
-      <change afterPath="$PROJECT_DIR$/test/test_dynamic_jsx_recipe_injector.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/dynamic_jsx.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/dynamic_jsx_recipe_injector.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/script_recipe_loader.py" afterDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="config auf Paket und Application-Support Pfade erweitert">
+      <change afterPath="$PROJECT_DIR$/utils/contentcheck_bridge.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dynamic_jsx_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/processors/contentcheck_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/processors/contentcheck_runner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/hotfolder_config_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_config_dialog.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -43,6 +43,16 @@
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/svenbeau/PRisM-RAC.git&quot;,
     &quot;accountId&quot;: &quot;ad371093-4476-432a-86de-3f00b33e749b&quot;
+  },
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
+    },
+    &quot;owner&quot;: &quot;svenbeau&quot;,
+    &quot;repository&quot;: &quot;PRisM-RAC&quot;
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
@@ -59,31 +69,31 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.contentcheck_email_notifier.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ftp_plan_dialog.executor&quot;: &quot;Run&quot;,
-    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
-    &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.hotfolder_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
-    &quot;Python.json_explorer_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
-    &quot;Python.script_config_manager.executor&quot;: &quot;Run&quot;,
-    &quot;Python.settings_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.smtp_test.executor&quot;: &quot;Run&quot;,
-    &quot;Python.start.executor&quot;: &quot;Run&quot;,
-    &quot;Python.transfer_plan_dialog.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;stable-v36&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.contentcheck_email_notifier.executor": "Run",
+    "Python.ftp_plan_dialog.executor": "Run",
+    "Python.hotfolder_config.executor": "Run",
+    "Python.hotfolder_monitor.executor": "Run",
+    "Python.hotfolder_widget.executor": "Run",
+    "Python.json_editor.executor": "Run",
+    "Python.json_explorer.executor": "Run",
+    "Python.json_explorer_widget.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.main_window.executor": "Run",
+    "Python.script_config_manager.executor": "Run",
+    "Python.settings_widget.executor": "Run",
+    "Python.smtp_test.executor": "Run",
+    "Python.start.executor": "Run",
+    "Python.transfer_plan_dialog.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "stable-v37",
+    "last_opened_file_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC",
+    "settings.editor.selected.configurable": "preferences.lookFeel"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/utils" />
@@ -105,14 +115,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00038" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741533626986</created>
-      <option name="number" value="00038" />
-      <option name="presentableId" value="LOCAL-00038" />
-      <option name="project" value="LOCAL" />
-      <updated>1741533626986</updated>
     </task>
     <task id="LOCAL-00039" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
@@ -498,7 +500,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759421588339</updated>
     </task>
-    <option name="localTasksCounter" value="87" />
+    <task id="LOCAL-00087" summary="config auf Paket und Application-Support Pfade erweitert">
+      <option name="closed" value="true" />
+      <created>1759473982243</created>
+      <option name="number" value="00087" />
+      <option name="presentableId" value="LOCAL-00087" />
+      <option name="project" value="LOCAL" />
+      <updated>1759473982243</updated>
+    </task>
+    <option name="localTasksCounter" value="88" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -525,6 +535,7 @@
     <MESSAGE value="SMPT Einstellung umziehen" />
     <MESSAGE value="FTP-Upload stabiler bei Abbrüchen" />
     <MESSAGE value="Contentcheck funktioniert besser" />
-    <option name="LAST_COMMIT_MESSAGE" value="Contentcheck funktioniert besser" />
+    <MESSAGE value="config auf Paket und Application-Support Pfade erweitert" />
+    <option name="LAST_COMMIT_MESSAGE" value="config auf Paket und Application-Support Pfade erweitert" />
   </component>
 </project>

@@ -5,7 +5,7 @@ import os
 import json
 import uuid
 from PySide6 import QtWidgets, QtCore, QtGui
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QPoint, QSettings
 from PySide6.QtWidgets import QApplication
 
 from utils.config_manager import get_recent_dirs, update_recent_dirs
@@ -16,11 +16,22 @@ print(">>> NEUE HOTFOLDERCONFIGDIALOG UI WIRD GELADEN <<<")
 class HotfolderConfigDialog(QtWidgets.QDialog):
     """
     Dialog zum Bearbeiten eines einzelnen Hotfolders.
+    Jetzt mit ScrollArea, damit die OK/Abbrechen-Buttons auf kleineren Screens
+    immer erreichbar bleiben. Merkt sich außerdem Größe/Position per QSettings.
     """
     def __init__(self, hotfolder_data: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Hotfolder Konfiguration")
-        self.resize(700, 600)
+        self.resize(1200, 800)  # Wunsch-Startgröße
+
+        # QSettings: Geometrie zwischen Sessions merken
+        self.settings = QSettings("PRisM-CC", "HotfolderConfigDialog")
+        geom = self.settings.value("geom")
+        if geom is not None:
+            try:
+                self.restoreGeometry(geom)
+            except Exception as e:
+                debug_print(f"[HotfolderConfigDialog] restoreGeometry failed: {e}")
 
         self.hotfolder = hotfolder_data
         debug_print("HotfolderConfigDialog init: " + str(self.hotfolder))
@@ -30,8 +41,46 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.init_ui()
         self.update_fields_from_hotfolder()
 
+    # ---------- Hilfetexte ----------
+    def _keyword_help_text(self) -> str:
+        return (
+            "Keyword-Logik:\n"
+            "• ANY (ODER): Trennzeichen ; , | — mindestens eines muss vorkommen\n"
+            "• ALL (UND):  Trennzeichen & + — alle müssen vorkommen\n"
+            "• NOT: !Token bedeutet Ausschluss (darf NICHT vorkommen)\n"
+            "• AUTO: entscheidet zwischen ANY/ALL anhand der verwendeten Trenner\n"
+            "\n"
+            "Beispiele:  A;B  |  A,B  |  A|B   (ODER)\n"
+            "            A&B  |  A+B            (UND)\n"
+            "            !B                     (NICHT)"
+        )
+
+    def _show_keyword_tooltip(self):
+        # Tooltip an der Unterkante des Keyword-Feldes einblenden
+        pt = self.keyword_edit.mapToGlobal(QPoint(0, self.keyword_edit.height()))
+        QtWidgets.QToolTip.showText(pt, self._keyword_help_text(), self.keyword_edit)
+
+    def _show_keyword_help_dialog(self):
+        # Nicht-modaler Info-Dialog mit gleicher Info
+        msg = QtWidgets.QMessageBox(self)
+        msg.setIcon(QtWidgets.QMessageBox.Information)
+        msg.setWindowTitle("Keyword-Logik – Hilfe")
+        msg.setText(self._keyword_help_text())
+        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        msg.setModal(False)
+        msg.show()
+
+    # ---------- UI ----------
     def init_ui(self):
-        main_layout = QtWidgets.QVBoxLayout(self)
+        # ÄUSSERE Struktur: ScrollArea + feste Button-Leiste unten
+        outer_layout = QtWidgets.QVBoxLayout(self)
+
+        scroll_area = QtWidgets.QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QtWidgets.QWidget()
+        scroll_layout = QtWidgets.QVBoxLayout(scroll_content)
+
+        # ------- Hauptformular (im Scrollbereich) -------
         form_layout = QtWidgets.QFormLayout()
 
         # ID
@@ -156,18 +205,51 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
             self.meta_checks[meta] = cb
         meta_group.setLayout(meta_layout)
         std_layout.addWidget(meta_group)
-        main_layout.addLayout(form_layout)
-        main_layout.addWidget(self.standard_contentcheck_group)
+
+        # alles ins Scroll-Formular schieben
+        scroll_layout.addLayout(form_layout)
+        scroll_layout.addWidget(self.standard_contentcheck_group)
 
         # Keyword-basierter Contentcheck
         self.keyword_check_group = QtWidgets.QGroupBox("Keyword-basierter Contentcheck")
         self.keyword_check_group.setCheckable(True)
         kw_vlayout = QtWidgets.QVBoxLayout(self.keyword_check_group)
+
+        # Top-Zeile: Keyword + Logik + Info
         kw_hlayout_top = QtWidgets.QHBoxLayout()
-        kw_hlayout_top.addWidget(QtWidgets.QLabel("Keyword:"))
+        self.kw_label = QtWidgets.QLabel("Keyword:")
+        kw_hlayout_top.addWidget(self.kw_label)
         self.keyword_edit = QtWidgets.QLineEdit()
+
+        placeholder = (
+            'Beispiele: "Rueckseite;Back" (ODER) · "Rueckseite&Signatur" (UND) · '
+            '"!Preview" (Ausschluss). Logik via Dropdown "Keyword-Logik".'
+        )
+        self.keyword_edit.setPlaceholderText(placeholder)
+        hint = self._keyword_help_text()
+        self.kw_label.setToolTip(hint)
+        self.keyword_edit.setToolTip(hint)
+
         kw_hlayout_top.addWidget(self.keyword_edit)
+
+        self.kw_logic_label = QtWidgets.QLabel("Keyword-Logik:")
+        self.kw_logic = QtWidgets.QComboBox()
+        self.kw_logic.addItems(["AUTO", "ANY", "ALL"])
+        self.kw_logic.setToolTip("AUTO = per Trenner entscheiden (siehe Hilfe)")
+        kw_hlayout_top.addWidget(self.kw_logic_label)
+        kw_hlayout_top.addWidget(self.kw_logic)
+
+        # Info-Button (ℹ️)
+        self.kw_info_btn = QtWidgets.QToolButton()
+        self.kw_info_btn.setAutoRaise(True)
+        self.kw_info_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxInformation))
+        self.kw_info_btn.setToolTip("Hilfe zur Keyword-Logik anzeigen")
+        self.kw_info_btn.clicked.connect(self._show_keyword_help_dialog)
+        kw_hlayout_top.addWidget(self.kw_info_btn)
+
         kw_vlayout.addLayout(kw_hlayout_top)
+
+        # Untere Zeile: Checkbox-Gruppen
         kw_hlayout_bottom = QtWidgets.QHBoxLayout()
         self.keyword_layer_checks = {}
         kw_layer_group = QtWidgets.QGroupBox("Erforderliche Ebenen (Keyword)")
@@ -178,6 +260,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
             self.keyword_layer_checks[layer] = cb
         kw_layer_group.setLayout(kw_layer_layout)
         kw_hlayout_bottom.addWidget(kw_layer_group)
+
         self.keyword_meta_checks = {}
         kw_meta_group = QtWidgets.QGroupBox("Erforderliche Metadaten (Keyword)")
         kw_meta_layout = QtWidgets.QVBoxLayout()
@@ -187,8 +270,11 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
             self.keyword_meta_checks[meta] = cb
         kw_meta_group.setLayout(kw_meta_layout)
         kw_hlayout_bottom.addWidget(kw_meta_group)
+
         kw_vlayout.addLayout(kw_hlayout_bottom)
-        main_layout.addWidget(self.keyword_check_group)
+
+        # Keyword-Gruppe in den Scrollbereich
+        scroll_layout.addWidget(self.keyword_check_group)
 
         # JSX Folder
         jsx_folder_layout = QtWidgets.QHBoxLayout()
@@ -197,7 +283,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         jsx_folder_layout.addWidget(QtWidgets.QLabel("JSX Folder:"))
         jsx_folder_layout.addWidget(self.jsx_folder_edit)
         jsx_folder_layout.addWidget(self.browse_jsx_folder_btn)
-        main_layout.addLayout(jsx_folder_layout)
+        scroll_layout.addLayout(jsx_folder_layout)
 
         # JSX Combo
         jsx_combo_layout = QtWidgets.QHBoxLayout()
@@ -205,7 +291,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.jsx_combo.setEditable(True)
         jsx_combo_layout.addWidget(QtWidgets.QLabel("JSX-Script Auswahl:"))
         jsx_combo_layout.addWidget(self.jsx_combo)
-        main_layout.addLayout(jsx_combo_layout)
+        scroll_layout.addLayout(jsx_combo_layout)
 
         # Zusätzliches JSX
         add_jsx_layout = QtWidgets.QHBoxLayout()
@@ -214,20 +300,23 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         add_jsx_layout.addWidget(QtWidgets.QLabel("Zusätzliches JSX:"))
         add_jsx_layout.addWidget(self.additional_jsx_edit)
         add_jsx_layout.addWidget(self.jsx_browse_btn)
-        main_layout.addLayout(add_jsx_layout)
+        scroll_layout.addLayout(add_jsx_layout)
 
-        # Buttons Speichern/Laden
+        # ScrollArea fertig einhängen
+        scroll_area.setWidget(scroll_content)
+        outer_layout.addWidget(scroll_area)
+
+        # Buttons unten FIX
         btn_save_load_layout = QtWidgets.QHBoxLayout()
         self.btn_save_config = QtWidgets.QPushButton("Konfiguration speichern")
         self.btn_load_config = QtWidgets.QPushButton("Konfiguration laden")
         btn_save_load_layout.addWidget(self.btn_save_config)
         btn_save_load_layout.addWidget(self.btn_load_config)
         btn_save_load_layout.addStretch()
-        main_layout.addLayout(btn_save_load_layout)
+        outer_layout.addLayout(btn_save_load_layout)
 
-        # Ok/Cancel
         btn_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        main_layout.addWidget(btn_box)
+        outer_layout.addWidget(btn_box)
 
         # Signals
         btn_box.accepted.connect(self.save_and_close)
@@ -241,6 +330,15 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         self.jsx_browse_btn.clicked.connect(self.browse_jsx_file)
         self.btn_save_config.clicked.connect(self.save_configuration_to_file)
         self.btn_load_config.clicked.connect(self.load_configuration_from_file)
+
+        # Tooltip automatisch zeigen, wenn die Gruppe aktiviert wird
+        self.keyword_check_group.toggled.connect(self.on_keyword_group_toggled)
+
+    def on_keyword_group_toggled(self, enabled: bool):
+        # Controls sind nur informativ; Tooltip nur zeigen, wenn aktiv (=nicht disabled)
+        if enabled:
+            # kurze Verzögerung, damit Layout fertig ist und Position stimmt
+            QtCore.QTimer.singleShot(150, self._show_keyword_tooltip)
 
     def update_fields_from_hotfolder(self):
         self.id_label.setText(self.hotfolder.get("id", "NO-ID"))
@@ -267,6 +365,8 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
 
         self.keyword_check_group.setChecked(self.hotfolder.get("keyword_check_enabled", False))
         self.keyword_edit.setText(self.hotfolder.get("keyword_check_word", ""))
+        # Keyword-Logik (Default AUTO)
+        self.kw_logic.setCurrentText(self.hotfolder.get("keyword_logic", "AUTO"))
         kw_layers = self.hotfolder.get("keyword_layers", [])
         for layer, cb in self.keyword_layer_checks.items():
             cb.setChecked(layer in kw_layers)
@@ -330,20 +430,14 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         if file_path:
             self.additional_jsx_edit.setText(file_path)
 
-    def save_and_close(self):
-        self.update_hotfolder_from_fields()
-        if not self.hotfolder.get("id"):
-            new_id = self.manager.generate_hotfolder_id()
-            self.hotfolder["id"] = new_id
-        existing = self.manager.get_hotfolder_by_id(self.hotfolder["id"])
-        if existing:
-            debug_print(f"Update Hotfolder mit ID {self.hotfolder['id']}")
-            self.manager.update_hotfolder(self.hotfolder["id"], self.hotfolder)
-        else:
-            debug_print("Neuer Hotfolder, füge hinzu...")
-            self.manager.add_hotfolder(self.hotfolder)
-        self.accept()
+    # --- Settings sichern ---
+    def _save_geometry(self):
+        try:
+            self.settings.setValue("geom", self.saveGeometry())
+        except Exception as e:
+            debug_print(f"[HotfolderConfigDialog] saveGeometry failed: {e}")
 
+    # --- Werte AUS UI -> hotfolder dict ---
     def update_hotfolder_from_fields(self):
         self.hotfolder["id"] = self.id_label.text()
         self.hotfolder["name"] = self.name_edit.text()
@@ -365,6 +459,7 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
 
         self.hotfolder["keyword_check_enabled"] = self.keyword_check_group.isChecked()
         self.hotfolder["keyword_check_word"] = self.keyword_edit.text()
+        self.hotfolder["keyword_logic"] = self.kw_logic.currentText()  # speichere Logik
         self.hotfolder["keyword_layers"] = [layer for layer, cb in self.keyword_layer_checks.items() if cb.isChecked()]
         self.hotfolder["keyword_metadata"] = [meta for meta, cb in self.keyword_meta_checks.items() if cb.isChecked()]
 
@@ -375,6 +470,27 @@ class HotfolderConfigDialog(QtWidgets.QDialog):
         else:
             self.hotfolder["selected_jsx"] = ""
         self.hotfolder["additional_jsx"] = self.additional_jsx_edit.text().strip()
+
+    def save_and_close(self):
+        self.update_hotfolder_from_fields()
+        if not self.hotfolder.get("id"):
+            new_id = self.manager.generate_hotfolder_id()
+            self.hotfolder["id"] = new_id
+        existing = self.manager.get_hotfolder_by_id(self.hotfolder["id"])
+        if existing:
+            debug_print(f"Update Hotfolder mit ID {self.hotfolder['id']}")
+            self.manager.update_hotfolder(self.hotfolder["id"], self.hotfolder)
+        else:
+            debug_print("Neuer Hotfolder, füge hinzu...")
+            self.manager.add_hotfolder(self.hotfolder)
+        # Geometrie sichern vor dem Schließen
+        self._save_geometry()
+        self.accept()
+
+    def reject(self):
+        # Auch beim Abbrechen Geometrie sichern
+        self._save_geometry()
+        super().reject()
 
     def save_configuration_to_file(self):
         self.update_hotfolder_from_fields()
@@ -424,6 +540,7 @@ if __name__ == "__main__":
         "required_metadata": ["author", "description"],
         "keyword_check_enabled": True,
         "keyword_check_word": "Rueckseite",
+        "keyword_logic": "AUTO",
         "keyword_layers": ["Freisteller"],
         "keyword_metadata": ["author", "description"],
         "jsx_folder": "",

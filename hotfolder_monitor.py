@@ -149,6 +149,36 @@ def read_json_file(file_path: str):
         return None
 
 
+def _auto_delete_cleanup(dir_path: str, older_than_hours: int) -> None:
+    """Löscht Dateien (rekursiv) in dir_path, die älter als older_than_hours sind.
+    Löscht nur Dateien, keine Ordner. Loggt jedes Entfernen.
+    """
+    try:
+        if not dir_path or not os.path.isdir(dir_path):
+            return
+        threshold = time.time() - (max(1, int(older_than_hours)) * 3600)
+        deleted_count = 0
+        checked_count = 0
+        for root, dirs, files in os.walk(dir_path):
+            for fname in files:
+                fpath = os.path.join(root, fname)
+                try:
+                    mtime = os.path.getmtime(fpath)
+                    checked_count += 1
+                    if mtime < threshold:
+                        try:
+                            os.remove(fpath)
+                            deleted_count += 1
+                            debug_print(f"[AutoDelete] Removed old file: {fpath}")
+                        except Exception as e:
+                            debug_print(f"[AutoDelete] Failed to remove {fpath}: {e}")
+                except Exception as e:
+                    debug_print(f"[AutoDelete] Stat failed for {fpath}: {e}")
+        debug_print(f"[AutoDelete] Checked={checked_count}, Deleted={deleted_count} in {dir_path} (> {older_than_hours}h)")
+    except Exception as e:
+        debug_print(f"[AutoDelete] Error while cleaning {dir_path}: {e}")
+
+
 def process_file(file_path, hf_config, contentcheck_jsx_path, on_status_update=None):
     """
     Verarbeitet eine Datei:
@@ -297,6 +327,12 @@ class HotfolderMonitor:
         self.fault_dir = hf_config.get("fault_dir")
         self.logfiles_dir = hf_config.get("logfiles_dir")
 
+        # Auto-Delete Einstellungen aus hf_config
+        self.auto_delete_success_enabled = hf_config.get("auto_delete_success_enabled", False)
+        self.auto_delete_success_hours = int(hf_config.get("auto_delete_success_hours", 24))
+        self.auto_delete_fault_enabled = hf_config.get("auto_delete_fault_enabled", False)
+        self.auto_delete_fault_hours = int(hf_config.get("auto_delete_fault_hours", 72))
+
         jsx_folder = hf_config.get("jsx_folder")
         if jsx_folder and os.path.isdir(jsx_folder):
             candidate = os.path.join(jsx_folder, "contentcheck_template.jsx")
@@ -321,15 +357,42 @@ class HotfolderMonitor:
         self.last_activity_time = time.time()
         self.idle = False
 
+        # Rate-Limit für periodische Auto-Delete Checks
+        self._last_auto_delete = 0.0
+
     @property
     def active(self):
         return self._running
+
+    def _maybe_run_auto_delete(self):
+        """Führt die Auto-Delete-Aufräumroutine max. 1x pro Minute aus."""
+        now = time.time()
+        if (now - getattr(self, "_last_auto_delete", 0.0)) < 60.0:
+            return
+        self._last_auto_delete = now
+
+        try:
+            if self.auto_delete_success_enabled and self.success_dir:
+                debug_print(f"[AutoDelete] Checking Success dir: {self.success_dir} (> {self.auto_delete_success_hours}h)")
+                _auto_delete_cleanup(self.success_dir, self.auto_delete_success_hours)
+        except Exception as e:
+            debug_print(f"[AutoDelete] Error in success cleanup: {e}")
+        try:
+            if self.auto_delete_fault_enabled and self.fault_dir:
+                debug_print(f"[AutoDelete] Checking Fault dir: {self.fault_dir} (> {self.auto_delete_fault_hours}h)")
+                _auto_delete_cleanup(self.fault_dir, self.auto_delete_fault_hours)
+        except Exception as e:
+            debug_print(f"[AutoDelete] Error in fault cleanup: {e}")
 
     def _monitor_loop(self):
         processed_files = set()
         while self._running:
             try:
                 files_found = False
+
+                # Auto-Delete in regelmäßigen Abständen prüfen
+                self._maybe_run_auto_delete()
+
                 for filename in os.listdir(self.monitor_dir):
                     file_path = os.path.join(self.monitor_dir, filename)
                     if os.path.isfile(file_path) and file_path not in processed_files:
@@ -373,6 +436,11 @@ class HotfolderMonitor:
                 debug_print(f"Error in HotfolderMonitor: {e}")
                 time.sleep(1)
 
+    def run_auto_delete_now(self):
+        """Manueller Trigger (z. B. für Tests)."""
+        self._last_auto_delete = 0.0
+        self._maybe_run_auto_delete()
+
     def start(self):
         self._running = True
         self.last_activity_time = time.time()
@@ -408,6 +476,11 @@ if __name__ == "__main__":
         "keyword_check_word": "Rueckseite",
         "keyword_layers": [],
         "keyword_metadata": ["author", "description"],
+        # Auto-Delete Beispiele
+        "auto_delete_success_enabled": False,
+        "auto_delete_success_hours": 24,
+        "auto_delete_fault_enabled": False,
+        "auto_delete_fault_hours": 72,
     }
     monitor = HotfolderMonitor(hf_config)
     monitor.start()

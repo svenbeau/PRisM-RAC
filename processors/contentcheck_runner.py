@@ -6,7 +6,7 @@ processors/contentcheck_runner.py
 
 Startet den Content-Check für eine Datei:
 - Öffnet die Datei in Photoshop
-- Erzeugt die dynamische JSX via dynamic_jsx_generator (nur ROH-Werte injizieren!)
+- Erzeugt die dynamische JSX via Wrapper (nur ROH-Werte injizieren!)
 - Führt JSX aus
 - Liest Logs ein und gibt sie zurück
 
@@ -21,7 +21,8 @@ import json
 from typing import Dict, Any, Optional
 
 from utils.hotfolder_config_manager import debug_print
-from dynamic_jsx_generator import create_temp_jsx_with_config
+# NEU: Wrapper statt direkter Generator-Import
+from utils.contentcheck_bridge import build_contentcheck_jsx
 
 
 def _open_in_photoshop(path: str) -> None:
@@ -105,6 +106,7 @@ def run_content_check_for_file(
       - keyword_layers (list[str])
       - keyword_metadata (list[str])
       - logfiles_dir (str)  # oder hf_cfg["logfiles_dir"]
+      - keyword_logic ("AUTO"|"ANY"|"ALL")  # optional, Default via Wrapper: "AUTO"
     """
 
     result: Dict[str, Any] = {
@@ -145,16 +147,11 @@ def run_content_check_for_file(
         if cnt >= 1:
             break
 
-    # JSX erzeugen (nur ROH-Werte injizieren!)
-    tmp_jsx = create_temp_jsx_with_config(
+    # JSX erzeugen (nur ROH-Werte injizieren!) – jetzt über den Wrapper,
+    # der keyword_logic automatisch übernimmt (Default "AUTO").
+    tmp_jsx = build_contentcheck_jsx(
+        hf_cfg,
         base_jsx_path=base_jsx_path,
-        keyword_check_enabled=kw_enabled,
-        keyword_check_word=kw_word,
-        required_layers=required_layers,         # unberührt
-        required_metadata=required_metadata,     # unberührt
-        keyword_layers=keyword_layers,           # unberührt
-        keyword_metadata=keyword_metadata,       # unberührt
-        logfiles_dir=log_dir,
         debug_output=False,
     )
     result["jsx_path"] = tmp_jsx

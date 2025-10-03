@@ -1,9 +1,11 @@
+****
 // contentcheck_template.jsx
 // Erwartung: Python injiziert VOR diesem Template einen Header mit:
 //   var DEBUG_OUTPUT
 //   var required_layers, required_metadata
 //   var keyword_layers,  keyword_metadata
 //   var keywordCheckEnabled, keywordCheckWord
+//   var keywordLogic           // NEU: "AUTO" | "ANY" | "ALL"
 //   var logFolderPath
 
 // ---------------- Polyfills & Utils ----------------
@@ -59,6 +61,8 @@ if (typeof keyword_layers === "undefined" || !keyword_layers) keyword_layers = [
 if (typeof keyword_metadata === "undefined" || !keyword_metadata) keyword_metadata = [];
 if (typeof keywordCheckEnabled === "undefined") keywordCheckEnabled = false;
 if (typeof keywordCheckWord === "undefined")  keywordCheckWord = "";
+if (typeof keywordLogic === "undefined" || !keywordLogic) keywordLogic = "AUTO";
+keywordLogic = String(keywordLogic).toUpperCase(); // "AUTO" | "ANY" | "ALL"
 if (typeof logFolderPath === "undefined" || !logFolderPath) { logFolderPath = Folder.desktop.fsName; }
 
 var requiredLayers   = Array.isArray(required_layers)   ? required_layers   : [];
@@ -115,13 +119,79 @@ function getXMPValue(fieldKey) {
 // Alle Metadaten auslesen
 var metadataOutput = {}; for (var k in fieldMapping) { metadataOutput[k] = getXMPValue(k); }
 
-// ---------------- Keyword-Entscheidung ----------------
+// ---------------- Keyword-Entscheidung (mit ANY/ALL/AUTO + NOT) ----------------
 var checkType = "Standard", decidedKW = "Standard";
 var kwEnabled = (keywordCheckEnabled === true);
 var kwWord = String(keywordCheckWord || "");
+
+// XMP-Keywords -> Set (lowercased, getrimmt)
+function buildKeywordSet(kwString) {
+    var set = {};
+    if (!kwString) return set;
+    var parts = String(kwString).split(";");
+    for (var i = 0; i < parts.length; i++) {
+        var t = String(parts[i]).trim().toLowerCase();
+        if (t) set[t] = true;
+    }
+    return set;
+}
+var xmpKwSet = buildKeywordSet(String(metadataOutput["keywords"] || ""));
+
+function splitByAny(s, seps) {
+    var re = new RegExp("[" + seps.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + "]", "g");
+    var raw = s.split(re);
+    var out = [];
+    for (var i = 0; i < raw.length; i++) {
+        var v = String(raw[i]).trim();
+        if (v) out.push(v);
+    }
+    return out;
+}
+
+// parse Tokens -> {pos:[], neg:[]}  (leading "!" => neg)
+function parseTokens(expr, separators) {
+    var raw = splitByAny(expr, separators);
+    var res = { pos: [], neg: [] };
+    for (var i = 0; i < raw.length; i++) {
+        var tok = raw[i];
+        var isNeg = false;
+        if (tok.indexOf("!") === 0) { isNeg = true; tok = tok.substring(1); }
+        tok = tok.trim().toLowerCase();
+        if (!tok) continue;
+        (isNeg ? res.neg : res.pos).push(tok);
+    }
+    return res;
+}
+
+// Evaluation
+// - ANY  : mindestens 1 positives vorhanden, kein negatives vorhanden
+// - ALL  : alle positiven vorhanden, kein negatives vorhanden
+// - AUTO : enthält '&'/'+' und keine ODER-Trenner → ALL, sonst ANY
+function evalKW(expr, kwSet, mode) {
+    expr = String(expr || "");
+    if (!expr) return false;
+
+    var hasAnd = expr.indexOf("&") >= 0 || expr.indexOf("+") >= 0;
+    var hasOr  = expr.indexOf(";") >= 0 || expr.indexOf(",") >= 0 || expr.indexOf("|") >= 0;
+
+    var effMode = (mode === "ANY" || mode === "ALL") ? mode : (hasAnd && !hasOr ? "ALL" : "ANY");
+    var seps = (effMode === "ALL") ? "&+" : ";,|";
+    var tk = parseTokens(expr, seps);
+
+    for (var i = 0; i < tk.neg.length; i++) { if (kwSet[tk.neg[i]]) return false; }
+    if (tk.pos.length === 0) return true; // nur Negationen
+
+    if (effMode === "ALL") {
+        for (var j = 0; j < tk.pos.length; j++) { if (!kwSet[tk.pos[j]]) return false; }
+        return true;
+    } else {
+        for (var k = 0; k < tk.pos.length; k++) { if (kwSet[tk.pos[k]]) return true; }
+        return false;
+    }
+}
+
 if (kwEnabled && kwWord !== "") {
-    var kwStr = String(metadataOutput["keywords"]), tags = kwStr.split(";"), found = false;
-    for (var i=0;i<tags.length;i++){ if (String(tags[i]).trim().toLowerCase() === kwWord.trim().toLowerCase()) { found = true; break; } }
+    var found = evalKW(kwWord, xmpKwSet, keywordLogic);
     decidedKW = found ? "Keyword-based" : "Standard";
 }
 checkType = decidedKW;
@@ -136,19 +206,6 @@ if (checkType === "Keyword-based") {
     effectiveMetadata = Array.isArray(requiredMetadata)  ? requiredMetadata  : [];
 }
 
-// ---------------- Layer-Existenz ----------------
-function layerExists(doc, layerName) {
-    function searchLayers(layers, name) {
-        for (var i=0;i<layers.length;i++){
-            var layer = layers[i];
-            if (layer.name === name) return true;
-            if (layer.typename === "LayerSet") { if (searchLayers(layer.layers, name)) return true; }
-        }
-        return false;
-    }
-    return searchLayers(doc.layers, layerName);
-}
-
 // ---------------- Ergebnisobjekt ----------------
 var resultObj = {
     metadata: metadataOutput,
@@ -159,7 +216,6 @@ var resultObj = {
         layerStatus: "OK",
         metaStatus: "OK",
         checkType: checkType,
-        // NEU: Sichtbarmachen der ankommenden & verwendeten Kriterien
         received: {
             required_layers: requiredLayers.slice ? requiredLayers.slice(0) : requiredLayers,
             required_metadata: requiredMetadata.slice ? requiredMetadata.slice(0) : requiredMetadata,
@@ -170,7 +226,7 @@ var resultObj = {
             layers: effectiveLayers.slice ? effectiveLayers.slice(0) : effectiveLayers,
             metadata: effectiveMetadata.slice ? effectiveMetadata.slice(0) : effectiveMetadata
         },
-        keywordCheck: { enabled: kwEnabled, keyword: kwWord },
+        keywordCheck: { enabled: kwEnabled, keyword: kwWord, logic: keywordLogic },
         keywordDebug: { enabled: kwEnabled, word: kwWord, parsedKeywords: String(metadataOutput["keywords"] || "undefined"), decided: checkType }
     }
 };
@@ -178,7 +234,17 @@ var resultObj = {
 // Ebenen prüfen
 for (var li=0; li<effectiveLayers.length; li++){
     var lname2 = effectiveLayers[li];
-    var present = layerExists(doc, lname2);
+    var present = (function layerExists(doc, layerName) {
+        function searchLayers(layers, name) {
+            for (var i=0;i<layers.length;i++){
+                var layer = layers[i];
+                if (layer.name === name) return true;
+                if (layer.typename === "LayerSet") { if (searchLayers(layer.layers, name)) return true; }
+            }
+            return false;
+        }
+        return searchLayers(doc.layers, layerName);
+    })(doc, lname2);
     resultObj.details.layers[lname2] = present ? "yes" : "no";
     if (!present) { resultObj.details.missingLayers.push(lname2); resultObj.details.layerStatus = "FAIL"; }
 }
@@ -206,8 +272,7 @@ if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus ===
         layerStatus: resultObj.details.layerStatus,
         metaStatus: resultObj.details.metaStatus,
         checkType: checkType,
-        keywordCheck: { enabled: kwEnabled, keyword: kwWord },
-        // NEU: auch hier mit ausgeben
+        keywordCheck: { enabled: kwEnabled, keyword: kwWord, logic: keywordLogic },
         received: resultObj.details.received,
         effective: resultObj.details.effective
     };
@@ -215,3 +280,4 @@ if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus ===
     failLogFile.encoding = "UTF8";
     if (failLogFile.open("w")) { failLogFile.write(serializeToJsonPretty(failObj, "")); failLogFile.close(); debug_print("Contentcheck-Fail Log gespeichert: " + failLogFile.fullName); }
 }
+****
