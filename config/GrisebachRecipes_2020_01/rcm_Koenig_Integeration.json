@@ -1,0 +1,45 @@
+{
+"source":"Königsdruck",
+"target":"ModerneContemporary",
+"preAction":"81 Integrieren Königsdruck Edit",
+"outputs":[ 
+    {
+        "name":"Mutter",
+        "photoshopAction":null,
+        "outputFolder":"/Volumes/Bilddatenserver/01_Mutter/03_Koenigsdruck",
+        "suffix":"",
+        "filetype":"psd",
+        "backside":true,
+        "backsideAction":null,
+        "backsideSuffix":"F"
+    }, 
+    {
+        "name":"Master",
+        "photoshopAction":"12 Master DOM (MA) ohne USM",
+        "outputFolder":"/Volumes/Bilddatenserver/02_Master",
+        "suffix":"MA",
+        "filetype":"jpg",
+        "backside":true,
+        "backsideAction":null,
+        "backsideSuffix":"MF"
+    }, 
+    {
+        "name":"Web_Komplett",
+        "photoshopAction":"23a DOM Color 2 Web Komplett (WK) ohne USM",
+        "outputFolder":"/Volumes/Bilddatenserver/03_Web",
+        "suffix":"WK",
+        "filetype":"png",
+        "backside":true,
+        "backsideAction":null,
+        "backsideSuffix":"WF"
+    },
+    {
+        "name":"Web_Ausschnitt",
+        "photoshopAction":"22a DOM Color 2 Web Cropped (WC) ohne USM",
+        "outputFolder":"/Volumes/Bilddatenserver/03_Web",
+        "suffix":"WC",
+        "filetype":"png",
+        "backside":false
+    }
+    ]
+}

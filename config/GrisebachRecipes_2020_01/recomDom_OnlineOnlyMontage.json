@@ -1,0 +1,14 @@
+{
+    "source":"RecomART",
+    "target":"OnlineOnlyMontage",
+    "outputs":[ 
+        {
+            "name":"Web_Ausschnitt",
+            "photoshopAction":"22 DOM Color 2 Web Cropped (WC)",
+            "outputFolder":"/Users/rcmart_gb_render1/Documents/montage",
+            "suffix":"WC",
+            "filetype":"png",
+            "backside":false
+        }
+        ]
+    }

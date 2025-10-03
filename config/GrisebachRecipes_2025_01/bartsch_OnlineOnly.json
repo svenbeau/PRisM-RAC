@@ -1,0 +1,24 @@
+{
+    "source": "Fotostudio Bartsch",
+    "target": "OnlineOnly",
+    "outputs": [
+        {
+            "name": "Web_Komplett",
+            "photoshopAction": "23 DOM Color 2 Web Komplett (WK)",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/03_Web/",
+            "suffix": "WK",
+            "filetype": "png",
+            "backside": true,
+            "backsideAction": "23b DOM Color 2 Web Komplett (WK) R",
+            "backsideSuffix": "WF"
+        },
+        {
+            "name": "Web_Ausschnitt",
+            "photoshopAction": "22 DOM Color 2 Web Cropped (WC)",
+            "outputFolder": "/Volumes/4TM2/Grisebach/30_Renderfiles/03_Web/",
+            "suffix": "WC",
+            "filetype": "png",
+            "backside": false
+        }
+    ]
+}

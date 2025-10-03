@@ -1,0 +1,58 @@
+{
+    "source":"RecomArt-Cruse-Duplex",
+    "target":"Foto",
+    "outputs":[ 
+        {
+            "name":"Master",
+            "photoshopAction":"11 Master Cruse (MA)",
+            "outputFolder":"/Volumes/Bilddatenserver/02_Master",
+            "suffix":"MA",
+            "filetype":"jpg",
+            "backside":true,
+            "backsideAction":null,
+            "backsideSuffix":"MF"
+        }, 
+        {
+            "name":"Web_Komplett",
+            "photoshopAction":"26 Cruse Duplex 2 Web Komplett (WK)",
+            "outputFolder":"/Volumes/Bilddatenserver/03_Web",
+            "suffix":"WK",
+            "filetype":"png",
+            "backside":true,
+            "backsideAction":null,
+            "backsideSuffix":"WF"
+        },
+        {
+            "name":"Web_Ausschnitt",
+            "photoshopAction":"25 Cruse Duplex 2 Web Cropped (WC)",
+            "outputFolder":"/Volumes/Bilddatenserver/03_Web",
+            "suffix":"WC",
+            "filetype":"png",
+            "backside":false
+        },
+        {
+            "name":"Druck-Standard",
+            "photoshopAction":"31 Cruse Duplex 2 39L (P2s)",
+            "outputFolder":"/Volumes/Bilddatenserver/07_PR/01_Foto",
+            "suffix":"P2s",
+            "filetype":"tif",
+            "backside":false
+        },
+        {
+            "name":"Druck-Medialis",
+            "photoshopAction":"50 Duplex (PM2s)",
+            "outputFolder":"/Volumes/Druckereien/02_Medialis/02_Druck",
+            "suffix":"PM2s",
+            "filetype":"tif",
+            "backside":false
+        },
+        {
+            "name":"OPI",
+            "photoshopAction":"80 Color 2 OPI Bildausschnitt",
+            "outputFolder":"/Volumes/Druckereien/02_Medialis/01_OPI",
+            "suffix":"PM2s",
+            "filetype":"jpg",
+            "backside":false
+        }
+        ]
+    }
