@@ -4,22 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="keyword-contentcheck erweitert um und/oder/not">
-      <change afterPath="$PROJECT_DIR$/ui/transfer_reporter.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/plan_cleaner.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/plan_scheduler.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/transfer_reporter.py" afterDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/ftp_plan_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_plan_dialog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/ftp_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_plan_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/ftp_schedule_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_schedule_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_transfer_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_dialog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/ftp_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ftp_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/transfer_plan_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/transfer_plan_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/plan_cleaner.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/plan_cleaner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/plan_scheduler.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/plan_scheduler.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -123,14 +112,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00040" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741542959796</created>
-      <option name="number" value="00040" />
-      <option name="presentableId" value="LOCAL-00040" />
-      <option name="project" value="LOCAL" />
-      <updated>1741542959796</updated>
     </task>
     <task id="LOCAL-00041" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
@@ -516,11 +497,18 @@
       <option name="project" value="LOCAL" />
       <updated>1759515029943</updated>
     </task>
-    <option name="localTasksCounter" value="89" />
+    <task id="LOCAL-00089" summary="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden">
+      <option name="closed" value="true" />
+      <created>1759527160605</created>
+      <option name="number" value="00089" />
+      <option name="presentableId" value="LOCAL-00089" />
+      <option name="project" value="LOCAL" />
+      <updated>1759527160605</updated>
+    </task>
+    <option name="localTasksCounter" value="90" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="erste schritte" />
     <MESSAGE value="Contentcheck funktioniert" />
     <MESSAGE value="Samsatg Abend - Contentcheck funktioniert" />
     <MESSAGE value="Mit JSON-Edit und Wandbild-Script" />
@@ -545,6 +533,7 @@
     <MESSAGE value="Contentcheck funktioniert besser" />
     <MESSAGE value="config auf Paket und Application-Support Pfade erweitert" />
     <MESSAGE value="keyword-contentcheck erweitert um und/oder/not" />
-    <option name="LAST_COMMIT_MESSAGE" value="keyword-contentcheck erweitert um und/oder/not" />
+    <MESSAGE value="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden" />
+    <option name="LAST_COMMIT_MESSAGE" value="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden" />
   </component>
 </project>
