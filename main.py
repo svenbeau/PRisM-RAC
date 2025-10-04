@@ -148,7 +148,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         """
         Sicherer Stop der Worker-Threads VOR dem App-Teardown.
-        (Nur hier stoppen; keinen zusätzlichen aboutToQuit-Fallback -> vermeidet doppelte Stop-Logs.)
         """
         try:
             if self.scheduler is not None:
@@ -156,7 +155,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.scheduler.stop()
                 except Exception:
                     pass
-                # falls verfügbar, zusätzlich warten
                 if hasattr(self.scheduler, "wait"):
                     try:
                         self.scheduler.wait(5000)
@@ -168,7 +166,6 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             if self.cleaner is not None:
                 try:
-                    # unsere PlanCleaner-API nutzt .stop() ohne Parameter
                     self.cleaner.stop()
                 except Exception:
                     pass
@@ -236,8 +233,7 @@ def run():
             connect_timeout_s=20,
         ),
     )
-    # Wichtig: KEIN sig_log → debug_print, um doppelte Start/Logzeilen zu vermeiden.
-    # scheduler.sig_log.connect(lambda msg: debug_print(msg))
+    scheduler.sig_log.connect(lambda msg: debug_print(msg))
     scheduler.sig_plan_started.connect(lambda pid, name: debug_print(f"[Scheduler] Start: {name} ({pid})"))
     scheduler.sig_plan_finished.connect(
         lambda pid, ok, msg: debug_print(f"[Scheduler] Ende ({'OK' if ok else 'FAIL'}): {pid} – {msg}")
@@ -252,16 +248,38 @@ def run():
             remove_empty_dirs=True,
             follow_symlinks=False,
             dry_run=False,
+            # WICHTIG: Auto-Delete der Hotfolder immer erlauben,
+            # unabhängig davon, ob der HF-Watcher läuft.
+            hf_gate_mode="always",
+            # NEU: erster Lauf erst nach dem ersten Intervall
+            run_immediately=False,
         ),
-        config_manager=cm,
+        config_manager=cm,  # falls du später Provider anbietest
     )
     cleaner.sig_log.connect(lambda msg: debug_print(msg))
     cleaner.sig_error.connect(lambda msg: debug_print(msg))
     cleaner.sig_deleted.connect(lambda path: debug_print(f"[Cleaner] Gelöscht: {path}"))
-    # optional: Gate-Badge/Status
-    # cleaner.sig_gate_changed.connect(lambda is_open: debug_print(f"[Cleaner] Gate {'aktiv' if is_open else 'inaktiv'}"))
     cleaner.start()
     main_window.cleaner = cleaner
+
+    # (Optional) zusätzlicher Fallback beim App-Exit
+    def _graceful_shutdown():
+        try:
+            if main_window.scheduler is not None:
+                main_window.scheduler.stop()
+                if hasattr(main_window.scheduler, "wait"):
+                    main_window.scheduler.wait(5000)
+        except Exception:
+            pass
+        try:
+            if main_window.cleaner is not None:
+                main_window.cleaner.stop()
+                if hasattr(main_window.cleaner, "wait"):
+                    main_window.cleaner.wait(7000)
+        except Exception:
+            pass
+
+    app.aboutToQuit.connect(_graceful_shutdown)
 
     splash.finish(main_window)
     main_window.show()

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from dataclasses import dataclass, field
@@ -9,15 +10,20 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Any
 
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
+
 
 class SimpleSignal:
     def __init__(self):
         self._subs: List[Callable[..., None]] = []
-
     def connect(self, cb: Callable[..., None]):
         if callable(cb):
             self._subs.append(cb)
-
     def emit(self, *args, **kwargs):
         for cb in list(self._subs):
             try:
@@ -28,49 +34,32 @@ class SimpleSignal:
 
 @dataclass
 class CleanerConfig:
-    # Transfer-Pläne
     transfer_plans_path: Path = field(
-        default_factory=lambda: Path.home()
-        / "Library"
-        / "Application Support"
-        / "PRisM-CC"
-        / "transfer_plans.json"
+        default_factory=lambda: Path.home() / "Library" / "Application Support" / "PRisM-CC" / "transfer_plans.json"
     )
-
-    # Hotfolder-Konfig (Fallback-Dateien, falls kein Provider verdrahtet ist)
-    hotfolder_config_paths: List[Path] = field(
-        default_factory=lambda: [
-            Path.home()
-            / "Library"
-            / "Application Support"
-            / "PRisM-CC"
-            / "hotfolder_config.json",
-            Path.cwd() / "config" / "hotfolder_config.json",
-        ]
-    )
-
-    # Laufzeit
+    # Alle gängigen Orte für die Hotfolder-Konfig
+    hotfolder_config_paths: List[Path] = field(default_factory=lambda: [
+        Path.home() / "Library" / "Application Support" / "PRisM-CC" / "config" / "hotfolder_config.json",
+        Path.home() / "Library" / "Application Support" / "PRisM-CC" / "hotfolder_config.json",
+        Path.cwd() / "config" / "hotfolder_config.json",
+    ])
     interval_ms: int = 10 * 60 * 1000
     dry_run: bool = False
     remove_empty_dirs: bool = False
-    follow_symlinks: bool = True  # aktuell ohne Verwendung, behalten für API-Kompatibilität
+    follow_symlinks: bool = True
 
-    # Gate-Logik für Hotfolder-Reinigung
-    hf_gate_mode: str = "gate"  # 'always' | 'gate' | 'never'
+    # 'always' | 'gate' | 'never'
+    hf_gate_mode: str = "gate"
     hf_gate_file: Path = field(
-        default_factory=lambda: Path.home()
-        / "Library"
-        / "Application Support"
-        / "PRisM-CC"
-        / ".hf_monitor_running"
+        default_factory=lambda: Path.home() / "Library" / "Application Support" / "PRisM-CC" / ".hf_monitor_running"
     )
 
-    # Provider (optional)
     hotfolder_provider: Optional[Callable[[], List[Dict[str, Any]]]] = None
     hotfolder_running_provider: Optional[Callable[[], bool]] = None
 
+    # NEU: erster Lauf sofort (True) oder erst nach dem ersten Intervall (False)
+    run_immediately: bool = True
 
-# --------- Hilfsfunktionen ---------
 
 def _load_json(path: Path) -> Any:
     try:
@@ -78,7 +67,8 @@ def _load_json(path: Path) -> Any:
             return None
         with path.open("r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except Exception as e:
+        logger.debug(f"[Cleaner] WARN: Konnte JSON nicht lesen: {path} – {e}")
         return None
 
 
@@ -107,7 +97,6 @@ def _safe_delete(path: Path, dry_run: bool) -> Tuple[bool, Optional[str]]:
             return True, None
 
         if path.is_dir():
-            # rekursiv Inhalte löschen
             for child in sorted(path.glob("**/*"), key=lambda x: len(x.parts), reverse=True):
                 try:
                     if child.is_file():
@@ -143,52 +132,43 @@ def _remove_empty_dirs(root: Path):
             pass
 
 
-# --------- PlanCleaner ---------
-
 class PlanCleaner:
     """
     Räumt auf in:
       • Transfer-Plänen (move_after + auto_delete_after_move_enabled)
       • Hotfoldern (02_Success / 03_Fault, wenn Auto-Delete aktiv ist)
+    HF-Löschung abhängig von hf_gate_mode: 'always' (immer), 'gate' (nur wenn Gate aktiv), 'never' (nie).
 
-    HF-Löschung erfolgt nur, wenn Gate aktiv ist (je nach hf_gate_mode / Provider / Gate-Datei).
+    Neu:
+      • config.run_immediately=False -> erster Lauf erst nach dem ersten Intervall.
     """
 
     def __init__(self, config: CleanerConfig, config_manager: Optional[Any] = None):
         self.config = config
         self._config_manager = config_manager
-
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
         self._running_lock = threading.Lock()
         self._is_running = False
 
-        # gate-state caching (für Badge/Listener)
-        self._last_gate_state: Optional[bool] = None
-
         # Signale
         self.sig_log = SimpleSignal()
         self.sig_error = SimpleSignal()
-        self.sig_deleted = SimpleSignal()
-        self.sig_gate_changed = SimpleSignal()  # bool: True=open/aktiv, False=zu/inaktiv
-
-    # --- Logging nur über Signale, damit keine Doppel-Logs entstehen ---
+        self.sig_deleted = SimpleSignal()  # für main.py
 
     def _log(self, msg: str):
-        # keine direkte Konsolen-Ausgabe hier!
+        logger.debug(msg)
         try:
             self.sig_log.emit(msg)
         except Exception:
             pass
 
     def _err(self, msg: str):
-        # keine direkte Konsolen-Ausgabe hier!
+        logger.debug(msg)
         try:
             self.sig_error.emit(msg)
         except Exception:
             pass
-
-    # --- Provider setzen (optional) ---
 
     def set_hotfolder_provider(self, provider: Callable[[], List[Dict[str, Any]]]):
         self.config.hotfolder_provider = provider
@@ -196,28 +176,27 @@ class PlanCleaner:
     def set_hotfolder_running_provider(self, provider: Callable[[], bool]):
         self.config.hotfolder_running_provider = provider
 
-    # --- Thread-Steuerung ---
-
     def start(self):
         with self._running_lock:
             if self._is_running:
                 self._log("[Cleaner] bereits gestartet – ignoriere zweiten Start.")
                 return
             self._is_running = True
-
         self._stop.clear()
         interval_s = max(1, int(self.config.interval_ms / 1000))
+        initial_delay_s = 0 if (self.config.run_immediately is True) else interval_s
 
-        # initialen Gate-Status ermitteln & emittieren (für Badge sofort)
-        try:
-            is_open = self._gate_hotfolders_running()
-            self._set_gate_state(is_open, emit_always=True)
-        except Exception:
-            # bei Fehler: Zustand unbekannt lassen
-            pass
+        if initial_delay_s > 0:
+            self._log(
+                f"[Cleaner] gestartet (Intervall={self.config.interval_ms} ms, dry_run={self.config.dry_run}) – "
+                f"erster Lauf in {initial_delay_s}s."
+            )
+        else:
+            self._log(f"[Cleaner] gestartet (Intervall={self.config.interval_ms} ms, dry_run={self.config.dry_run}).")
 
-        self._log(f"[Cleaner] gestartet (Intervall={self.config.interval_ms} ms, dry_run={self.config.dry_run}).")
-        self._thread = threading.Thread(target=self._run_loop, args=(interval_s,), daemon=True)
+        self._thread = threading.Thread(
+            target=self._run_loop, args=(interval_s, initial_delay_s), daemon=True
+        )
         self._thread.start()
 
     def stop(self):
@@ -229,8 +208,15 @@ class PlanCleaner:
             self._is_running = False
         self._log("[Cleaner] Stop abgeschlossen.")
 
-    def _run_loop(self, interval_s: int):
+    def _run_loop(self, interval_s: int, initial_delay_s: int = 0):
         try:
+            # optionaler Start-Delay
+            if initial_delay_s > 0:
+                for _ in range(initial_delay_s):
+                    if self._stop.is_set():
+                        return
+                    time.sleep(1)
+
             while not self._stop.is_set():
                 self.run()
                 for _ in range(interval_s):
@@ -238,17 +224,14 @@ class PlanCleaner:
                         break
                     time.sleep(1)
         finally:
-            # nichts zu tun
             pass
 
     def run(self):
-        # Transfer-Pläne
         try:
             self._process_transfer_plans()
         except Exception as e:
             self._err(f"[Cleaner] ERROR Transfer: {e}")
 
-        # Hotfolder (mit Gate)
         try:
             self._process_hotfolders()
         except Exception as e:
@@ -260,7 +243,7 @@ class PlanCleaner:
         data = _load_json(self.config.transfer_plans_path)
         if not isinstance(data, list):
             data = []
-        self._log(f"[Cleaner] Transfer-Pläne geladen: {self.config.transfer_plans_path}")
+        logger.debug(f"[Cleaner] Transfer-Pläne geladen: {self.config.transfer_plans_path}")
         return data
 
     def _process_transfer_plans(self):
@@ -291,9 +274,7 @@ class PlanCleaner:
                             except Exception:
                                 pass
                         else:
-                            self._err(
-                                f"[Cleaner] TransferPlan:{name} – FEHLER beim Löschen: {p} – {err}"
-                            )
+                            self._err(f"[Cleaner] TransferPlan:{name} – FEHLER beim Löschen: {p} – {err}")
 
                 if self.config.remove_empty_dirs:
                     _remove_empty_dirs(root)
@@ -303,24 +284,15 @@ class PlanCleaner:
 
     # ---------- Hotfolder ----------
 
-    def _set_gate_state(self, is_open: bool, emit_always: bool = False):
-        """Speichert Gate-State und emittiert nur bei Änderung (oder erzwungen)."""
-        if emit_always or (self._last_gate_state is None) or (self._last_gate_state != is_open):
-            self._last_gate_state = is_open
-            try:
-                self.sig_gate_changed.emit(bool(is_open))
-            except Exception:
-                pass
-
     def _gate_hotfolders_running(self) -> bool:
-        # 1) externer Provider
+        # externer Provider?
         if self.config.hotfolder_running_provider:
             try:
                 return bool(self.config.hotfolder_running_provider())
             except Exception as e:
                 self._err(f"[Cleaner] HF: Provider-Fehler im Running-Check – {e}")
 
-        # 2) config_manager Hook
+        # config_manager Hooks?
         if self._config_manager is not None:
             for attr in ("is_hotfolder_running", "is_running", "get_hf_running"):
                 fn = getattr(self._config_manager, attr, None)
@@ -330,7 +302,7 @@ class PlanCleaner:
                     except Exception as e:
                         self._err(f"[Cleaner] HF: config_manager.{attr}() Fehler – {e}")
 
-        # 3) Modus + Gate-Datei
+        # Modus aus Konfiguration
         mode = (self.config.hf_gate_mode or "gate").lower()
         if mode == "always":
             return True
@@ -342,17 +314,34 @@ class PlanCleaner:
             self._err(f"[Cleaner] HF: Gate-File-Check Fehler – {e}")
             return False
 
+    def _extract_hf_list(self, data: Any) -> Optional[List[Dict[str, Any]]]:
+        """
+        Akzeptiert sowohl:
+          • [ {...}, {...} ]  (reine Liste)
+          • { "hotfolders": [ ... ] }
+          • { "items": [ ... ] }
+          • { "list": [ ... ] }
+        """
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            for key in ("hotfolders", "items", "list", "hotfolder_list"):
+                val = data.get(key)
+                if isinstance(val, list):
+                    return val
+        return None
+
     def _load_hotfolders(self) -> List[Dict[str, Any]]:
-        # 1) externer Provider
+        # Provider?
         if self.config.hotfolder_provider:
             try:
                 hfs = self.config.hotfolder_provider() or []
-                self._log(f"[Cleaner] HF: provider lieferte {len(hfs)} Hotfolder.")
+                logger.debug(f"[Cleaner] HF: provider lieferte {len(hfs)} Hotfolder.")
                 return hfs
             except Exception as e:
                 self._err(f"[Cleaner] HF: Provider-Fehler – {e}")
 
-        # 2) config_manager Hooks
+        # config_manager?
         if self._config_manager is not None:
             for attr in ("get_hotfolders", "get_hotfolder_list", "load_hotfolders"):
                 fn = getattr(self._config_manager, attr, None)
@@ -360,35 +349,32 @@ class PlanCleaner:
                     try:
                         hfs = fn() or []
                         if isinstance(hfs, list):
-                            self._log(f"[Cleaner] HF: geladen via config_manager.{attr} – {len(hfs)} Einträge.")
+                            logger.debug(f"[Cleaner] HF: geladen via config_manager.{attr} – {len(hfs)} Einträge.")
                             return hfs
                     except Exception as e:
                         self._err(f"[Cleaner] HF: config_manager.{attr}() Fehler – {e}")
 
-        # 3) Fallback: JSON-Dateien
+        # JSON-Fallbacks
         for candidate in self.config.hotfolder_config_paths:
+            candidate = Path(candidate).expanduser()
             data = _load_json(candidate)
-            if isinstance(data, list) and len(data) > 0:
-                self._log(f"[Cleaner] HF: geladen aus {candidate} – {len(data)} Einträge.")
-                return data
+            hfs = self._extract_hf_list(data)
+            if isinstance(hfs, list) and len(hfs) > 0:
+                logger.debug(f"[Cleaner] HF: geladen aus {candidate} – {len(hfs)} Einträge.")
+                return hfs
 
+        # Wenn Datei existiert, aber keine Liste extrahierbar ist, explizit leeren Zustand loggen
         for candidate in self.config.hotfolder_config_paths:
+            candidate = Path(candidate).expanduser()
             if candidate.exists():
-                self._log("[HF] gelesen:\n[]")
+                logger.debug("[HF] gelesen:\n[]")
                 return []
 
-        self._log("[Cleaner] HF: keine Konfiguration gefunden.")
+        logger.debug("[Cleaner] HF: keine Konfiguration gefunden.")
         return []
 
     def _process_hotfolders(self):
-        # Gate prüfen & Badge informieren
-        is_open = False
-        try:
-            is_open = self._gate_hotfolders_running()
-        finally:
-            self._set_gate_state(is_open)
-
-        if not is_open:
+        if not self._gate_hotfolders_running():
             self._log("[Cleaner] HF: übersprungen (Gate nicht aktiv).")
             return
 
@@ -396,11 +382,10 @@ class PlanCleaner:
         if not hotfolders:
             return
 
-        active = [
-            hf
-            for hf in hotfolders
-            if hf.get("auto_delete_success_enabled") or hf.get("auto_delete_fault_enabled")
-        ]
+        active = []
+        for hf in hotfolders:
+            if hf.get("auto_delete_success_enabled") or hf.get("auto_delete_fault_enabled"):
+                active.append(hf)
 
         if not active:
             self._log("[Cleaner] HF: keine Auto-Delete-aktiven Hotfolder.")

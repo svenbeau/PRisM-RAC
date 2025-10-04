@@ -4,8 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Transferpläne angepasst, Transferordner Cleaner läuft">
-      <change afterPath="$PROJECT_DIR$/ui/gate_status_badge.py" afterDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Hotfolder Cleaner Scheduler einrichten (funktioniert nur bei &quot;Start&quot;)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/plan_cleaner.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/plan_cleaner.py" afterDir="false" />
@@ -112,14 +111,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00043" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741545678055</created>
-      <option name="number" value="00043" />
-      <option name="presentableId" value="LOCAL-00043" />
-      <option name="project" value="LOCAL" />
-      <updated>1741545678055</updated>
     </task>
     <task id="LOCAL-00044" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
@@ -505,11 +496,18 @@
       <option name="project" value="LOCAL" />
       <updated>1759556501113</updated>
     </task>
-    <option name="localTasksCounter" value="92" />
+    <task id="LOCAL-00092" summary="Hotfolder Cleaner Scheduler einrichten (funktioniert nur bei &quot;Start&quot;)">
+      <option name="closed" value="true" />
+      <created>1759562735509</created>
+      <option name="number" value="00092" />
+      <option name="presentableId" value="LOCAL-00092" />
+      <option name="project" value="LOCAL" />
+      <updated>1759562735509</updated>
+    </task>
+    <option name="localTasksCounter" value="93" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Samsatg Abend - Contentcheck funktioniert" />
     <MESSAGE value="Mit JSON-Edit und Wandbild-Script" />
     <MESSAGE value="Umbau zu globaler Konfiguration" />
     <MESSAGE value="Umbau Pfade für App" />
@@ -534,6 +532,7 @@
     <MESSAGE value="keyword-contentcheck erweitert um und/oder/not" />
     <MESSAGE value="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden" />
     <MESSAGE value="Transferpläne angepasst, Transferordner Cleaner läuft" />
-    <option name="LAST_COMMIT_MESSAGE" value="Transferpläne angepasst, Transferordner Cleaner läuft" />
+    <MESSAGE value="Hotfolder Cleaner Scheduler einrichten (funktioniert nur bei &quot;Start&quot;)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Hotfolder Cleaner Scheduler einrichten (funktioniert nur bei &quot;Start&quot;)" />
   </component>
 </project>
