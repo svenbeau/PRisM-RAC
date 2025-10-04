@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 from PySide6 import QtCore
 
@@ -14,7 +15,7 @@ from utils.transfer_plan_config_manager import TransferPlanConfigManager
 
 @dataclass
 class CleanerConfig:
-    interval_ms: int = 10 * 60 * 1000  # alle 10 Minuten
+    interval_ms: int = 10 * 60 * 1000  # Standard: alle 10 Minuten
     remove_empty_dirs: bool = True
     follow_symlinks: bool = False
     dry_run: bool = False
@@ -22,9 +23,9 @@ class CleanerConfig:
 
 class PlanCleaner(QtCore.QObject):
     """
-    Räumt die in Transfer-Plänen definierten 'move_after'-Ordner gemäß
-    'auto_delete_after_move_enabled' / 'auto_delete_after_move_hours' auf.
-    Läuft zyklisch in einem QThread mit QTimer.
+    Ein einfacher Cleaner, der auf Basis der Transfer-Pläne "move_after"-Ordner
+    nach Dateien durchsucht, die älter als N Stunden sind (auto_delete_after_move_hours),
+    und diese löscht. Läuft in eigenem Thread mit QTimer.
     """
 
     sig_log = QtCore.Signal(str)
@@ -35,111 +36,119 @@ class PlanCleaner(QtCore.QObject):
         self,
         config_manager: Optional[TransferPlanConfigManager] = None,
         config: CleanerConfig = CleanerConfig(),
-        parent: Optional[QtCore.QObject] = None,
+        parent=None
     ):
         super().__init__(parent)
         self.cm = config_manager or TransferPlanConfigManager()
         self.cfg = config
 
-        self._timer = QtCore.QTimer()
+        self._timer = QtCore.QTimer(self)
         self._timer.setInterval(self.cfg.interval_ms)
-        self._timer.timeout.connect(self._tick)
+        self._timer.timeout.connect(self._on_tick)
 
-        self._thread = QtCore.QThread()
-        self._timer.moveToThread(self._thread)
+        self._thread = QtCore.QThread(self)
         self.moveToThread(self._thread)
-        self._thread.started.connect(self._timer.start)
+        self._thread.started.connect(self._timer.start, QtCore.Qt.QueuedConnection)
+
+    # ------------- Public API -------------
 
     @QtCore.Slot()
     def start(self):
-        if not self._thread.isRunning():
-            self._thread.start()
-            self._emit_log("[Cleaner] gestartet.")
+        if self._thread.isRunning():
+            return
+        self._thread.start()
+        self._log("[Cleaner] gestartet.")
+
+    @QtCore.Slot(bool)
+    def stop(self, wait: bool = False):
+        """
+        Thread-sicherer Stopp: Timer im eigenen Thread stoppen und Thread beenden.
+        """
+        if QtCore.QThread.currentThread() is not self.thread():
+            QtCore.QMetaObject.invokeMethod(
+                self,
+                "_stop_internal",
+                QtCore.Qt.BlockingQueuedConnection if wait else QtCore.Qt.QueuedConnection
+            )
+            if wait and self._thread.isRunning():
+                self._thread.wait(3000)
+            return
+
+        self._stop_internal()
+        if wait and self._thread.isRunning():
+            self._thread.wait(3000)
+
+    # ------------- Internals -------------
 
     @QtCore.Slot()
-    def stop(self):
+    def _stop_internal(self):
         try:
             if self._timer.isActive():
                 self._timer.stop()
         except Exception:
             pass
-
-        if QtCore.QThread.currentThread() is self._thread:
-            try:
-                self._thread.quit()
-            except Exception:
-                pass
-            self._emit_log("[Cleaner] gestoppt.")
-            return
-
-        try:
-            if self._thread.isRunning():
-                self._thread.quit()
-                self._thread.wait(3000)
-        finally:
-            self._emit_log("[Cleaner] gestoppt.")
-
-    # -------- intern --------
+        self._log("[Cleaner] gestoppt.")
+        self._thread.quit()
 
     @QtCore.Slot()
-    def _tick(self):
+    def _on_tick(self):
         try:
             plans = self.cm.load_plans()
         except Exception as e:
-            self._emit_err(f"[Cleaner] Konnte Pläne nicht laden: {e}")
+            self._err(f"[Cleaner] Konnte Pläne nicht laden: {e}")
             return
 
         now = datetime.now()
-        for p in plans:
+        for plan in plans:
             try:
-                if not p.get("auto_delete_after_move_enabled"):
+                if not plan.get("auto_delete_after_move_enabled"):
                     continue
-                hours = int(p.get("auto_delete_after_move_hours", 0) or 0)
+                hours = int(plan.get("auto_delete_after_move_hours", 0) or 0)
                 if hours <= 0:
                     continue
-                base = (p.get("move_after") or "").strip()
+                base = plan.get("move_after") or ""
                 if not base or not os.path.isdir(base):
                     continue
 
                 cutoff = now - timedelta(hours=hours)
-                self._emit_log(f"[Cleaner] Prüfe '{base}' (>{hours}h) – Plan: {p.get('name','?')}")
-                self._cleanup_folder(base, cutoff)
-            except Exception as e:
-                self._emit_err(f"[Cleaner] Fehler bei Plan '{p.get('name','?')}': {e}")
+                self._log(f"[Cleaner] Prüfe '{base}' (>{hours}h) – Plan: {plan.get('name','?')}")
 
-    def _cleanup_folder(self, folder: str, cutoff_dt: datetime):
-        # Dateien & Ordner
-        try:
-            for entry in os.scandir(folder):
-                path = entry.path
-                try:
-                    stat = entry.stat(follow_symlinks=self.cfg.follow_symlinks)
-                    mtime = datetime.fromtimestamp(stat.st_mtime)
-                    if mtime <= cutoff_dt:
-                        if entry.is_file(follow_symlinks=self.cfg.follow_symlinks):
-                            if not self.cfg.dry_run:
-                                os.remove(path)
-                            self.sig_deleted.emit(path)
-                        elif entry.is_dir(follow_symlinks=self.cfg.follow_symlinks):
-                            # rekursiv aufräumen
-                            self._cleanup_folder(path, cutoff_dt)
-                            if self.cfg.remove_empty_dirs:
+                for root, dirs, files in os.walk(base, followlinks=self.cfg.follow_symlinks):
+                    # Dateien prüfen
+                    for fn in files:
+                        fp = os.path.join(root, fn)
+                        try:
+                            mtime = datetime.fromtimestamp(os.path.getmtime(fp))
+                        except Exception:
+                            continue
+                        if mtime <= cutoff:
+                            if self.cfg.dry_run:
+                                self._log(f"[Cleaner] (dry-run) Lösche: {fp}")
+                            else:
+                                try:
+                                    os.remove(fp)
+                                    self.sig_deleted.emit(fp)
+                                except Exception as e:
+                                    self._err(f"[Cleaner] Löschen fehlgeschlagen: {fp}: {e}")
+
+                    # Leere Ordner optional entfernen
+                    if self.cfg.remove_empty_dirs:
+                        try:
+                            if not os.listdir(root):
                                 if not self.cfg.dry_run:
-                                    try:
-                                        os.rmdir(path)
-                                        self.sig_deleted.emit(path)
-                                    except OSError:
-                                        pass  # nicht leer -> bleibt
-                except FileNotFoundError:
-                    pass
-        except FileNotFoundError:
-            pass
+                                    os.rmdir(root)
+                                    self._log(f"[Cleaner] Leeren Ordner entfernt: {root}")
+                        except Exception:
+                            pass
+            except Exception as e:
+                self._err(f"[Cleaner] Fehler in Plan {plan.get('name')}: {e}")
 
-    # -------- Helpers --------
-    def _emit_log(self, msg: str):
+    # ------------- Helpers -------------
+
+    def _log(self, msg: str):
         debug_print(msg)
         self.sig_log.emit(msg)
 
-    def _emit_err(self, msg: str):
+    def _err(self, msg: str):
         debug_print(msg)
         self.sig_error.emit(msg)

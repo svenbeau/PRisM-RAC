@@ -6,8 +6,9 @@ import os
 import socket
 from PySide6 import QtWidgets, QtGui, QtCore
 
-from utils.splash_screen import SplashScreen  # Import des neuen Splash-Screens
+from utils.splash_screen import SplashScreen
 from utils.config_manager import load_settings, save_settings, debug_print, load_ftp_servers
+
 from ui.hotfolder_widget import HotfolderListWidget
 from ui.logfile_widget import LogfileWidget
 from ui.json_explorer_widget import JSONExplorerWidget
@@ -30,7 +31,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1200, 900)
         self.settings = load_settings()
 
-        # Instanzen später gesetzt
+        # Referenzen, damit nichts vorzeitig GC't wird:
         self.scheduler = None
         self.cleaner = None
 
@@ -44,7 +45,7 @@ class MainWindow(QtWidgets.QMainWindow):
         main_vlayout.setContentsMargins(5, 5, 5, 5)
         main_vlayout.setSpacing(5)
 
-        # (A) Obere Leiste: Logo links, Debug-Button rechts
+        # (A) Obere Leiste
         top_bar = QtWidgets.QHBoxLayout()
         top_bar.setContentsMargins(10, 5, 10, 5)
 
@@ -81,7 +82,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         main_vlayout.addLayout(top_bar)
 
-        # (B) Hauptbereich (horizontal): Links Buttons, rechts StackedWidget
+        # (B) Hauptbereich
         main_hlayout = QtWidgets.QHBoxLayout()
         main_vlayout.addLayout(main_hlayout, stretch=1)
 
@@ -89,7 +90,6 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout = QtWidgets.QVBoxLayout(left_widget)
         left_vlayout.setContentsMargins(5, 5, 5, 5)
 
-        # Reihenfolge der Buttons
         self.hotfolder_btn = QtWidgets.QPushButton("Hotfolder")
         self.script_recipe_btn = QtWidgets.QPushButton("Script › Rezept")
         self.json_editor_btn = QtWidgets.QPushButton("JSON-Editor")
@@ -109,7 +109,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         main_hlayout.addWidget(left_widget, stretch=0)
 
-        # Rechter Bereich: QStackedWidget
         self.stack = QtWidgets.QStackedWidget()
         main_hlayout.addWidget(self.stack, stretch=1)
 
@@ -121,17 +120,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
 
-        self.stack.addWidget(self.hotfolder_list_widget)       # Index 0
-        self.stack.addWidget(self.script_recipe_list_widget)   # Index 1
-        self.stack.addWidget(self.json_explorer_widget)        # Index 2
-        self.stack.addWidget(self.ftp_transfer_widget)         # Index 3
-        self.stack.addWidget(self.transfer_plan_list_widget)   # Index 4
-        self.stack.addWidget(self.logfile_widget)              # Index 5
-        self.stack.addWidget(self.settings_widget)             # Index 6
-
+        self.stack.addWidget(self.hotfolder_list_widget)       # 0
+        self.stack.addWidget(self.script_recipe_list_widget)   # 1
+        self.stack.addWidget(self.json_explorer_widget)        # 2
+        self.stack.addWidget(self.ftp_transfer_widget)         # 3
+        self.stack.addWidget(self.transfer_plan_list_widget)   # 4
+        self.stack.addWidget(self.logfile_widget)              # 5
+        self.stack.addWidget(self.settings_widget)             # 6
         self.stack.setCurrentIndex(0)
 
-        # Button-Klicks
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.script_recipe_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.json_editor_btn.clicked.connect(lambda: self.stack.setCurrentIndex(2))
@@ -159,11 +156,9 @@ def run():
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("PRisM-RAC")
 
-    # Splash-Screen erstellen und anzeigen
+    # Splash
     splash = SplashScreen(app)
     splash.show()
-
-    # Zeige einen schnellen Ladeprozess im Fortschrittsbalken
     for i in range(0, 101, 20):
         splash.update_progress(f"Starte PRisM-RAC... {i}%", i)
         app.processEvents()
@@ -174,7 +169,7 @@ def run():
     # ---------- Transfer-Plan Infrastruktur ----------
     cm = TransferPlanConfigManager()
 
-    # VPN/Reachability-Precheck (nur für FTP/SFTP-Pläne)
+    # Reachability/VPN-Precheck (nur für FTP/SFTP)
     def vpn_precheck(plan: dict) -> bool:
         if not plan.get("use_ftp"):
             return True
@@ -197,7 +192,7 @@ def run():
             debug_print("[Scheduler] Precheck: Server nicht erreichbar (VPN/Netz?) – überspringe Tick.")
             return False
 
-    # ---------- Scheduler (interner Thread) ----------
+    # ---------- Scheduler (verwaltet eigenen Thread intern) ----------
     scheduler = PlanScheduler(
         config_manager=cm,
         precheck=vpn_precheck,
@@ -215,9 +210,9 @@ def run():
         lambda pid, ok, msg: debug_print(f"[Scheduler] Ende ({'OK' if ok else 'FAIL'}): {pid} – {msg}")
     )
     scheduler.start()
-    main_window.scheduler = scheduler
+    main_window.scheduler = scheduler  # Referenz halten
 
-    # ---------- Cleaner (interner Thread) ----------
+    # ---------- Cleaner (verwaltet eigenen Thread intern) ----------
     cleaner = PlanCleaner(
         config_manager=cm,
         config=CleanerConfig(
@@ -231,30 +226,30 @@ def run():
     cleaner.sig_error.connect(lambda msg: debug_print(msg))
     cleaner.sig_deleted.connect(lambda path: debug_print(f"[Cleaner] Gelöscht: {path}"))
     cleaner.start()
-    main_window.cleaner = cleaner
+    main_window.cleaner = cleaner  # Referenz halten
 
-    # Beim Beenden sauber stoppen (aus dem GUI-Thread)
+    # ---------- Sauberer Shutdown ----------
     def _graceful_shutdown():
         try:
-            if getattr(main_window, "scheduler", None):
-                main_window.scheduler.stop()  # im GUI-Thread -> sicher (wait)
+            if main_window.scheduler is not None:
+                # eigener Stop -> stoppt Timer im Worker-Thread via QueuedConnection
+                main_window.scheduler.stop()
         except Exception:
             pass
         try:
-            if getattr(main_window, "cleaner", None):
-                main_window.cleaner.stop()    # im GUI-Thread -> sicher (wait)
+            if main_window.cleaner is not None:
+                main_window.cleaner.stop()
         except Exception:
             pass
 
     app.aboutToQuit.connect(_graceful_shutdown)
 
-    # Splash ausblenden & UI zeigen
     splash.finish(main_window)
     main_window.show()
-
     return app.exec()
 
 
+# wrapper.py kompatibel halten
 run = run
 
 if __name__ == "__main__":
