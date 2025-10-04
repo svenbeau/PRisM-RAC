@@ -3,10 +3,13 @@
 
 import os
 import sys
+from typing import Optional, Tuple
 from PySide6 import QtWidgets, QtCore, QtGui
 from utils.hotfolder_config_manager import HotfolderConfigManager, debug_print
 from ui.hotfolder_config_dialog import HotfolderConfigDialog
 from hotfolder_monitor import HotfolderMonitor  # bleibt unverändert
+from datetime import datetime
+from utils.log_manager import add_log_entry
 
 
 def resource_path(relative_path):
@@ -77,6 +80,81 @@ class HotfolderListWidget(QtWidgets.QWidget):
             self.hf_layout.addWidget(widget)
 
         self.hf_layout.addStretch()
+
+    def get_current_monitor_dir(self) -> str:
+        """
+        Liefert einen sinnvollen Monitor-Ordner für Vorbelegung im Dialog.
+        Aktuell: Nimmt den ersten Hotfolder aus der Config.
+        (Wenn du später eine Auswahllogik hast, kannst du das hier umbauen.)
+        """
+        hfs = self.hf_manager.get_hotfolders() or []
+        return (hfs[0].get("monitor_dir", "") if hfs else "") or ""
+
+    def process_single_direct(
+        self,
+        file_path: str,
+        target_subdir: Optional[str] = None,
+        rename_to: Optional[str] = None
+    ) -> Tuple[bool, str]:
+        """
+        No-Touch Direktmodus: Datei NUR von Quelle öffnen/verarbeiten (keine Moves/Kopien).
+        Hier: sichere Minimal-Implementierung, die:
+          - Datei prüft
+          - einen Logeintrag im bekannten Format schreibt
+          - (Hook) Stelle für deinen echten Photoshop/JSX-Call markiert
+
+        Rückgabe:
+          (ok: bool, message: str)
+        """
+        try:
+            if not file_path:
+                return False, "Kein Pfad übergeben."
+
+            # Relativpfade relativ zum aktuellen Arbeitsverzeichnis auflösen
+            src = os.path.abspath(file_path)
+            if not os.path.exists(src):
+                return False, f"Quelle nicht gefunden: {src}"
+
+            # Optional: einen „aktuellen“ Hotfolder-Kontext heranziehen (für Scriptnamen etc.)
+            hfs = self.hf_manager.get_hotfolders() or []
+            hf = hfs[0] if hfs else {}
+            applied_script = os.path.basename(hf.get("selected_jsx", "")) or "(direct)"
+
+            # === HIER WÜRDEST DU DEINEN ECHTEN PHOTOSHOP/JSX-AUFRUF MACHEN ===
+            # Beispiel:
+            # ok, jsx_msg = run_photoshop_jsx(src, script=hf.get("selected_jsx"), extra=hf.get("additional_jsx"))
+            # if not ok:
+            #     return False, f"JSX-Fehler: {jsx_msg}"
+            # Für die Minimal-Variante simulieren wir Erfolg:
+            jsx_msg = "Direct verarbeitet (Sim)."
+
+            # Log-Eintrag — kompatibel zu deinem bestehenden Schema
+            basename = os.path.basename(src)
+            log_entry = {
+                "timestamp": datetime.now().isoformat(),
+                "filename": basename,
+                "metadata": {
+                    # Du kannst hier echte Metadaten befüllen, falls deine Pipeline die ermittelt
+                    "documentTitle": basename,
+                    "author": "PRiSM-Direct",
+                    "keywords": ""
+                },
+                "checkType": "Direct",
+                "status": "OK",
+                "applied_script": applied_script,
+                "details": {
+                    "mode": "DIRECT_NO_TOUCH",
+                    "target_subdir": target_subdir or "",
+                    "rename_to": rename_to or "",
+                    "note": "Direktmodus: Quelle unverändert; keine Success/Fault-Ordner."
+                }
+            }
+            add_log_entry(log_entry)
+
+            return True, jsx_msg
+
+        except Exception as e:
+            return False, f"Exception in Direct-Verarbeitung: {e}"
 
     def add_hotfolder(self):
         import uuid

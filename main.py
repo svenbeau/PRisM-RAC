@@ -4,6 +4,7 @@
 import sys
 import os
 import socket
+from typing import Optional
 from PySide6 import QtWidgets, QtGui, QtCore
 
 from utils.splash_screen import SplashScreen
@@ -21,6 +22,12 @@ from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from utils.plan_scheduler import PlanScheduler, SchedulerConfig
 from utils.plan_cleaner import PlanCleaner, CleanerConfig
 
+# Dialog (Feed/Direkt)
+try:
+    from ui.list_feeder_dialog import ListFeederDialog
+except Exception:
+    ListFeederDialog = None
+
 DEBUG_OUTPUT = True
 
 
@@ -32,10 +39,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings = load_settings()
 
         # Referenzen halten:
-        self.scheduler: PlanScheduler | None = None
-        self.cleaner: PlanCleaner | None = None
+        self.scheduler: Optional[PlanScheduler] = None
+        self.cleaner: Optional[PlanCleaner] = None
 
         self.init_ui()
+        self._build_menu()
+        self._build_toolbar()
 
     def init_ui(self):
         central_widget = QtWidgets.QWidget()
@@ -95,6 +104,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_btn = QtWidgets.QPushButton("Logfile")
         self.settings_btn = QtWidgets.QPushButton("Einstellungen")
 
+        # Button: Liste einspeisen / Direkt verarbeiten
+        self.feed_list_btn = QtWidgets.QPushButton("Liste einspeisen…")
+        self.feed_list_btn.clicked.connect(self._open_list_feeder_dialog)
+
         left_vlayout.addWidget(self.hotfolder_btn)
         left_vlayout.addWidget(self.script_recipe_btn)
         left_vlayout.addWidget(self.json_editor_btn)
@@ -102,6 +115,8 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout.addWidget(self.plan_btn)
         left_vlayout.addWidget(self.logfile_btn)
         left_vlayout.addWidget(self.settings_btn)
+        left_vlayout.addSpacing(12)
+        left_vlayout.addWidget(self.feed_list_btn)
         left_vlayout.addStretch()
 
         main_hlayout.addWidget(left_widget, stretch=0)
@@ -134,6 +149,81 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
 
+    # Menüleiste
+    def _build_menu(self):
+        menubar = self.menuBar()
+        menubar.addMenu("&Datei")
+
+        extras_menu = menubar.addMenu("&Extras")
+        self.action_feed_list = QtGui.QAction("Liste einspeisen…", self)
+        self.action_feed_list.setShortcut(QtGui.QKeySequence("Ctrl+L"))
+        self.action_feed_list.setStatusTip("CSV-Liste in Monitor einspeisen oder direkt verarbeiten")
+        self.action_feed_list.triggered.connect(self._open_list_feeder_dialog)
+        extras_menu.addAction(self.action_feed_list)
+
+        menubar.addMenu("&Hilfe")
+
+    # Toolbar
+    def _build_toolbar(self):
+        tb = self.addToolBar("Aktionen")
+        tb.setMovable(False)
+        act = QtGui.QAction("Liste einspeisen…", self)
+        act.triggered.connect(self._open_list_feeder_dialog)
+        tb.addAction(act)
+
+    def _open_list_feeder_dialog(self):
+        if ListFeederDialog is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Modul fehlt",
+                "Der Dialog 'ListFeederDialog' ist nicht verfügbar.\n\n"
+                "Bitte stelle sicher, dass die Datei\n"
+                "ui/list_feeder_dialog.py\n"
+                "im Projekt vorhanden ist."
+            )
+            return
+
+        dlg = ListFeederDialog(self)
+
+        # (Optional) Monitor des aktuell markierten Hotfolders vorbelegen
+        if hasattr(self.hotfolder_list_widget, "get_current_monitor_dir"):
+            try:
+                mon = self.hotfolder_list_widget.get_current_monitor_dir()
+                if mon:
+                    dlg.monitor_edit.setText(mon)  # nur wenn der Dialog dieses Feld hat (Feed-Modus)
+            except Exception:
+                pass
+
+        # --- Direktmodus-Callback (No-Touch) ---
+        def _direct_proc(file_path: str, target_subdir: Optional[str], rename_to: Optional[str]):
+            """
+            Ruf die bestehende Pipeline synchron auf.
+            Erwartete Rückgabe: (ok: bool, message: str)
+            """
+            if hasattr(self.hotfolder_list_widget, "process_single_direct"):
+                try:
+                    ok, msg = self.hotfolder_list_widget.process_single_direct(
+                        file_path=file_path,
+                        target_subdir=target_subdir,
+                        rename_to=rename_to
+                    )
+                    return bool(ok), str(msg)
+                except Exception as e:
+                    return False, f"Exception in process_single_direct: {e}"
+
+            return False, (
+                "Direct-Modus nicht verfügbar: "
+                "HotfolderListWidget.process_single_direct(...) ist nicht implementiert."
+            )
+
+        # dem Dialog übergeben (falls vorhanden)
+        try:
+            dlg.direct_process_callback = _direct_proc
+        except Exception:
+            pass
+
+        dlg.exec()
+
     def toggle_debug(self):
         from utils.config_manager import debug_print  # lokal gehalten
         global DEBUG_OUTPUT
@@ -146,9 +236,7 @@ class MainWindow(QtWidgets.QMainWindow):
         debug_print(f"DEBUG_OUTPUT={DEBUG_OUTPUT}")
 
     def closeEvent(self, event):
-        """
-        Sicherer Stop der Worker-Threads VOR dem App-Teardown.
-        """
+        # Sicherer Stop der Worker-Threads VOR dem App-Teardown.
         try:
             if self.scheduler is not None:
                 try:
@@ -183,7 +271,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def run():
     app = QtWidgets.QApplication(sys.argv)
-    app.setApplicationName("PRisM-RAC")
+    app.setApplicationName("PRisM-CC")
 
     # Splash
     splash = SplashScreen(app)
@@ -248,13 +336,10 @@ def run():
             remove_empty_dirs=True,
             follow_symlinks=False,
             dry_run=False,
-            # WICHTIG: Auto-Delete der Hotfolder immer erlauben,
-            # unabhängig davon, ob der HF-Watcher läuft.
             hf_gate_mode="always",
-            # NEU: erster Lauf erst nach dem ersten Intervall
             run_immediately=False,
         ),
-        config_manager=cm,  # falls du später Provider anbietest
+        config_manager=cm,
     )
     cleaner.sig_log.connect(lambda msg: debug_print(msg))
     cleaner.sig_error.connect(lambda msg: debug_print(msg))
@@ -262,7 +347,7 @@ def run():
     cleaner.start()
     main_window.cleaner = cleaner
 
-    # (Optional) zusätzlicher Fallback beim App-Exit
+    # (Optional) Fallback beim App-Exit
     def _graceful_shutdown():
         try:
             if main_window.scheduler is not None:
