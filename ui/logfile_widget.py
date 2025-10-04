@@ -8,6 +8,7 @@ from datetime import datetime
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from utils.log_manager import load_global_log, reset_global_log
+
 # Falls du load_ftptransfer_log/reset_ftptransfer_log lieber in utils.log_manager hast, importiere sie von dort.
 def load_ftptransfer_log():
     path = os.path.expanduser("~/Library/Application Support/PRisM-CC/ftptransfer_log.json")
@@ -27,6 +28,7 @@ def reset_ftptransfer_log():
     except:
         pass
 
+
 class LogfileWidget(QtWidgets.QWidget):
     """
     Zeigt zwei Logs in Tabs:
@@ -42,6 +44,57 @@ class LogfileWidget(QtWidgets.QWidget):
         self.all_transfer_logs = []  # Transfer (ftptransfer_log)
 
         self.init_ui()
+
+    # --------------------------
+    # Hilfsfunktionen (Sorting)
+    # --------------------------
+    def _set_item(self, table: QtWidgets.QTableWidget, row: int, col: int, value, sort_kind: str = "text", time_fmt: str = None):
+        """
+        Erstellt/setzt einen QTableWidgetItem und hinterlegt einen passenden Wert unter EditRole,
+        damit die QTableWidget-Sortierung numerisch bzw. chronologisch korrekt funktioniert.
+        sort_kind: 'int' | 'iso_dt' | 'dt_strptime' | 'text'
+        """
+        if value is None:
+            value = ""
+        text = str(value)
+
+        item = QtWidgets.QTableWidgetItem(text)
+
+        if sort_kind == "int":
+            try:
+                iv = int(value)
+            except Exception:
+                iv = 0
+            item.setData(QtCore.Qt.EditRole, iv)
+
+        elif sort_kind == "iso_dt":
+            # Versuche ISO-Parsing mit Qt (unterstützt auch Varianten mit 'T')
+            qdt = QtCore.QDateTime.fromString(text, QtCore.Qt.ISODate)
+            if not qdt.isValid():
+                # Fallback: Python-Parsing und Transfer nach QDateTime
+                try:
+                    py_dt = datetime.fromisoformat(text)
+                    qdt = QtCore.QDateTime(py_dt.year, py_dt.month, py_dt.day, py_dt.hour, py_dt.minute, py_dt.second)
+                except Exception:
+                    qdt = QtCore.QDateTime()  # invalid -> sortiert nach "leer"
+            item.setData(QtCore.Qt.EditRole, qdt)
+
+        elif sort_kind == "dt_strptime":
+            # Benutze ein vorgegebenes Format wie "%Y-%m-%d %H:%M:%S"
+            qdt = QtCore.QDateTime()
+            if time_fmt:
+                try:
+                    py_dt = datetime.strptime(text, time_fmt)
+                    qdt = QtCore.QDateTime(py_dt.year, py_dt.month, py_dt.day, py_dt.hour, py_dt.minute, py_dt.second)
+                except Exception:
+                    qdt = QtCore.QDateTime()
+            item.setData(QtCore.Qt.EditRole, qdt)
+
+        else:
+            # 'text' – Standard: Sortiert lexikografisch
+            item.setData(QtCore.Qt.EditRole, text)
+
+        table.setItem(row, col, item)
 
     def init_ui(self):
         main_layout = QtWidgets.QVBoxLayout(self)
@@ -108,7 +161,7 @@ class LogfileWidget(QtWidgets.QWidget):
             "MissingLayers", "MissingMetadata"
         ])
 
-        # --- Feste Spaltenbreite pro Spalte (Beispielwerte) ---
+        # --- Feste Spaltenbreiten ---
         self.table_hotfolder.setColumnWidth(0, 80)   # ID
         self.table_hotfolder.setColumnWidth(1, 150)  # Timestamp
         self.table_hotfolder.setColumnWidth(2, 250)  # Filename
@@ -121,6 +174,9 @@ class LogfileWidget(QtWidgets.QWidget):
         self.table_hotfolder.setColumnWidth(9, 100)  # AppliedScript
         self.table_hotfolder.setColumnWidth(10, 130) # MissingLayers
         self.table_hotfolder.setColumnWidth(11, 130) # MissingMetadata
+
+        # Dynamische Sortierung aktivieren
+        self.table_hotfolder.setSortingEnabled(True)
 
         tab1_layout.addWidget(self.table_hotfolder, stretch=1)
 
@@ -185,13 +241,16 @@ class LogfileWidget(QtWidgets.QWidget):
             "Index", "Timestamp", "Direction", "Source", "Target", "Status"
         ])
 
-        # --- Feste Spaltenbreite pro Spalte (Beispielwerte) ---
+        # --- Feste Spaltenbreiten ---
         self.table_transfer.setColumnWidth(0, 80)   # Index
         self.table_transfer.setColumnWidth(1, 150)  # Timestamp
         self.table_transfer.setColumnWidth(2, 80)   # Direction
         self.table_transfer.setColumnWidth(3, 220)  # Source
         self.table_transfer.setColumnWidth(4, 220)  # Target
         self.table_transfer.setColumnWidth(5, 80)   # Status
+
+        # Dynamische Sortierung aktivieren
+        self.table_transfer.setSortingEnabled(True)
 
         tab2_layout.addWidget(self.table_transfer, stretch=1)
 
@@ -230,12 +289,15 @@ class LogfileWidget(QtWidgets.QWidget):
         self.populate_table_hotfolder(self.all_logs)
 
     def populate_table_hotfolder(self, log_entries):
+        # Beim Befüllen: Sorting kurz aus -> befüllen -> Sorting an -> Standard-Sortierung
+        self.table_hotfolder.setSortingEnabled(False)
         self.table_hotfolder.setRowCount(0)
+
         for entry in log_entries:
             if not isinstance(entry, dict):
                 continue
-            row_position = self.table_hotfolder.rowCount()
-            self.table_hotfolder.insertRow(row_position)
+            row = self.table_hotfolder.rowCount()
+            self.table_hotfolder.insertRow(row)
 
             id_val = entry.get("id", "")
             timestamp_val = entry.get("timestamp", "")
@@ -256,23 +318,27 @@ class LogfileWidget(QtWidgets.QWidget):
             if isinstance(missing_meta, list):
                 missing_meta = ", ".join(missing_meta)
 
-            values = [
-                id_val,
-                timestamp_val,
-                filename_val,
-                author,
-                description,
-                keywords,
-                headline,
-                checkType,
-                status,
-                applied_script,
-                missing_layers,
-                missing_meta
-            ]
-            for col, val in enumerate(values):
-                item = QtWidgets.QTableWidgetItem(val)
-                self.table_hotfolder.setItem(row_position, col, item)
+            # Spalte 0: ID -> numerisch sortieren
+            self._set_item(self.table_hotfolder, row, 0, id_val, sort_kind="int")
+
+            # Spalte 1: Timestamp -> ISO-Datetime sortieren
+            self._set_item(self.table_hotfolder, row, 1, timestamp_val, sort_kind="iso_dt")
+
+            # Rest: Text
+            self._set_item(self.table_hotfolder, row, 2, filename_val, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 3, author, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 4, description, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 5, keywords, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 6, headline, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 7, checkType, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 8, status, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 9, applied_script, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 10, missing_layers, sort_kind="text")
+            self._set_item(self.table_hotfolder, row, 11, missing_meta, sort_kind="text")
+
+        # Sortierung wieder aktivieren und Standard: Spalte "ID" absteigend
+        self.table_hotfolder.setSortingEnabled(True)
+        self.table_hotfolder.sortItems(0, QtCore.Qt.SortOrder.DescendingOrder)
 
     def apply_filter(self):
         filtered = []
@@ -307,6 +373,7 @@ class LogfileWidget(QtWidgets.QWidget):
                 continue
 
             filtered.append(entry)
+
         self.populate_table_hotfolder(filtered)
 
     def export_csv_hotfolder(self):
@@ -361,12 +428,15 @@ class LogfileWidget(QtWidgets.QWidget):
         self.populate_table_transfer(self.all_transfer_logs)
 
     def populate_table_transfer(self, log_entries):
+        # Beim Befüllen: Sorting kurz aus -> befüllen -> Sorting an -> Standard-Sortierung
+        self.table_transfer.setSortingEnabled(False)
         self.table_transfer.setRowCount(0)
+
         for entry in log_entries:
             if not isinstance(entry, dict):
                 continue
-            row_position = self.table_transfer.rowCount()
-            self.table_transfer.insertRow(row_position)
+            row = self.table_transfer.rowCount()
+            self.table_transfer.insertRow(row)
 
             index_val = entry.get("index", "")
             timestamp_val = entry.get("timestamp", "")
@@ -375,17 +445,21 @@ class LogfileWidget(QtWidgets.QWidget):
             target_val = entry.get("target", "")
             status_val = entry.get("status", "")  # SUCCESS/FAILED
 
-            values = [
-                index_val,
-                timestamp_val,
-                direction_val,
-                source_val,
-                target_val,
-                status_val
-            ]
-            for col, val in enumerate(values):
-                item = QtWidgets.QTableWidgetItem(val)
-                self.table_transfer.setItem(row_position, col, item)
+            # Spalte 0: Index -> numerisch sortieren
+            self._set_item(self.table_transfer, row, 0, index_val, sort_kind="int")
+
+            # Spalte 1: Timestamp -> definiertes Format "%Y-%m-%d %H:%M:%S"
+            self._set_item(self.table_transfer, row, 1, timestamp_val, sort_kind="dt_strptime", time_fmt="%Y-%m-%d %H:%M:%S")
+
+            # Rest: Text
+            self._set_item(self.table_transfer, row, 2, direction_val, sort_kind="text")
+            self._set_item(self.table_transfer, row, 3, source_val, sort_kind="text")
+            self._set_item(self.table_transfer, row, 4, target_val, sort_kind="text")
+            self._set_item(self.table_transfer, row, 5, status_val, sort_kind="text")
+
+        # Sortierung wieder aktivieren und Standard: Spalte "Index" absteigend
+        self.table_transfer.setSortingEnabled(True)
+        self.table_transfer.sortItems(0, QtCore.Qt.SortOrder.DescendingOrder)
 
     def apply_transfer_filter(self):
         filtered = []
@@ -447,6 +521,7 @@ class LogfileWidget(QtWidgets.QWidget):
             QtWidgets.QMessageBox.information(self, "Export", "CSV-Datei erfolgreich exportiert (Transfer).")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Fehler", f"Fehler beim Exportieren (Transfer):\n{e}")
+
 
 if __name__ == "__main__":
     import sys
