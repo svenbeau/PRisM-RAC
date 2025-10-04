@@ -1,72 +1,139 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+post_build.py
+- Kopiert Default-Konfigs in ~/Library/Application Support/PRisM-CC/
+- Spiegelt jsx_templates dorthin (editierbar), falls noch nicht vorhanden
+- Legt sinnvolle Basis-Dateien an, wenn sie fehlen (global_log.json, script_config.json, settings.json, ftptransfer_log.json)
+- Optional: schreibt einen kurzen Self-Check-Report
+"""
+
 import os
-import shutil
 import sys
+import shutil
+import json
+from pathlib import Path
 
+APP_NAME = "PRisM-RAC"
+VENDOR_DIRNAME = "PRisM-CC"  # App-Support-Basis
+HOME = Path.home()
 
-def post_build():
-    # Basis-Verzeichnis des Projekts
-    base_dir = os.getcwd()
+APP_SUPPORT_DIR = HOME / "Library" / "Application Support" / VENDOR_DIRNAME
+APP_SUPPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Ziel-App-Bundle
-    app_bundle = os.path.join(base_dir, "dist", "PRisM-RAC.app")
-    resources_dir = os.path.join(app_bundle, "Contents", "Resources")
+# Pfade innerhalb des dist-Bundles (nach pyinstaller build)
+DIST_DIR = Path("dist")
+APP_BUNDLE = DIST_DIR / f"{APP_NAME}.app"
+MACOS_DIR = APP_BUNDLE / "Contents" / "MacOS"
 
-    # Stelle sicher, dass das Resources-Verzeichnis existiert
-    if not os.path.exists(resources_dir):
-        print(f"Fehler: Resources-Verzeichnis nicht gefunden: {resources_dir}")
-        return False
+# Quellen IM Bundle
+BUNDLE_CONFIG_DIR = MACOS_DIR / "config"
+BUNDLE_JSX_DIR = MACOS_DIR / "jsx_templates"
 
-    # Stelle sicher, dass das Assets-Verzeichnis im Bundle existiert
-    assets_target_dir = os.path.join(resources_dir, "assets")
-    os.makedirs(assets_target_dir, exist_ok=True)
-    print(f"Assets-Verzeichnis sichergestellt: {assets_target_dir}")
+# Ziele IM App-Support
+TARGET_CONFIG_DIR = APP_SUPPORT_DIR
+TARGET_JSX_DIR = APP_SUPPORT_DIR / "jsx_templates"
 
-    # Kopiere main.py in das Resources-Verzeichnis
-    main_py_source = os.path.join(base_dir, "main.py")
-    main_py_target = os.path.join(resources_dir, "main.py")
-    if os.path.exists(main_py_source):
-        print(f"Kopiere {main_py_source} nach {main_py_target}")
-        shutil.copy2(main_py_source, main_py_target)
+DEFAULT_FILES = {
+    "settings.json": {
+        "version": "1.0.0",
+        "ui": {
+            "theme": "system",
+            "language": "de",
+            "body_visible": False  # Merkt sich, ob Script/„Rezept“-Info aufgeklappt ist
+        },
+        "paths": {
+            "last_open_dir": str(HOME),
+            "recent_dirs": []
+        },
+        "mail": {
+            "smtp_host": "",
+            "smtp_port": 587,
+            "use_starttls": True,
+            "user": "",
+            "from": "",
+            "to_default": []
+        },
+        "ftp": {
+            "mode": "FTP",  # FTP | FTPS | SFTP
+            "host": "",
+            "port": 21,
+            "user": "",
+            "remote_base": "/",
+            "passive": True
+        }
+    },
+    "script_config.json": {
+        "configs": []  # Wird von dir per ID geführt (wie Hotfolder)
+    },
+    "global_log.json": {
+        "entries": []  # Globale Prozess-/Verarbeitungs-Logs
+    },
+    "ftptransfer_log.json": []
+}
+
+def copy_tree_if_missing(src: Path, dst: Path):
+    if not src.exists():
+        return
+    if not dst.exists():
+        shutil.copytree(src, dst)
+        print(f"[post_build] Kopiert Ordner: {src} -> {dst}")
     else:
-        print(f"Warnung: main.py nicht gefunden: {main_py_source}")
+        print(f"[post_build] Überspringe (existiert bereits): {dst}")
 
-    # Kopiere Splash-Screen (Dateiname angepasst)
-    splash_source = os.path.join(base_dir, "assets", "CC_PRisM_SplashScreen_600px.png")
-    splash_target = os.path.join(assets_target_dir, "CC_PRisM_SplashScreen_600px.png")
-    if os.path.exists(splash_source):
-        print(f"Kopiere {splash_source} nach {splash_target}")
-        shutil.copy2(splash_source, splash_target)
-    else:
-        print(f"Warnung: Splash-Screen nicht gefunden: {splash_source}")
+def seed_defaults():
+    # 1) Default-Konfigs aus dem Bundle falls vorhanden → App-Support
+    if BUNDLE_CONFIG_DIR.exists():
+        for item in BUNDLE_CONFIG_DIR.glob("*"):
+            target = TARGET_CONFIG_DIR / item.name
+            if item.is_file() and not target.exists():
+                shutil.copy2(item, target)
+                print(f"[post_build] Default-Config kopiert: {item.name}")
 
-    # Verschiebe den jsx_templates-Ordner aus Resources in Contents/Frameworks/jsx_templates
-    source_jsx_templates = os.path.join(resources_dir, "jsx_templates")
-    target_frameworks_dir = os.path.join(app_bundle, "Contents", "Frameworks")
-    target_jsx_templates = os.path.join(target_frameworks_dir, "jsx_templates")
-    if os.path.exists(source_jsx_templates):
-        os.makedirs(target_frameworks_dir, exist_ok=True)
-        # Falls der Zielordner schon existiert, entfernen wir ihn (bei symlink: unlink)
-        if os.path.exists(target_jsx_templates):
-            if os.path.islink(target_jsx_templates):
-                os.unlink(target_jsx_templates)
-            else:
-                shutil.rmtree(target_jsx_templates)
-        try:
-            shutil.move(source_jsx_templates, target_jsx_templates)
-            print(f"jsx_templates wurde erfolgreich nach {target_jsx_templates} verschoben.")
-        except Exception as e:
-            print(f"Fehler beim Verschieben von jsx_templates: {e}")
-            return False
-    else:
-        print(f"Warnung: jsx_templates-Ordner nicht gefunden in {resources_dir}")
+    # 2) Fehlen noch Standard-Dateien? → Minimal anlegen
+    for fname, default_content in DEFAULT_FILES.items():
+        target = TARGET_CONFIG_DIR / fname
+        if not target.exists():
+            try:
+                with open(target, "w", encoding="utf-8") as f:
+                    json.dump(default_content, f, ensure_ascii=False, indent=2)
+                print(f"[post_build] Default-Datei erstellt: {fname}")
+            except Exception as e:
+                print(f"[post_build] Konnte {fname} nicht schreiben: {e}")
 
-    return True
+    # 3) jsx_templates vom Bundle → App-Support spiegeln (nur wenn noch nicht da)
+    copy_tree_if_missing(BUNDLE_JSX_DIR, TARGET_JSX_DIR)
 
+def write_selfcheck():
+    report = {
+        "app_support_dir": str(APP_SUPPORT_DIR),
+        "has_settings": (APP_SUPPORT_DIR / "settings.json").exists(),
+        "has_script_config": (APP_SUPPORT_DIR / "script_config.json").exists(),
+        "has_global_log": (APP_SUPPORT_DIR / "global_log.json").exists(),
+        "has_ftptransfer_log": (APP_SUPPORT_DIR / "ftptransfer_log.json").exists(),
+        "has_jsx_templates": TARGET_JSX_DIR.exists(),
+    }
+    try:
+        with open(APP_SUPPORT_DIR / "post_build_selfcheck.json", "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+        print("[post_build] Self-Check-Report geschrieben.")
+    except Exception as e:
+        print(f"[post_build] Self-Check-Report Fehler: {e}")
+
+def main():
+    if not APP_BUNDLE.exists():
+        print(f"[post_build] Achtung: {APP_BUNDLE} nicht gefunden. Bitte erst bauen.")
+        sys.exit(1)
+
+    APP_SUPPORT_DIR.mkdir(parents=True, exist_ok=True)
+    seed_defaults()
+    write_selfcheck()
+
+    print("\n[post_build] Fertig. Hinweise:")
+    print(f"  • App-Support: {APP_SUPPORT_DIR}")
+    print(f"  • JSX-Templates: {TARGET_JSX_DIR}")
+    print("  • Default-Configs sind vorhanden oder wurden erzeugt.")
 
 if __name__ == "__main__":
-    if post_build():
-        print("Post-Build-Prozess erfolgreich ausgeführt.")
-    else:
-        print("Post-Build-Prozess fehlgeschlagen.")
-        sys.exit(1)
+    main()

@@ -27,18 +27,17 @@ try:
 except Exception:
     ListFeederDialog = None
 
+# Self-Test-Dialog
+try:
+    from ui.self_test_dialog import SelfTestDialog
+except Exception:
+    SelfTestDialog = None
+
 DEBUG_OUTPUT = True
 
 
 class _RetentionWorker(QtCore.QObject):
-    """
-    Führt den Retention-Run im Hintergrund aus, damit das UI nicht blockiert.
-    Erwartet ein PlanCleaner-Objekt mit einer der Methoden:
-      - run_once_now()
-      - run_now()
-      - run_immediately()   (Fallback)
-    """
-    finished = QtCore.Signal(str)  # status text
+    finished = QtCore.Signal(str)
 
     def __init__(self, cleaner: PlanCleaner):
         super().__init__()
@@ -48,13 +47,11 @@ class _RetentionWorker(QtCore.QObject):
     def run(self):
         status = "Fertig."
         try:
-            # Bevorzugt: run_once_now()
             if hasattr(self.cleaner, "run_once_now"):
                 self.cleaner.run_once_now()
             elif hasattr(self.cleaner, "run_now"):
                 self.cleaner.run_now()
             elif hasattr(self.cleaner, "run_immediately"):
-                # Manche Implementationen akzeptieren das als Trigger für den nächsten Tick
                 self.cleaner.run_immediately = True  # type: ignore[attr-defined]
             else:
                 status = "Cleaner unterstützt keinen manuellen Start."
@@ -71,7 +68,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1200, 900)
         self.settings = load_settings()
 
-        # Referenzen halten:
         self.scheduler: PlanScheduler | None = None
         self.cleaner: PlanCleaner | None = None
 
@@ -90,7 +86,6 @@ class MainWindow(QtWidgets.QMainWindow):
         main_vlayout.setContentsMargins(5, 5, 5, 5)
         main_vlayout.setSpacing(5)
 
-        # (A) Top-Bar
         top_bar = QtWidgets.QHBoxLayout()
         top_bar.setContentsMargins(10, 5, 10, 5)
 
@@ -125,7 +120,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         main_vlayout.addLayout(top_bar)
 
-        # (B) Hauptbereich
         main_hlayout = QtWidgets.QHBoxLayout()
         main_vlayout.addLayout(main_hlayout, stretch=1)
 
@@ -141,7 +135,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_btn = QtWidgets.QPushButton("Logfile")
         self.settings_btn = QtWidgets.QPushButton("Einstellungen")
 
-        # Button: Liste einspeisen / Direkt verarbeiten
         self.feed_list_btn = QtWidgets.QPushButton("Liste einspeisen…")
         self.feed_list_btn.clicked.connect(self._open_list_feeder_dialog)
 
@@ -186,7 +179,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
 
-    # Menüleiste
     def _build_menu(self):
         menubar = self.menuBar()
         menubar.addMenu("&Datei")
@@ -198,16 +190,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_feed_list.triggered.connect(self._open_list_feeder_dialog)
         extras_menu.addAction(self.action_feed_list)
 
-        # NEU: Retention jetzt ausführen
         self.action_retention_now = QtGui.QAction("Retention jetzt ausführen", self)
         self.action_retention_now.setShortcut(QtGui.QKeySequence("Ctrl+R"))
         self.action_retention_now.setStatusTip("Lösch-/Aufräumregeln (Success/Fault) sofort ausführen")
         self.action_retention_now.triggered.connect(self._run_retention_now)
         extras_menu.addAction(self.action_retention_now)
 
-        menubar.addMenu("&Hilfe")
+        help_menu = menubar.addMenu("&Hilfe")
 
-    # Toolbar
+        self.action_self_test = QtGui.QAction("Systemcheck…", self)
+        self.action_self_test.setShortcut(QtGui.QKeySequence("Ctrl+D"))
+        self.action_self_test.setStatusTip("Netzwerk & System testen (HTTPS/SMTP/FTP/SFTP/Write)")
+        self.action_self_test.triggered.connect(self._open_self_test_dialog)
+        help_menu.addAction(self.action_self_test)
+
     def _build_toolbar(self):
         tb = self.addToolBar("Aktionen")
         tb.setMovable(False)
@@ -215,10 +211,13 @@ class MainWindow(QtWidgets.QMainWindow):
         act.triggered.connect(self._open_list_feeder_dialog)
         tb.addAction(act)
 
-        # Optional auch in der Toolbar
         act_ret = QtGui.QAction("Retention jetzt", self)
         act_ret.triggered.connect(self._run_retention_now)
         tb.addAction(act_ret)
+
+        act_selftest = QtGui.QAction("Systemcheck…", self)
+        act_selftest.triggered.connect(self._open_self_test_dialog)
+        tb.addAction(act_selftest)
 
     def _open_list_feeder_dialog(self):
         if ListFeederDialog is None:
@@ -234,21 +233,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         dlg = ListFeederDialog(self)
 
-        # (Optional) Monitor des aktuell markierten Hotfolders vorbelegen
         if hasattr(self.hotfolder_list_widget, "get_current_monitor_dir"):
             try:
                 mon = self.hotfolder_list_widget.get_current_monitor_dir()
                 if mon and hasattr(dlg, "monitor_edit"):
-                    dlg.monitor_edit.setText(mon)  # nur wenn der Dialog dieses Feld hat
+                    dlg.monitor_edit.setText(mon)
             except Exception:
                 pass
 
-        # --- Direktmodus-Callback (No-Touch) ---
         def _direct_proc(file_path: str, target_subdir: str | None, rename_to: str | None):
-            """
-            Ruf die bestehende Pipeline synchron auf.
-            Erwartete Rückgabe: (ok: bool, message: str)
-            """
             if hasattr(self.hotfolder_list_widget, "process_single_direct"):
                 try:
                     ok, msg = self.hotfolder_list_widget.process_single_direct(
@@ -264,7 +257,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 "HotfolderListWidget.process_single_direct(...) ist nicht implementiert."
             )
 
-        # dem Dialog übergeben (falls unterstützt)
         try:
             dlg.direct_process_callback = _direct_proc
         except Exception:
@@ -272,16 +264,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
         dlg.exec()
 
-    # ---------- NEU: Retention jetzt ausführen ----------
+    def _open_self_test_dialog(self):
+        if SelfTestDialog is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Modul fehlt",
+                "Der Dialog 'SelfTestDialog' ist nicht verfügbar.\n\n"
+                "Bitte stelle sicher, dass die Datei\n"
+                "ui/self_test_dialog.py\n"
+                "im Projekt vorhanden ist."
+            )
+            return
+        # >>> NEU: aktuelle App-Settings direkt übergeben
+        dlg = SelfTestDialog(self, settings_override=self.settings)
+        dlg.exec()
+
     def _run_retention_now(self):
         if self.cleaner is None:
             QtWidgets.QMessageBox.warning(self, "Retention", "Cleaner ist noch nicht initialisiert.")
             return
 
-        # Aktion deaktivieren, solange ein Lauf aktiv ist
         self.action_retention_now.setEnabled(False)
 
-        # Busy-Dialog
         self._retention_dialog = QtWidgets.QProgressDialog(
             "Prüfe & lösche gemäß Retention-Regeln …", "Abbrechen", 0, 0, self
         )
@@ -292,7 +296,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self._retention_dialog.canceled.connect(self._on_retention_cancel_requested)
         self._retention_dialog.show()
 
-        # Thread + Worker
         self._retention_thread = QtCore.QThread(self)
         self._retention_worker = _RetentionWorker(self.cleaner)
         self._retention_worker.moveToThread(self._retention_thread)
@@ -304,10 +307,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self._retention_thread.start()
 
     def _on_retention_cancel_requested(self):
-        # Optional: Falls dein Cleaner Abbruch unterstützt, hier triggern.
-        # Beispiel:
-        # if hasattr(self.cleaner, "request_abort"):
-        #     self.cleaner.request_abort()
         pass
 
     def _on_retention_finished(self, status: str):
@@ -329,7 +328,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._retention_dialog = None
 
     def toggle_debug(self):
-        from utils.config_manager import debug_print  # lokal gehalten
+        from utils.config_manager import debug_print
         global DEBUG_OUTPUT
         if self.debug_toggle_btn.isChecked():
             DEBUG_OUTPUT = True
@@ -340,7 +339,6 @@ class MainWindow(QtWidgets.QMainWindow):
         debug_print(f"DEBUG_OUTPUT={DEBUG_OUTPUT}")
 
     def closeEvent(self, event):
-        # Sicherer Stop der Worker-Threads VOR dem App-Teardown.
         try:
             if self.scheduler is not None:
                 try:
@@ -377,20 +375,16 @@ def run():
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("PRisM-CC")
 
-    # Splash
     splash = SplashScreen(app)
     splash.show()
     for i in range(0, 101, 20):
         splash.update_progress(f"Starte PRisM-RAC... {i}%", i)
         app.processEvents()
 
-    # Hauptfenster
     main_window = MainWindow()
 
-    # ---------- Transfer-Plan Infrastruktur ----------
     cm = TransferPlanConfigManager()
 
-    # Reachability/VPN-Precheck (nur für FTP/SFTP)
     def vpn_precheck(plan: dict) -> bool:
         if not plan.get("use_ftp"):
             return True
@@ -413,7 +407,6 @@ def run():
             debug_print("[Scheduler] Precheck: Server nicht erreichbar (VPN/Netz?) – überspringe Tick.")
             return False
 
-    # ---------- Scheduler ----------
     scheduler = PlanScheduler(
         config_manager=cm,
         precheck=vpn_precheck,
@@ -433,15 +426,14 @@ def run():
     scheduler.start()
     main_window.scheduler = scheduler
 
-    # ---------- Cleaner ----------
     cleaner = PlanCleaner(
         config=CleanerConfig(
             interval_ms=10 * 60 * 1000,
             remove_empty_dirs=True,
             follow_symlinks=False,
             dry_run=False,
-            hf_gate_mode="always",      # Auto-Delete läuft unabhängig vom HF-Status
-            run_immediately=False,      # erster Lauf nach dem ersten Intervall
+            hf_gate_mode="always",
+            run_immediately=False,
         ),
         config_manager=cm,
     )
@@ -451,7 +443,6 @@ def run():
     cleaner.start()
     main_window.cleaner = cleaner
 
-    # (Optional) Fallback beim App-Exit
     def _graceful_shutdown():
         try:
             if main_window.scheduler is not None:
@@ -475,7 +466,6 @@ def run():
     return app.exec()
 
 
-# wrapper.py kompatibel halten
 run = run
 
 if __name__ == "__main__":

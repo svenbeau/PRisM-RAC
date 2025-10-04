@@ -7,26 +7,48 @@ from pathlib import Path
 
 block_cipher = None
 
-# Name der Anwendung
+# ===== App-Metadaten =====
 APP_NAME = "PRisM-RAC"
+APP_SCRIPT = "main.py"  # Einstiegsskript
 
-# Hauptskript, das als Einstieg dient
-APP_SCRIPT = "main.py"
+# ===== Suchpfade =====
+pathex = [os.path.abspath(".")]
 
-# Pfade, in denen PyInstaller nach Modulen und Ressourcen suchen soll
-pathex = [
-    os.path.abspath('.'),
-]
-
-# Optionale versteckte Importe
+# ===== Imports / Bundling-Helfer =====
 hidden_imports = []
 
-# Hier definieren wir NUR den assets-Ordner und den jsx_templates-Ordner (welcher später per post_build.py verschoben wird)
+# WICHTIG: Qt-Plugins + Daten einsammeln
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+import certifi
+
+# PySide6 vollständig berücksichtigen (Import-Pfade, Styles, etc.)
+hidden_imports += collect_submodules("PySide6")
+
+# Optional: Paramiko/Cryptography (nur falls installiert/benötigt – SFTP)
+try:
+    import paramiko  # noqa: F401
+    hidden_imports += collect_submodules("paramiko")
+    hidden_imports += collect_submodules("cryptography")
+except Exception:
+    # Wenn nicht installiert, ignorieren wir SFTP-spezifische Hidden-Imports
+    pass
+
+# Daten, die wir ins Bundle nehmen
 datas = [
-    ("assets", "assets"),           # Kopiert den assets-Ordner
-    ("jsx_templates", "jsx_templates"),  # Kopiert den jsx_templates-Ordner
+    # Deine Projekt-Ressourcen
+    ("assets", "assets"),
+    ("jsx_templates", "jsx_templates"),
+    # Default-Configs als Seed (post_build kopiert sie später ins App-Support-Verzeichnis)
+    ("config", "config"),
 ]
 
+# Qt-Plugins (plattformen, imageformats, iconengines, etc.)
+datas += collect_data_files("PySide6", includes=["Qt/plugins/**"])
+
+# CA-Bundle für TLS/SSL (SMTP/FTPS/HTTPS)
+datas += [(certifi.where(), "certifi")]
+
+# ===== PyInstaller-Analyse =====
 a = Analysis(
     [APP_SCRIPT],
     pathex=pathex,
@@ -36,16 +58,16 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['PyQt5', 'PyQt6', 'PySide2'],  # Schließe andere Qt-Bibliotheken aus
+    excludes=["PyQt5", "PyQt6", "PySide2"],  # nur PySide6 verwenden
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
-    noarchive=False
+    noarchive=False,
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Two-File-Modus
+# ===== Executable =====
 exe = EXE(
     pyz,
     a.scripts,
@@ -55,38 +77,39 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,                  # macOS: stabiler ohne UPX
     console=False,
     disable_windowed_traceback=False,
-    target_arch='arm64',
+    target_arch="arm64",
 )
 
-# Sammlung von Dateien, die neben der EXE platziert werden
+# ===== Collect-Phase =====
 coll = COLLECT(
     exe,
     a.binaries,
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name=APP_NAME,
 )
 
-# Pfad zum Icon
-icon_path = '/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns'
+# ===== App-Bundle =====
+icon_path = "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns"
 
 app = BUNDLE(
     coll,
-    name=f'{APP_NAME}.app',
+    name=f"{APP_NAME}.app",
     icon=icon_path,
-    bundle_identifier='com.svenbeau.prismrac.arm64',
+    bundle_identifier="com.svenbeau.prismrac.arm64",
     info_plist={
-        'CFBundleName': APP_NAME,
-        'CFBundleShortVersionString': '1.0.0',
-        'CFBundleVersion': '1.0.0',
-        'CFBundleDevelopmentRegion': 'en',
-        'LSMinimumSystemVersion': '10.13.0',
-        'NSHumanReadableCopyright': '© 2025 Sven Schoenauer',
-    }
+        "CFBundleName": APP_NAME,
+        "CFBundleShortVersionString": "1.0.0",
+        "CFBundleVersion": "1.0.0",
+        "CFBundleDevelopmentRegion": "en",
+        # Apple Silicon i. d. R. ab 12.0 sinnvoll; 10.13 war Intel-Ära
+        "LSMinimumSystemVersion": "12.0",
+        "NSHumanReadableCopyright": "© 2025 Sven Schoenauer",
+    },
 )
