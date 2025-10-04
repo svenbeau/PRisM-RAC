@@ -5,11 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Listfeeder V1 mit rename, kopiert die Quelldaten in den Monitor-Ordner des ausgewählten Ordners">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/list_feeder_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/list_feeder_dialog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/plan_cleaner.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/plan_cleaner.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -114,14 +109,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00050" summary="erste lauffähige Compilierung">
-      <option name="closed" value="true" />
-      <created>1741726366579</created>
-      <option name="number" value="00050" />
-      <option name="presentableId" value="LOCAL-00050" />
-      <option name="project" value="LOCAL" />
-      <updated>1741726366579</updated>
     </task>
     <task id="LOCAL-00051" summary="aufräumen Settings">
       <option name="closed" value="true" />
@@ -507,7 +494,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759592088037</updated>
     </task>
-    <option name="localTasksCounter" value="99" />
+    <task id="LOCAL-00099" summary="Listfeeder V1 mit rename, kopiert die Quelldaten in den Monitor-Ordner des ausgewählten Ordners">
+      <option name="closed" value="true" />
+      <created>1759601773781</created>
+      <option name="number" value="00099" />
+      <option name="presentableId" value="LOCAL-00099" />
+      <option name="project" value="LOCAL" />
+      <updated>1759601773781</updated>
+    </task>
+    <option name="localTasksCounter" value="100" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

@@ -30,7 +30,7 @@ import os
 import json
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Optional, Tuple, List
 
 from PySide6 import QtCore
@@ -109,6 +109,21 @@ class PlanCleaner(QtCore.QThread):
             except Exception as e:
                 self._emit_error(f"[Cleaner] Unhandled exception im Tick: {e}")
             self._sleep_ms(self.config.interval_ms)
+
+    # ---------- Manueller Trigger ----------
+
+    def run_once_now(self):
+        """
+        Führt den Aufräum-Tick einmalig sofort aus.
+        Wird vom Menüpunkt „Retention jetzt ausführen“ aufgerufen.
+        """
+        self._emit_log("[Cleaner] Manueller Trigger: run_once_now()")
+
+        try:
+            self._tick()
+            self._emit_log("[Cleaner] Manueller Retention-Durchlauf abgeschlossen.")
+        except Exception as e:
+            self._emit_error(f"[Cleaner] Manueller Durchlauf fehlgeschlagen: {e}")
 
     # ---------- Ein Tick ----------
 
@@ -232,7 +247,6 @@ class PlanCleaner(QtCore.QThread):
                         self._emit_log(f"[Cleaner]   (skip) {label}: {fpath} – keine Logspur gefunden.")
                         continue
                     # Optional: mtime-basierter Fallback? (standard: NEIN)
-                    # Hier bewusst: aus Gründen der Nachvollziehbarkeit NICHT löschen.
                     self._emit_log(f"[Cleaner]   (skip) {label}: {fpath} – delete_without_log_entry=False.")
                     continue
 
@@ -331,14 +345,12 @@ class PlanCleaner(QtCore.QThread):
                 dt = datetime.fromisoformat(ts_iso)
                 ts = dt.timestamp()
             except Exception:
-                # toleranter Parser (z.B. wenn 'Z' drin wäre)
                 try:
                     dt = datetime.strptime(ts_iso.split(".")[0], "%Y-%m-%dT%H:%M:%S")
                     ts = dt.timestamp()
                 except Exception:
                     continue
             base = os.path.basename(str(fname))
-            # nur "letzter" Timestamp
             prev = result.get(base)
             if prev is None or ts > prev:
                 result[base] = ts
@@ -350,21 +362,17 @@ class PlanCleaner(QtCore.QThread):
     # ---------- Utils ----------
 
     def _remove_empty_dirs(self, base_dir: str):
-        # von unten nach oben
         for root, dirs, files in os.walk(base_dir, topdown=False):
-            # symlinks ignorieren, wenn follow_symlinks=False
             try:
                 if not self.config.follow_symlinks and os.path.islink(root):
                     continue
             except Exception:
                 pass
             try:
-                # ist leer?
                 if not os.listdir(root):
                     os.rmdir(root)
                     self._emit_log(f"[Cleaner] Leeren Ordner entfernt: {root}")
             except Exception:
-                # ggf. Rechteprobleme: ignorieren
                 pass
 
     @staticmethod
@@ -387,7 +395,6 @@ class PlanCleaner(QtCore.QThread):
         entscheiden wir konservativ. Wenn du später eine aktive Watcher-Abfrage
         übergibst, koppel sie hier ein.
         """
-        # TODO: Später per Callback/Provider implementieren.
         return True
 
     # ---------- Signal-Helfer ----------
