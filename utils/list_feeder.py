@@ -6,7 +6,7 @@ import os
 import shutil
 import time
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple
+from typing import List
 
 from PySide6 import QtCore
 
@@ -22,14 +22,19 @@ class ListFeederWorker(QtCore.QThread):
     """
     Arbeiter-Thread für das Einspeisen einer CSV-Liste in den Monitor-Ordner.
     Bevorzugt Links (Hardlink/Symlink), fällt – falls erlaubt – auf Kopieren zurück.
-    In unserer aktuellen UI-Konfiguration wird NICHT verschoben und Copy-Fallback ist erlaubt.
+    In der aktuellen UI-Konfiguration wird NICHT verschoben und Copy-Fallback ist erlaubt.
     """
 
+    # bestehend
     progress = QtCore.Signal(int, int)     # processed, total
     log = QtCore.Signal(str)
     error = QtCore.Signal(str)
     finished_ok = QtCore.Signal()
     cancelled = QtCore.Signal()
+
+    # NEU: Warteschlangen-Signale
+    item_started = QtCore.Signal(str, int, int)      # src, idx(1-based), total
+    item_result = QtCore.Signal(bool, str, int)      # ok, dst, idx(1-based)
 
     def __init__(
         self,
@@ -50,11 +55,16 @@ class ListFeederWorker(QtCore.QThread):
         self.links_only = bool(links_only)
 
         self._cancel = False
+        self._fail_count = 0
 
     # ------------- Lebenszyklus -------------
 
     def cancel(self):
         self._cancel = True
+
+    @property
+    def fail_count(self) -> int:
+        return int(self._fail_count)
 
     def run(self):
         try:
@@ -80,8 +90,13 @@ class ListFeederWorker(QtCore.QThread):
             if not os.path.isabs(src):
                 src = os.path.normpath(os.path.join(csv_dir, src))
 
+            # Start-Info an UI
+            self.item_started.emit(src, idx, total)
+
             if not os.path.exists(src):
                 self.log.emit(f"[SKIP {idx}] Quelle nicht gefunden: {src}")
+                self.item_result.emit(False, "", idx)
+                self._fail_count += 1
                 self.progress.emit(processed, total)
                 continue
 
@@ -94,6 +109,8 @@ class ListFeederWorker(QtCore.QThread):
                 os.makedirs(target_dir, exist_ok=True)
             except Exception as e:
                 self.log.emit(f"[SKIP {idx}] Zielordner kann nicht erstellt werden: {target_dir} – {e}")
+                self.item_result.emit(False, "", idx)
+                self._fail_count += 1
                 self.progress.emit(processed, total)
                 continue
 
@@ -109,14 +126,16 @@ class ListFeederWorker(QtCore.QThread):
                 self._place_file(src, dst)
                 self.log.emit(f"[OK {idx}] → {dst}")
                 processed += 1
+                self.item_result.emit(True, dst, idx)
                 self.progress.emit(processed, total)
             except Exception as e:
                 self.log.emit(f"[FAIL {idx}] {os.path.basename(src)} → {dst}: {e}")
+                self._fail_count += 1
+                self.item_result.emit(False, dst, idx)
                 self.progress.emit(processed, total)
 
-            # kleine Pause zwischen Jobs
+            # kleine Pause zwischen Jobs (mit Abbruchfenster)
             if self.interval_seconds > 0:
-                # auch hier Abbruchchance
                 for _ in range(int(self.interval_seconds * 10)):
                     if self._cancel:
                         self.cancelled.emit()
@@ -131,14 +150,13 @@ class ListFeederWorker(QtCore.QThread):
         """
         CSV robust einlesen:
         - UTF-8 mit BOM (utf-8-sig)
-        - Delimiter-Autodetect (Sniffer) mit Fallback auf , ; \t
+        - Delimiter-Autodetect (Sniffer) mit Fallback auf ; , \t
         - Header normalisieren (strip + lower)
         - akzeptierte Spalten: file_path [pflicht], target_subdir, rename_to
         """
         if not os.path.exists(path):
             raise FileNotFoundError(path)
 
-        # 1) Dialekt erkennen
         with open(path, "r", encoding="utf-8-sig", newline="") as f:
             sample = f.read(4096)
             f.seek(0)
@@ -146,7 +164,6 @@ class ListFeederWorker(QtCore.QThread):
                 sniffer = csv.Sniffer()
                 dialect = sniffer.sniff(sample, delimiters=",;\t")
             except Exception:
-                # Fallback: häufig in DE ; oder ,
                 class _Fallback(csv.Dialect):
                     delimiter = ";"
                     quotechar = '"'
@@ -163,29 +180,24 @@ class ListFeederWorker(QtCore.QThread):
                 raise ValueError("CSV ist leer.")
 
             header = [h.strip().lower() for h in raw_header]
-            # mappe Indexe
             col_idx = {name: i for i, name in enumerate(header)}
 
             if "file_path" not in col_idx:
-                # evtl. hat jemand "filepath" geschrieben?
-                alt = "filepath"
-                if alt in col_idx:
-                    col_idx["file_path"] = col_idx[alt]
+                if "filepath" in col_idx:
+                    col_idx["file_path"] = col_idx["filepath"]
                 else:
                     raise ValueError("CSV benötigt mindestens die Spalte 'file_path'.")
 
-            # optional
             tgt_idx = col_idx.get("target_subdir")
             ren_idx = col_idx.get("rename_to")
 
             rows: List[_FeederRow] = []
             for row in reader:
-                if not any(cell.strip() for cell in row):
-                    continue  # komplett leere Zeile
+                if not any((c.strip() if i < len(row) else "") for i, c in enumerate(row or [])):
+                    continue
                 try:
                     fp = row[col_idx["file_path"]].strip()
                 except Exception:
-                    # Zeile zu kurz – überspringen
                     continue
                 if not fp:
                     continue
@@ -196,9 +208,6 @@ class ListFeederWorker(QtCore.QThread):
             return rows
 
     def _make_unique(self, dst: str) -> str:
-        """
-        Hängt __1,__2,… an, falls Pfad existiert.
-        """
         if not os.path.exists(dst):
             return dst
         base, ext = os.path.splitext(dst)
@@ -210,33 +219,26 @@ class ListFeederWorker(QtCore.QThread):
             n += 1
 
     def _place_file(self, src: str, dst: str):
-        """
-        Datei gemäß Einstellungen in den Monitor bringen.
-        Reihenfolge:
-        - wenn move_files: shutil.move
-        - sonst: versuche Hardlink -> Symlink -> (falls erlaubt) Kopie
-        """
         if self.move_files:
             shutil.move(src, dst)
             return
 
-        # 1) Hardlink versuchen
+        # 1) Hardlink
         try:
             os.link(src, dst)
             return
         except Exception:
             pass
 
-        # 2) Symlink versuchen
+        # 2) Symlink
         try:
-            # relative Symlinks sind robuster beim Verschieben des Monitors
             rel = os.path.relpath(src, os.path.dirname(dst))
             os.symlink(rel, dst)
             return
         except Exception:
             pass
 
-        # 3) Kopieren (nur wenn erlaubt)
+        # 3) Kopieren (wenn Links nicht möglich)
         if self.links_only:
             raise RuntimeError("Link nicht möglich und 'links_only' ist aktiv.")
         shutil.copy2(src, dst)
