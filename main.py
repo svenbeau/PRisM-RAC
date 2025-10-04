@@ -31,21 +31,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1200, 900)
         self.settings = load_settings()
 
-        # Referenzen, damit nichts vorzeitig GC't wird:
-        self.scheduler = None
-        self.cleaner = None
+        # Referenzen halten:
+        self.scheduler: PlanScheduler | None = None
+        self.cleaner: PlanCleaner | None = None
 
         self.init_ui()
 
     def init_ui(self):
-        # Zentrales Widget + Layout
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
         main_vlayout = QtWidgets.QVBoxLayout(central_widget)
         main_vlayout.setContentsMargins(5, 5, 5, 5)
         main_vlayout.setSpacing(5)
 
-        # (A) Obere Leiste
+        # (A) Top-Bar
         top_bar = QtWidgets.QHBoxLayout()
         top_bar.setContentsMargins(10, 5, 10, 5)
 
@@ -56,19 +55,17 @@ class MainWindow(QtWidgets.QMainWindow):
             os.path.join(os.path.dirname(sys.executable), "assets", "logo.png"),
             os.path.join(os.path.abspath("."), "assets", "logo.png"),
         ]
-        logo_found = False
+        pixmap = None
         for logo_path in logo_paths:
             if os.path.exists(logo_path):
                 debug_print(f"Logo gefunden unter: {logo_path}")
                 pixmap = QtGui.QPixmap(logo_path)
                 pixmap = pixmap.scaled(200, 21, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-                logo_label.setPixmap(pixmap)
-                logo_found = True
                 break
-        if not logo_found:
-            debug_print("Logo konnte nicht gefunden werden. Gesuchte Pfade:")
-            for path in logo_paths:
-                debug_print(f" - {path}")
+        if pixmap is not None:
+            logo_label.setPixmap(pixmap)
+        else:
+            debug_print("Logo konnte nicht gefunden werden.")
             logo_label.setText("LOGO")
 
         top_bar.addWidget(logo_label, alignment=QtCore.Qt.AlignLeft)
@@ -138,6 +135,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
 
     def toggle_debug(self):
+        from utils.config_manager import debug_print  # lokal gehalten
         global DEBUG_OUTPUT
         if self.debug_toggle_btn.isChecked():
             DEBUG_OUTPUT = True
@@ -148,6 +146,40 @@ class MainWindow(QtWidgets.QMainWindow):
         debug_print(f"DEBUG_OUTPUT={DEBUG_OUTPUT}")
 
     def closeEvent(self, event):
+        """
+        Sicherer Stop der Worker-Threads VOR dem App-Teardown.
+        (Nur hier stoppen; keinen zusätzlichen aboutToQuit-Fallback -> vermeidet doppelte Stop-Logs.)
+        """
+        try:
+            if self.scheduler is not None:
+                try:
+                    self.scheduler.stop()
+                except Exception:
+                    pass
+                # falls verfügbar, zusätzlich warten
+                if hasattr(self.scheduler, "wait"):
+                    try:
+                        self.scheduler.wait(5000)
+                    except Exception:
+                        pass
+        finally:
+            pass
+
+        try:
+            if self.cleaner is not None:
+                try:
+                    # unsere PlanCleaner-API nutzt .stop() ohne Parameter
+                    self.cleaner.stop()
+                except Exception:
+                    pass
+                if hasattr(self.cleaner, "wait"):
+                    try:
+                        self.cleaner.wait(7000)
+                    except Exception:
+                        pass
+        finally:
+            pass
+
         save_settings(self.settings)
         super().closeEvent(event)
 
@@ -192,7 +224,7 @@ def run():
             debug_print("[Scheduler] Precheck: Server nicht erreichbar (VPN/Netz?) – überspringe Tick.")
             return False
 
-    # ---------- Scheduler (verwaltet eigenen Thread intern) ----------
+    # ---------- Scheduler ----------
     scheduler = PlanScheduler(
         config_manager=cm,
         precheck=vpn_precheck,
@@ -204,45 +236,32 @@ def run():
             connect_timeout_s=20,
         ),
     )
-    scheduler.sig_log.connect(lambda msg: debug_print(msg))
+    # Wichtig: KEIN sig_log → debug_print, um doppelte Start/Logzeilen zu vermeiden.
+    # scheduler.sig_log.connect(lambda msg: debug_print(msg))
     scheduler.sig_plan_started.connect(lambda pid, name: debug_print(f"[Scheduler] Start: {name} ({pid})"))
     scheduler.sig_plan_finished.connect(
         lambda pid, ok, msg: debug_print(f"[Scheduler] Ende ({'OK' if ok else 'FAIL'}): {pid} – {msg}")
     )
     scheduler.start()
-    main_window.scheduler = scheduler  # Referenz halten
+    main_window.scheduler = scheduler
 
-    # ---------- Cleaner (verwaltet eigenen Thread intern) ----------
+    # ---------- Cleaner ----------
     cleaner = PlanCleaner(
-        config_manager=cm,
         config=CleanerConfig(
             interval_ms=10 * 60 * 1000,
             remove_empty_dirs=True,
             follow_symlinks=False,
             dry_run=False,
         ),
+        config_manager=cm,
     )
     cleaner.sig_log.connect(lambda msg: debug_print(msg))
     cleaner.sig_error.connect(lambda msg: debug_print(msg))
     cleaner.sig_deleted.connect(lambda path: debug_print(f"[Cleaner] Gelöscht: {path}"))
+    # optional: Gate-Badge/Status
+    # cleaner.sig_gate_changed.connect(lambda is_open: debug_print(f"[Cleaner] Gate {'aktiv' if is_open else 'inaktiv'}"))
     cleaner.start()
-    main_window.cleaner = cleaner  # Referenz halten
-
-    # ---------- Sauberer Shutdown ----------
-    def _graceful_shutdown():
-        try:
-            if main_window.scheduler is not None:
-                # eigener Stop -> stoppt Timer im Worker-Thread via QueuedConnection
-                main_window.scheduler.stop()
-        except Exception:
-            pass
-        try:
-            if main_window.cleaner is not None:
-                main_window.cleaner.stop()
-        except Exception:
-            pass
-
-    app.aboutToQuit.connect(_graceful_shutdown)
+    main_window.cleaner = cleaner
 
     splash.finish(main_window)
     main_window.show()
