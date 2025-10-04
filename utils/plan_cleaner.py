@@ -1,433 +1,414 @@
-# utils/plan_cleaner.py
-from __future__ import annotations
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
+"""
+PlanCleaner – Log-basiertes Aufräumen der Hotfolder-Ausgänge (Success / Fault).
+
+NEU (Option 3):
+- Löscht Dateien in 02_Success / 03_Fault NICHT mehr nach mtime,
+  sondern anhand des "letzten Verarbeitungszeitpunkts" aus dem globalen Log
+  (utils.log_manager -> global_log.json).
+- Sehr sprechende Debug-Logs: zeigt Cutoff, gefundenen Log-Timestamp, Safety-Fenster usw.
+- Sicherheitsfenster (safety_window_minutes): schützt frische Dateien, auch wenn Log alt ist.
+- Schutz der "letzten N" Dateien (protect_last_n) pro Ordner – optional.
+- hf_gate_mode:
+    - "always"           -> immer aufräumen
+    - "never"            -> niemals Success/Fault anfassen
+    - "watcher_running"  -> nur, wenn der Hotfolder-Watcher aktiv ist (derzeit konservativ als 'True' behandelt,
+                            s.u. _is_hotfolder_active()).
+
+Voraussetzungen:
+- utils.log_manager muss 'get_global_log_path' oder 'get_global_log_dir' bereitstellen;
+  wir versuchen mehrere Fallbacks, um den Logpfad zu finden.
+- Hotfolder-Configs liefern:
+    - success_dir, fault_dir
+    - auto_delete_success_enabled + auto_delete_success_hours (Cutoff)
+    - auto_delete_fault_enabled  + auto_delete_fault_hours
+"""
+
+import os
 import json
-import logging
-import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple, List
 
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+from PySide6 import QtCore
+
+# ---- Imports aus deinem Projekt ----
+from utils.config_manager import debug_print
+try:
+    # bevorzugte Quelle
+    from utils.log_manager import get_global_log_path as _get_global_log_path
+except Exception:
+    _get_global_log_path = None
+
+try:
+    # Hotfolder-Configs einlesen
+    from utils.hotfolder_config_manager import HotfolderConfigManager
+except Exception:
+    HotfolderConfigManager = None  # zur Not brechen wir den Tick sauber ab
 
 
-class SimpleSignal:
-    def __init__(self):
-        self._subs: List[Callable[..., None]] = []
-    def connect(self, cb: Callable[..., None]):
-        if callable(cb):
-            self._subs.append(cb)
-    def emit(self, *args, **kwargs):
-        for cb in list(self._subs):
-            try:
-                cb(*args, **kwargs)
-            except Exception:
-                pass
-
+# =========================
+#   Konfiguration
+# =========================
 
 @dataclass
 class CleanerConfig:
-    transfer_plans_path: Path = field(
-        default_factory=lambda: Path.home() / "Library" / "Application Support" / "PRisM-CC" / "transfer_plans.json"
-    )
-    # Alle gängigen Orte für die Hotfolder-Konfig
-    hotfolder_config_paths: List[Path] = field(default_factory=lambda: [
-        Path.home() / "Library" / "Application Support" / "PRisM-CC" / "config" / "hotfolder_config.json",
-        Path.home() / "Library" / "Application Support" / "PRisM-CC" / "hotfolder_config.json",
-        Path.cwd() / "config" / "hotfolder_config.json",
-    ])
-    interval_ms: int = 10 * 60 * 1000
+    interval_ms: int = 10 * 60 * 1000      # alle 10 Minuten
+    remove_empty_dirs: bool = True
+    follow_symlinks: bool = False
     dry_run: bool = False
-    remove_empty_dirs: bool = False
-    follow_symlinks: bool = True
+    # Gate für Hotfolder-Cleanup
+    hf_gate_mode: str = "always"           # "always" | "never" | "watcher_running"
+    # Wann erster Lauf?
+    run_immediately: bool = False
 
-    # 'always' | 'gate' | 'never'
-    hf_gate_mode: str = "gate"
-    hf_gate_file: Path = field(
-        default_factory=lambda: Path.home() / "Library" / "Application Support" / "PRisM-CC" / ".hf_monitor_running"
-    )
-
-    hotfolder_provider: Optional[Callable[[], List[Dict[str, Any]]]] = None
-    hotfolder_running_provider: Optional[Callable[[], bool]] = None
-
-    # NEU: erster Lauf sofort (True) oder erst nach dem ersten Intervall (False)
-    run_immediately: bool = True
+    # --- NEU: Log-basierte Parameter ---
+    use_log_age_for_hf: bool = True        # wenn False -> kein HF-Cleanup
+    safety_window_minutes: int = 5         # schützt frische Dateien zusätzlich (mtime)
+    protect_last_n: int = 0                # pro Ordner NIE löschen (z.B. 5 schützt die 5 jüngsten Log-Items)
+    # Falls kein Log-Eintrag auffindbar:
+    delete_without_log_entry: bool = False # False = nie löschen, wenn keine Logspur existiert
 
 
-def _load_json(path: Path) -> Any:
-    try:
-        if not path.exists():
-            return None
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        logger.debug(f"[Cleaner] WARN: Konnte JSON nicht lesen: {path} – {e}")
-        return None
+# =========================
+#   PlanCleaner
+# =========================
 
+class PlanCleaner(QtCore.QThread):
+    """
+    Thread, der periodisch Success/Fault mit Hilfe des globalen Logs aufräumt.
+    """
+    sig_log = QtCore.Signal(str)
+    sig_error = QtCore.Signal(str)
+    sig_deleted = QtCore.Signal(str)
 
-def _iter_files(root: Path) -> List[Path]:
-    if not root.exists():
-        return []
-    try:
-        return [p for p in root.iterdir()]
-    except Exception:
-        return []
+    def __init__(self, config: CleanerConfig, config_manager=None, parent=None):
+        super().__init__(parent)
+        self.config = config
+        # 'config_manager' wird in der aktuellen App mit TransferPlanConfigManager befüllt;
+        # für HF-Cleanup brauchen wir HotfolderConfigManager separat.
+        self.plan_config_manager = config_manager
+        self._stop = False
 
+    # ---------- Lebenszyklus ----------
 
-def _is_older_than(p: Path, cutoff: datetime) -> bool:
-    try:
-        ts = datetime.fromtimestamp(p.stat().st_mtime)
-        return ts < cutoff
-    except Exception:
-        return False
+    def stop(self):
+        self._stop = True
 
+    def run(self):
+        # optional: erster Lauf verzögert
+        if not self.config.run_immediately:
+            self._sleep_ms(self.config.interval_ms)
 
-def _safe_delete(path: Path, dry_run: bool) -> Tuple[bool, Optional[str]]:
-    try:
-        if not path.exists():
-            return True, None
-        if dry_run:
-            return True, None
+        while not self._stop:
+            try:
+                self._tick()
+            except Exception as e:
+                self._emit_error(f"[Cleaner] Unhandled exception im Tick: {e}")
+            self._sleep_ms(self.config.interval_ms)
 
-        if path.is_dir():
-            for child in sorted(path.glob("**/*"), key=lambda x: len(x.parts), reverse=True):
+    # ---------- Ein Tick ----------
+
+    def _tick(self):
+        # Nur HF-Cleanup in dieser Datei (Option 3).
+        if not self.config.use_log_age_for_hf:
+            self._emit_log("[Cleaner] HF-Cleanup (logbasiert) ist deaktiviert (use_log_age_for_hf=False).")
+            return
+
+        if self.config.hf_gate_mode == "never":
+            self._emit_log("[Cleaner] HF-Cleanup: Gate=never → übersprungen.")
+            return
+
+        # Hotfolder-Configs laden
+        if HotfolderConfigManager is None:
+            self._emit_error("[Cleaner] HotfolderConfigManager nicht verfügbar – HF-Cleanup übersprungen.")
+            return
+
+        hf_manager = HotfolderConfigManager()
+        hotfolders = hf_manager.get_hotfolders() or []
+        if not hotfolders:
+            self._emit_log("[Cleaner] Keine Hotfolder gefunden – HF-Cleanup übersprungen.")
+            return
+
+        # Globales Log einlesen → Map: name -> letzter timestamp
+        log_path = self._resolve_global_log_path()
+        last_ts_map = self._build_last_processed_map(log_path)
+
+        # Lauf pro Hotfolder
+        for hf in hotfolders:
+            # Gate "watcher_running": derzeit konservativ als "True"
+            if self.config.hf_gate_mode == "watcher_running" and not self._is_hotfolder_active(hf):
+                self._emit_log(f"[Cleaner] HF '{hf.get('name','?')}' nicht aktiv (Gate=watcher_running) → übersprungen.")
+                continue
+
+            self._clean_single_hotfolder(hf, last_ts_map)
+
+    # ---------- HF-Cleanup (ein Hotfolder) ----------
+
+    def _clean_single_hotfolder(self, hf: dict, last_ts_map: Dict[str, float]):
+        name = hf.get("name", "(ohne)")
+        now = time.time()
+
+        # Success
+        if hf.get("auto_delete_success_enabled", False):
+            hours = int(hf.get("auto_delete_success_hours", 24) or 24)
+            success_dir = hf.get("success_dir", "")
+            if success_dir and os.path.isdir(success_dir):
+                self._emit_log(f"[Cleaner] [LOG-DELETE] Success prüfen: {success_dir} (>{hours}h seit VERARBEITET)")
+                self._delete_by_log_age(
+                    base_dir=success_dir,
+                    cutoff_hours=hours,
+                    last_ts_map=last_ts_map,
+                    now_ts=now,
+                    label="Success"
+                )
+
+        # Fault
+        if hf.get("auto_delete_fault_enabled", False):
+            hours = int(hf.get("auto_delete_fault_hours", 72) or 72)
+            fault_dir = hf.get("fault_dir", "")
+            if fault_dir and os.path.isdir(fault_dir):
+                self._emit_log(f"[Cleaner] [LOG-DELETE] Fault prüfen:   {fault_dir} (>{hours}h seit VERARBEITET)")
+                self._delete_by_log_age(
+                    base_dir=fault_dir,
+                    cutoff_hours=hours,
+                    last_ts_map=last_ts_map,
+                    now_ts=now,
+                    label="Fault"
+                )
+
+    # ---------- Kern: Löschen nach Log-Alter ----------
+
+    def _delete_by_log_age(self,
+                           base_dir: str,
+                           cutoff_hours: int,
+                           last_ts_map: Dict[str, float],
+                           now_ts: float,
+                           label: str):
+        checked = 0
+        deleted = 0
+
+        # optional: "schütze letzte N" – wir bestimmen "jüngst verarbeitet" über Log-Zeit
+        protect_set = set()
+        if self.config.protect_last_n > 0:
+            protect_set = self._pick_last_n_processed(base_dir, last_ts_map, self.config.protect_last_n)
+            if protect_set:
+                self._emit_log(f"[Cleaner]   Schutz: {len(protect_set)} jüngste Dateien im Ordner (per Log) werden nicht gelöscht.")
+
+        safety_cutoff = now_ts - (self.config.safety_window_minutes * 60)
+        log_cutoff = now_ts - (cutoff_hours * 3600)
+
+        for root, _, files in os.walk(base_dir):
+            for fname in files:
+                # .hidden überspringen
+                if fname.startswith("."):
+                    continue
+                fpath = os.path.join(root, fname)
+                checked += 1
+
+                # Safety: mtime noch sehr frisch? -> überspringen
                 try:
-                    if child.is_file():
-                        child.unlink(missing_ok=True)
-                    elif child.is_dir():
-                        child.rmdir()
+                    mtime = os.path.getmtime(fpath)
                 except Exception:
-                    pass
-            try:
-                path.rmdir()
-            except Exception:
-                pass
-        else:
-            path.unlink(missing_ok=True)
-        return True, None
-    except Exception as e:
-        return False, str(e)
+                    mtime = 0.0
+                if mtime > safety_cutoff:
+                    self._emit_log(f"[Cleaner]   (skip) {label}: {fpath} – innerhalb Safety-Window ({self.config.safety_window_minutes} min).")
+                    continue
 
+                # Schutz letzter N
+                key = fname  # Basename als Schlüssel im Log
+                if key in protect_set:
+                    self._emit_log(f"[Cleaner]   (keep) {label}: {fpath} – unter den letzten {self.config.protect_last_n} (per Log).")
+                    continue
 
-def _remove_empty_dirs(root: Path):
-    if not root.exists():
-        return
-    dirs = sorted([d for d in root.glob("**/*") if d.is_dir()], key=lambda p: len(p.parts), reverse=True)
-    for d in dirs:
+                # Wann zuletzt verarbeitet?
+                last_ts = last_ts_map.get(key)
+                if last_ts is None:
+                    # Keine Logspur → nur löschen, wenn explizit erlaubt
+                    if not self.config.delete_without_log_entry:
+                        self._emit_log(f"[Cleaner]   (skip) {label}: {fpath} – keine Logspur gefunden.")
+                        continue
+                    # Optional: mtime-basierter Fallback? (standard: NEIN)
+                    # Hier bewusst: aus Gründen der Nachvollziehbarkeit NICHT löschen.
+                    self._emit_log(f"[Cleaner]   (skip) {label}: {fpath} – delete_without_log_entry=False.")
+                    continue
+
+                # Ist Log-Zeit älter als Cutoff?
+                if last_ts <= log_cutoff:
+                    # Löschen
+                    if self.config.dry_run:
+                        self._emit_log(f"[Cleaner]   (dry-run) delete {label}: {fpath} – last={self._fmt(last_ts)}, cutoff={self._fmt(log_cutoff)}")
+                    else:
+                        try:
+                            os.remove(fpath)
+                            deleted += 1
+                            self._emit_deleted(fpath)
+                            self._emit_log(f"[Cleaner]   Removed {label}: {fpath} – last={self._fmt(last_ts)} (> {cutoff_hours}h)")
+                        except Exception as e:
+                            self._emit_error(f"[Cleaner]   Konnte {label} nicht löschen: {fpath} – {e}")
+                else:
+                    self._emit_log(f"[Cleaner]   (keep) {label}: {fpath} – last={self._fmt(last_ts)} <= cutoff={self._fmt(log_cutoff)}")
+
+        self._emit_log(f"[Cleaner]   Checked={checked}, Deleted={deleted} in {base_dir} (>{cutoff_hours}h seit VERARBEITET)")
+
+        # Option: leere Ordner entfernen
+        if self.config.remove_empty_dirs and not self.config.dry_run:
+            self._remove_empty_dirs(base_dir)
+
+    # ---------- Hilfen: „letzte N“ bestimmen ----------
+
+    def _pick_last_n_processed(self, base_dir: str, last_ts_map: Dict[str, float], n: int) -> set:
+        """
+        Liefert die Menge der basenames der N jüngsten (laut Log) Dateien, die aktuell in base_dir liegen.
+        """
+        items: List[Tuple[str, float]] = []  # (basename, last_ts)
+        for root, _, files in os.walk(base_dir):
+            for fname in files:
+                if fname.startswith("."):
+                    continue
+                ts = last_ts_map.get(fname)
+                if ts is not None:
+                    items.append((fname, ts))
+        # sortiert nach "zuletzt verarbeitet" absteigend
+        items.sort(key=lambda x: x[1], reverse=True)
+        keep = {fname for (fname, _) in items[:max(0, n)]}
+        return keep
+
+    # ---------- Hilfen: globales Log laden ----------
+
+    def _resolve_global_log_path(self) -> Optional[str]:
+        """
+        Versuche den globalen Logpfad aufzulösen. Bevorzugt utils.log_manager.get_global_log_path().
+        Fallback: ~/Library/Application Support/PRisM-CC/logs/global_log.json (macOS).
+        """
         try:
-            next(d.iterdir())
-        except StopIteration:
-            try:
-                d.rmdir()
-            except Exception:
-                pass
+            if callable(_get_global_log_path):
+                p = _get_global_log_path()
+                if p and os.path.exists(p):
+                    return p
         except Exception:
             pass
 
+        # Fallback (macOS Standard in deinem Projekt)
+        fallback = os.path.expanduser("~/Library/Application Support/PRisM-CC/logs/global_log.json")
+        return fallback if os.path.exists(fallback) else None
 
-class PlanCleaner:
-    """
-    Räumt auf in:
-      • Transfer-Plänen (move_after + auto_delete_after_move_enabled)
-      • Hotfoldern (02_Success / 03_Fault, wenn Auto-Delete aktiv ist)
-    HF-Löschung abhängig von hf_gate_mode: 'always' (immer), 'gate' (nur wenn Gate aktiv), 'never' (nie).
+    def _build_last_processed_map(self, log_path: Optional[str]) -> Dict[str, float]:
+        """
+        Liest global_log.json und baut eine Map:
+            basename -> letzter timestamp (epoch seconds)
+        Wir benutzen 'filename' und 'timestamp' aus deinen Logeinträgen.
+        """
+        result: Dict[str, float] = {}
+        if not log_path:
+            self._emit_log("[Cleaner] Kein global_log.json gefunden – es werden keine Dateien aufgrund fehlender Logspur gelöscht.")
+            return result
 
-    Neu:
-      • config.run_immediately=False -> erster Lauf erst nach dem ersten Intervall.
-    """
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            self._emit_error(f"[Cleaner] Konnte Log nicht lesen: {log_path} – {e}")
+            return result
 
-    def __init__(self, config: CleanerConfig, config_manager: Optional[Any] = None):
-        self.config = config
-        self._config_manager = config_manager
-        self._thread: Optional[threading.Thread] = None
-        self._stop = threading.Event()
-        self._running_lock = threading.Lock()
-        self._is_running = False
+        if not isinstance(data, list):
+            self._emit_error(f"[Cleaner] Unerwartetes Logformat (keine Liste): {log_path}")
+            return result
 
-        # Signale
-        self.sig_log = SimpleSignal()
-        self.sig_error = SimpleSignal()
-        self.sig_deleted = SimpleSignal()  # für main.py
+        count = 0
+        for entry in data:
+            # Erwartetes Format aus add_log_entry(...):
+            # { "timestamp": ISO-String, "filename": "foo.tif", ... }
+            ts_iso = entry.get("timestamp")
+            fname = entry.get("filename")
+            if not ts_iso or not fname:
+                continue
+            try:
+                # ISO‐Zeit in epoch
+                dt = datetime.fromisoformat(ts_iso)
+                ts = dt.timestamp()
+            except Exception:
+                # toleranter Parser (z.B. wenn 'Z' drin wäre)
+                try:
+                    dt = datetime.strptime(ts_iso.split(".")[0], "%Y-%m-%dT%H:%M:%S")
+                    ts = dt.timestamp()
+                except Exception:
+                    continue
+            base = os.path.basename(str(fname))
+            # nur "letzter" Timestamp
+            prev = result.get(base)
+            if prev is None or ts > prev:
+                result[base] = ts
+                count += 1
 
-    def _log(self, msg: str):
-        logger.debug(msg)
+        self._emit_log(f"[Cleaner] Log geladen ({count} Einträge in Index) aus: {log_path}")
+        return result
+
+    # ---------- Utils ----------
+
+    def _remove_empty_dirs(self, base_dir: str):
+        # von unten nach oben
+        for root, dirs, files in os.walk(base_dir, topdown=False):
+            # symlinks ignorieren, wenn follow_symlinks=False
+            try:
+                if not self.config.follow_symlinks and os.path.islink(root):
+                    continue
+            except Exception:
+                pass
+            try:
+                # ist leer?
+                if not os.listdir(root):
+                    os.rmdir(root)
+                    self._emit_log(f"[Cleaner] Leeren Ordner entfernt: {root}")
+            except Exception:
+                # ggf. Rechteprobleme: ignorieren
+                pass
+
+    @staticmethod
+    def _fmt(ts: float) -> str:
+        try:
+            return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return str(ts)
+
+    def _sleep_ms(self, ms: int):
+        waited = 0
+        step = 200
+        while not self._stop and waited < ms:
+            QtCore.QThread.msleep(min(step, ms - waited))
+            waited += step
+
+    def _is_hotfolder_active(self, hf: dict) -> bool:
+        """
+        Gate 'watcher_running': ohne direkten Zugriff auf deinen HotfolderMonitor
+        entscheiden wir konservativ. Wenn du später eine aktive Watcher-Abfrage
+        übergibst, koppel sie hier ein.
+        """
+        # TODO: Später per Callback/Provider implementieren.
+        return True
+
+    # ---------- Signal-Helfer ----------
+
+    def _emit_log(self, msg: str):
         try:
             self.sig_log.emit(msg)
         except Exception:
             pass
+        debug_print(msg)
 
-    def _err(self, msg: str):
-        logger.debug(msg)
+    def _emit_error(self, msg: str):
         try:
             self.sig_error.emit(msg)
         except Exception:
             pass
+        debug_print(msg)
 
-    def set_hotfolder_provider(self, provider: Callable[[], List[Dict[str, Any]]]):
-        self.config.hotfolder_provider = provider
-
-    def set_hotfolder_running_provider(self, provider: Callable[[], bool]):
-        self.config.hotfolder_running_provider = provider
-
-    def start(self):
-        with self._running_lock:
-            if self._is_running:
-                self._log("[Cleaner] bereits gestartet – ignoriere zweiten Start.")
-                return
-            self._is_running = True
-        self._stop.clear()
-        interval_s = max(1, int(self.config.interval_ms / 1000))
-        initial_delay_s = 0 if (self.config.run_immediately is True) else interval_s
-
-        if initial_delay_s > 0:
-            self._log(
-                f"[Cleaner] gestartet (Intervall={self.config.interval_ms} ms, dry_run={self.config.dry_run}) – "
-                f"erster Lauf in {initial_delay_s}s."
-            )
-        else:
-            self._log(f"[Cleaner] gestartet (Intervall={self.config.interval_ms} ms, dry_run={self.config.dry_run}).")
-
-        self._thread = threading.Thread(
-            target=self._run_loop, args=(interval_s, initial_delay_s), daemon=True
-        )
-        self._thread.start()
-
-    def stop(self):
-        self._stop.set()
-        t = self._thread
-        if t and t.is_alive():
-            t.join(timeout=10.0)
-        with self._running_lock:
-            self._is_running = False
-        self._log("[Cleaner] Stop abgeschlossen.")
-
-    def _run_loop(self, interval_s: int, initial_delay_s: int = 0):
+    def _emit_deleted(self, path: str):
         try:
-            # optionaler Start-Delay
-            if initial_delay_s > 0:
-                for _ in range(initial_delay_s):
-                    if self._stop.is_set():
-                        return
-                    time.sleep(1)
-
-            while not self._stop.is_set():
-                self.run()
-                for _ in range(interval_s):
-                    if self._stop.is_set():
-                        break
-                    time.sleep(1)
-        finally:
+            self.sig_deleted.emit(path)
+        except Exception:
             pass
-
-    def run(self):
-        try:
-            self._process_transfer_plans()
-        except Exception as e:
-            self._err(f"[Cleaner] ERROR Transfer: {e}")
-
-        try:
-            self._process_hotfolders()
-        except Exception as e:
-            self._err(f"[Cleaner] ERROR HF: {e}")
-
-    # ---------- Transfer-Pläne ----------
-
-    def _load_plans(self) -> List[Dict[str, Any]]:
-        data = _load_json(self.config.transfer_plans_path)
-        if not isinstance(data, list):
-            data = []
-        logger.debug(f"[Cleaner] Transfer-Pläne geladen: {self.config.transfer_plans_path}")
-        return data
-
-    def _process_transfer_plans(self):
-        plans = self._load_plans()
-        for plan in plans:
-            try:
-                name = plan.get("name", "<ohne Name>")
-                move_after = plan.get("move_after") or ""
-                ad_enabled = bool(plan.get("auto_delete_after_move_enabled"))
-                ad_hours = int(plan.get("auto_delete_after_move_hours") or 0)
-                if not (ad_enabled and ad_hours > 0 and move_after):
-                    continue
-
-                cutoff = datetime.now() - timedelta(hours=ad_hours)
-                root = Path(move_after)
-
-                self._log(f"[Cleaner] TransferPlan:{name} – prüfe: {root}, cutoff={cutoff.isoformat()}")
-                if not root.exists():
-                    continue
-
-                for p in _iter_files(root):
-                    if _is_older_than(p, cutoff):
-                        ok, err = _safe_delete(p, self.config.dry_run)
-                        if ok:
-                            self._log(f"[Cleaner] TransferPlan:{name} – gelöscht: {p}")
-                            try:
-                                self.sig_deleted.emit(str(p))
-                            except Exception:
-                                pass
-                        else:
-                            self._err(f"[Cleaner] TransferPlan:{name} – FEHLER beim Löschen: {p} – {err}")
-
-                if self.config.remove_empty_dirs:
-                    _remove_empty_dirs(root)
-
-            except Exception as e:
-                self._err(f"[Cleaner] TransferPlan: Fehler bei '{plan.get('name', '')}': {e}")
-
-    # ---------- Hotfolder ----------
-
-    def _gate_hotfolders_running(self) -> bool:
-        # externer Provider?
-        if self.config.hotfolder_running_provider:
-            try:
-                return bool(self.config.hotfolder_running_provider())
-            except Exception as e:
-                self._err(f"[Cleaner] HF: Provider-Fehler im Running-Check – {e}")
-
-        # config_manager Hooks?
-        if self._config_manager is not None:
-            for attr in ("is_hotfolder_running", "is_running", "get_hf_running"):
-                fn = getattr(self._config_manager, attr, None)
-                if callable(fn):
-                    try:
-                        return bool(fn())
-                    except Exception as e:
-                        self._err(f"[Cleaner] HF: config_manager.{attr}() Fehler – {e}")
-
-        # Modus aus Konfiguration
-        mode = (self.config.hf_gate_mode or "gate").lower()
-        if mode == "always":
-            return True
-        if mode == "never":
-            return False
-        try:
-            return self.config.hf_gate_file.exists()
-        except Exception as e:
-            self._err(f"[Cleaner] HF: Gate-File-Check Fehler – {e}")
-            return False
-
-    def _extract_hf_list(self, data: Any) -> Optional[List[Dict[str, Any]]]:
-        """
-        Akzeptiert sowohl:
-          • [ {...}, {...} ]  (reine Liste)
-          • { "hotfolders": [ ... ] }
-          • { "items": [ ... ] }
-          • { "list": [ ... ] }
-        """
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict):
-            for key in ("hotfolders", "items", "list", "hotfolder_list"):
-                val = data.get(key)
-                if isinstance(val, list):
-                    return val
-        return None
-
-    def _load_hotfolders(self) -> List[Dict[str, Any]]:
-        # Provider?
-        if self.config.hotfolder_provider:
-            try:
-                hfs = self.config.hotfolder_provider() or []
-                logger.debug(f"[Cleaner] HF: provider lieferte {len(hfs)} Hotfolder.")
-                return hfs
-            except Exception as e:
-                self._err(f"[Cleaner] HF: Provider-Fehler – {e}")
-
-        # config_manager?
-        if self._config_manager is not None:
-            for attr in ("get_hotfolders", "get_hotfolder_list", "load_hotfolders"):
-                fn = getattr(self._config_manager, attr, None)
-                if callable(fn):
-                    try:
-                        hfs = fn() or []
-                        if isinstance(hfs, list):
-                            logger.debug(f"[Cleaner] HF: geladen via config_manager.{attr} – {len(hfs)} Einträge.")
-                            return hfs
-                    except Exception as e:
-                        self._err(f"[Cleaner] HF: config_manager.{attr}() Fehler – {e}")
-
-        # JSON-Fallbacks
-        for candidate in self.config.hotfolder_config_paths:
-            candidate = Path(candidate).expanduser()
-            data = _load_json(candidate)
-            hfs = self._extract_hf_list(data)
-            if isinstance(hfs, list) and len(hfs) > 0:
-                logger.debug(f"[Cleaner] HF: geladen aus {candidate} – {len(hfs)} Einträge.")
-                return hfs
-
-        # Wenn Datei existiert, aber keine Liste extrahierbar ist, explizit leeren Zustand loggen
-        for candidate in self.config.hotfolder_config_paths:
-            candidate = Path(candidate).expanduser()
-            if candidate.exists():
-                logger.debug("[HF] gelesen:\n[]")
-                return []
-
-        logger.debug("[Cleaner] HF: keine Konfiguration gefunden.")
-        return []
-
-    def _process_hotfolders(self):
-        if not self._gate_hotfolders_running():
-            self._log("[Cleaner] HF: übersprungen (Gate nicht aktiv).")
-            return
-
-        hotfolders = self._load_hotfolders()
-        if not hotfolders:
-            return
-
-        active = []
-        for hf in hotfolders:
-            if hf.get("auto_delete_success_enabled") or hf.get("auto_delete_fault_enabled"):
-                active.append(hf)
-
-        if not active:
-            self._log("[Cleaner] HF: keine Auto-Delete-aktiven Hotfolder.")
-            return
-
-        for hf in active:
-            try:
-                name = hf.get("name", "<ohne Name>")
-
-                if bool(hf.get("auto_delete_success_enabled")):
-                    hours = int(hf.get("auto_delete_success_hours") or 0)
-                    success_dir = Path(hf.get("success_dir") or "")
-                    if hours > 0 and success_dir:
-                        self._clean_hf_dir(name, "02_Success", success_dir, hours)
-
-                if bool(hf.get("auto_delete_fault_enabled")):
-                    hours = int(hf.get("auto_delete_fault_hours") or 0)
-                    fault_dir = Path(hf.get("fault_dir") or "")
-                    if hours > 0 and fault_dir:
-                        self._clean_hf_dir(name, "03_Fault", fault_dir, hours)
-
-            except Exception as e:
-                self._err(f"[Cleaner] HF: Fehler bei '{hf.get('name','')}': {e}")
-
-    def _clean_hf_dir(self, hf_name: str, label: str, root: Path, hours: int):
-        cutoff = datetime.now() - timedelta(hours=hours)
-        self._log(f"[Cleaner] HF: {hf_name} – prüfe {label}: {root}, cutoff={cutoff.isoformat()}")
-
-        if not root.exists():
-            return
-
-        for p in _iter_files(root):
-            if _is_older_than(p, cutoff):
-                ok, err = _safe_delete(p, self.config.dry_run)
-                if ok:
-                    self._log(f"[Cleaner] HF: {hf_name} – gelöscht in {label}: {p}")
-                    try:
-                        self.sig_deleted.emit(str(p))
-                    except Exception:
-                        pass
-                else:
-                    self._err(f"[Cleaner] HF: {hf_name} – FEHLER beim Löschen in {label}: {p} – {err}")
-
-        if self.config.remove_empty_dirs:
-            _remove_empty_dirs(root)
+        # zusätzlicher Debug erfolgt in _emit_log beim Löschvorgang

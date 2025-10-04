@@ -9,12 +9,13 @@ import json
 import shutil
 import hashlib
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from PySide6 import QtCore, QtWidgets, QtGui
 
 from utils.config_manager import debug_print, get_ftp_transfer_log_path
 from utils.ftp_manager import FTPManager
 from utils.transfer_reporter import send_transfer_report  # nutzt SMTP-Settings
+
 
 class TransferQueueDialog(QtWidgets.QDialog):
     """
@@ -187,11 +188,15 @@ class TransferQueueWorker(QtCore.QObject):
       - Quelle lokal  -> Ziel lokal/FTP/SFTP
       - Quelle FTP/SFTP -> Ziel lokal/FTP/SFTP (via Temp)
     Nach Erfolg: lokale Quelle ins 'move_after', Remote-Quelle ins Remote-Archiv.
+
     Robustheit:
       - Reconnect bei Verbindungsabbruch
       - Wiederholungen bis retry_count
       - Integritätsprüfung: size_only oder md5 (fallback via Redownload)
     Persistente Logs (JSON/CSV) + Mailreport.
+
+    NEU:
+      - Log-basiertes Alter für Auto-Delete in move_after (single source of truth).
     """
     progress = QtCore.Signal(str, str, int)  # key (Quellen-String), status, percent
     finished = QtCore.Signal()
@@ -204,6 +209,9 @@ class TransferQueueWorker(QtCore.QObject):
         self.results = []  # {time, src, dst, status, message}
         self.verify_mode = self.plan_data.get("verify_mode", "size_only")
         self.dst_ftp = None  # FTPManager für Ziel (optional)
+
+        # NEU: Merkliste aller nach move_after verschobenen Dateien + Zeit
+        self._move_after_records = []  # [{path, processed_at_iso}]
 
     def request_abort(self):
         self._abort = True
@@ -389,7 +397,7 @@ class TransferQueueWorker(QtCore.QObject):
     def _copy_file_with_progress(self, src, dest, entry):
         total_size = max(1, os.path.getsize(src))
         copied = 0
-        bufsize = 1024 * 256  # 256KB für flotteres Kopieren
+        bufsize = 1024 * 256  # 256KB
         with open(src, "rb") as fsrc, open(dest, "wb") as fdst:
             while True:
                 if self._abort:
@@ -433,7 +441,6 @@ class TransferQueueWorker(QtCore.QObject):
                 raise RuntimeError(str(e))
 
     def _remote_size_or_redownload(self, remote_path) -> int:
-        # Versuche Remote-Size per FTPManager.get_size/stat
         try:
             s = self.dst_ftp.get_size(remote_path)
             if s is not None:
@@ -460,14 +467,12 @@ class TransferQueueWorker(QtCore.QObject):
                 pass
 
     def _remote_md5_or_redownload(self, remote_path) -> str:
-        # Falls FTPManager.md5 unterstützt (SFTP), nutzen
         try:
             return str(self.dst_ftp.md5(remote_path))
         except NotImplementedError:
             pass
         except Exception:
             pass
-        # Fallback: redownload und md5 lokal rechnen
         tmp_dir = tempfile.mkdtemp(prefix="verify_tmp_")
         try:
             tmp_local = self.dst_ftp.download_file(remote_path, tmp_dir)
@@ -493,6 +498,11 @@ class TransferQueueWorker(QtCore.QObject):
 
     # -------------------------- move after --------------------------
     def _move_source_after_success_local(self, local_file):
+        """
+        Verschiebt die verarbeitete Quelldatei in den konfigurierten 'move_after'-Ordner.
+        NEU: registriert (Pfad, processed_at), damit der Cleaner später den Log-Zeitstempel
+        als Alter nutzt. Wir verändern NICHT die Dateiattribute (no touch).
+        """
         move_after = self.plan_data.get("move_after", "")
         if not move_after:
             return
@@ -506,6 +516,18 @@ class TransferQueueWorker(QtCore.QObject):
             target_file = f"{base}_{datetime.now().strftime('%Y%m%d-%H%M%S')}{ext}"
         shutil.move(local_file, target_file)
         debug_print(f"Moved source to: {target_file}")
+
+        # NEU: Registrierung für Log-basiertes Aging
+        self._register_move_after(target_file)
+
+    def _register_move_after(self, dest_path: str):
+        try:
+            self._move_after_records.append({
+                "path": os.path.abspath(dest_path),
+                "processed_at": datetime.now(timezone.utc).isoformat()
+            })
+        except Exception:
+            pass
 
     def _move_source_after_success_remote(self, server_name, remote_path):
         archive = self.plan_data.get("source_remote_archive", "").rstrip("/")
@@ -526,13 +548,56 @@ class TransferQueueWorker(QtCore.QObject):
 
     # -------------------------- cleanup/logs/report --------------------------
     def _cleanup_local_move_after(self):
+        """
+        NEU: nutzt (wenn vorhanden) den Log-Zeitstempel 'processed_at' aus dem persistenten
+        Transfer-Log als Grundlage für die Aufbewahrungsdauer. Fallback: mtime.
+        """
         if not self.plan_data.get("auto_delete_after_move_enabled", False):
             return
         hours = int(self.plan_data.get("auto_delete_after_move_hours", 48) or 48)
         move_after = self.plan_data.get("move_after", "")
         if not move_after or not os.path.isdir(move_after):
             return
-        cutoff = time.time() - (hours * 3600)
+
+        cutoff_ts = time.time() - (hours * 3600)
+
+        # 1) Log laden und Map path->processed_at bauen (letzter Eintrag gewinnt)
+        log_json = get_ftp_transfer_log_path()
+        path_to_processed_ts = {}
+        try:
+            if os.path.exists(log_json):
+                with open(log_json, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                # data ist Liste von „Runs“
+                for run in data if isinstance(data, list) else []:
+                    # optional: nur gleiche Plan-Namen berücksichtigen
+                    # (falls mehrere Pläne denselben move_after benutzen, ist das trotzdem ok,
+                    #  solange der Pfad exakt übereinstimmt)
+                    recs = run.get("move_after_records", [])
+                    for rec in recs:
+                        p = rec.get("path", "")
+                        t = rec.get("processed_at", "")
+                        if not p or not t:
+                            continue
+                        try:
+                            dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
+                            ts = dt.timestamp()
+                        except Exception:
+                            continue
+                        # Nur Einträge unterhalb unseres move_after berücksichtigen
+                        try:
+                            ap = os.path.abspath(p)
+                            if ap.startswith(os.path.abspath(move_after) + os.sep) or ap == os.path.abspath(move_after):
+                                # „Jüngster“ processed_at gewinnt
+                                prev = path_to_processed_ts.get(ap)
+                                if prev is None or ts > prev:
+                                    path_to_processed_ts[ap] = ts
+                        except Exception:
+                            pass
+        except Exception as e:
+            debug_print(f"Log-basiertes Aging: Konnte Log nicht auswerten: {e}")
+
+        # 2) Durchlaufe move_after und entscheide anhand processed_at oder mtime
         deleted = 0
         checked = 0
         for root, dirs, files in os.walk(move_after):
@@ -540,12 +605,16 @@ class TransferQueueWorker(QtCore.QObject):
                 fpath = os.path.join(root, f)
                 try:
                     checked += 1
-                    if os.path.getmtime(fpath) < cutoff:
+                    ts = path_to_processed_ts.get(os.path.abspath(fpath))
+                    if ts is None:
+                        # Fallback: mtime
+                        ts = os.path.getmtime(fpath)
+                    if ts < cutoff_ts:
                         os.remove(fpath)
                         deleted += 1
                 except Exception as e:
                     debug_print(f"Auto-Delete konnte {fpath} nicht löschen: {e}")
-        debug_print(f"Auto-Delete move_after: geprüft={checked}, gelöscht={deleted}, Grenze={hours}h")
+        debug_print(f"Auto-Delete move_after: geprüft={checked}, gelöscht={deleted}, Grenze={hours}h (log-basiert, Fallback mtime)")
 
     def _persist_logs(self):
         log_json = get_ftp_transfer_log_path()
@@ -574,13 +643,15 @@ class TransferQueueWorker(QtCore.QObject):
             "target": self.plan_data.get("target_path", ""),
             "verify_mode": self.verify_mode,
             "results": self.results,
+            # NEU: für log-basiertes Aging
+            "move_after_records": self._move_after_records,
         }
         data.append(entry)
 
         with open(log_json, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        # CSV
+        # CSV (unverändert, nur Ergebnisse)
         header = ["time", "plan", "src", "dst", "status", "message"]
         new_rows = []
         for r in self.results:

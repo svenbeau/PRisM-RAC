@@ -10,11 +10,17 @@ from utils.list_feeder import ListFeederWorker
 from utils.hotfolder_config_manager import HotfolderConfigManager
 
 
+SETTINGS_SCOPE_ORG = "PRiSM-CC"
+SETTINGS_SCOPE_APP = "PRiSM-CC"
+S_KEY_GEOMETRY = "list_feeder/geometry"
+S_KEY_LAST_CONTEXT_ID = "list_feeder/last_context_id"
+S_KEY_RECENT_CSV = "list_feeder/recent_csv"
+S_KEY_LAST_CSV_DIR = "list_feeder/last_csv_dir"
+RECENT_CSV_LIMIT = 12
+
+
 def _info_label(parent: QtWidgets.QWidget, text: str, tooltip_html: str) -> QtWidgets.QWidget:
-    """
-    Baut ein Label mit kleinem Info-Button (🛈), der Rich-Tooltips anzeigt.
-    Für die linke Spalte eines QFormLayout.
-    """
+    """Label mit kleinem Info-Button (🛈) für die linke Spalte eines QFormLayout."""
     w = QtWidgets.QWidget(parent)
     hl = QtWidgets.QHBoxLayout(w)
     hl.setContentsMargins(0, 0, 0, 0)
@@ -39,14 +45,16 @@ def _info_label(parent: QtWidgets.QWidget, text: str, tooltip_html: str) -> QtWi
 class ListFeederDialog(QtWidgets.QDialog):
     """
     Listen-Feeder: CSV -> ausgewählter Hotfolder (Kontext).
-    Aktuell fester Modus: In den Monitor-Ordner einspeisen (Kopie/Link mit Copy-Fallback) – Quelle bleibt unverändert.
-    Mit Warteschlangen-Anzeige und farbigem Fortschritt.
+    Fester Modus: In den Monitor-Ordner einspeisen (Kopie/Link mit Copy-Fallback) – Quelle bleibt unverändert.
+    Mit Warteschlangen-Anzeige, farbigem Fortschritt und persistenten Einstellungen.
     """
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("PRiSM – Listen-Einspeisung (CSV → Monitor)")
         self.setMinimumWidth(760)
+
+        self.settings = QtCore.QSettings(SETTINGS_SCOPE_ORG, SETTINGS_SCOPE_APP)
 
         self._hf_manager = HotfolderConfigManager()
         self._hotfolders = self._hf_manager.get_hotfolders() or []
@@ -58,7 +66,9 @@ class ListFeederDialog(QtWidgets.QDialog):
 
         self._build_ui()
         self._wire()
+        self._restore_geometry()
         self._populate_hotfolders()
+        self._load_recent_csv()
 
     # ---------- UI ----------
 
@@ -68,10 +78,13 @@ class ListFeederDialog(QtWidgets.QDialog):
         form = QtWidgets.QFormLayout()
         form.setLabelAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         form.setFormAlignment(QtCore.Qt.AlignTop)
+        # WICHTIG: rechte Spalte darf wachsen, damit Texte nicht „verschwinden“
+        form.setFieldGrowthPolicy(QtWidgets.QFormLayout.AllNonFixedFieldsGrow)
 
         # Kontext-Hotfolder
         self.context_combo = QtWidgets.QComboBox()
         self.context_combo.setMinimumWidth(420)
+        self.context_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         form.addRow(
             _info_label(self, "Kontext-Hotfolder:",
                         "<b>Profil/Kontext</b><br>Bestimmt Monitorpfad und Reporting."),
@@ -92,20 +105,29 @@ class ListFeederDialog(QtWidgets.QDialog):
         mon_box.addWidget(self.monitor_btn)
         form.addRow(
             _info_label(self, "Monitor-Ordner:",
-                        "Automatisch aus dem Kontext-Hotfolder."),
+                        "Automatisch aus dem gewählten Kontext-Hotfolder."),
             mon_w
         )
 
-        # CSV
-        self.csv_edit = QtWidgets.QLineEdit()
+        # CSV – als ComboBox (editierbar), merkt sich die letzten Pfade
+        self.csv_combo = QtWidgets.QComboBox()
+        self.csv_combo.setEditable(True)
+        self.csv_combo.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
+        self.csv_combo.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        # gleiche Mindestbreite und expansive Policy wie der Kontext-Dropdown
+        self.csv_combo.setMinimumWidth(self.context_combo.minimumWidth())
+        self.csv_combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
         self.csv_btn = QtWidgets.QPushButton("CSV wählen…")
+
         csv_box = QtWidgets.QHBoxLayout()
         csv_box.setContentsMargins(0, 0, 0, 0)
         csv_box.setSpacing(6)
         csv_w = QtWidgets.QWidget()
         csv_w.setLayout(csv_box)
-        csv_box.addWidget(self.csv_edit, 1)
+        csv_box.addWidget(self.csv_combo, 1)
         csv_box.addWidget(self.csv_btn)
+
         form.addRow(
             _info_label(self, "CSV-Datei:",
                         "Pflichtspalte: <code>file_path</code> (absolut oder relativ zur CSV).<br>"
@@ -113,16 +135,20 @@ class ListFeederDialog(QtWidgets.QDialog):
             csv_w
         )
 
-        # Modus-Hinweis
+        # Modus-Hinweis (NUR Erklärung; kein erneutes „Modus:“ im Text)
         self.mode_hint = QtWidgets.QLabel(
-            "Modus: <b>In Monitor einspeisen (kopieren/Link mit Copy-Fallback)</b> – Quelle bleibt unverändert."
+            "<b>In Monitor einspeisen</b> (kopieren/Link mit Copy-Fallback) – Quelle bleibt unverändert."
         )
         self.mode_hint.setWordWrap(True)
+        self.mode_hint.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+        self.mode_hint.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
         form.addRow(_info_label(self, "Modus:", "Fester Modus für sichere Verarbeitung."), self.mode_hint)
 
         # Optionen
         self.unique_chk = QtWidgets.QCheckBox("Bei Kollisionen eindeutige Namen erzeugen")
         self.unique_chk.setChecked(True)
+        # Checkbox bekommt ebenfalls Expanding, damit die rechte Spalte nicht kollabiert
+        self.unique_chk.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         form.addRow(QtWidgets.QLabel("Optionen:"), self.unique_chk)
 
         # Intervall
@@ -191,8 +217,42 @@ class ListFeederDialog(QtWidgets.QDialog):
         self.context_combo.addItem("— bitte wählen —", userData=None)
         for hf in self._hotfolders:
             self.context_combo.addItem(hf.get("name", "Unbenannt"), userData=hf)
-        if len(self._hotfolders) == 1:
+
+        last_id = self.settings.value(S_KEY_LAST_CONTEXT_ID, "", str)
+        if last_id:
+            for i in range(1, self.context_combo.count()):
+                hf = self.context_combo.itemData(i)
+                if isinstance(hf, dict) and hf.get("id") == last_id:
+                    self.context_combo.setCurrentIndex(i)
+                    break
+        elif len(self._hotfolders) == 1:
             self.context_combo.setCurrentIndex(1)
+
+    def _load_recent_csv(self) -> None:
+        recents = self.settings.value(S_KEY_RECENT_CSV, [], list)
+        if not isinstance(recents, list):
+            recents = []
+        self.csv_combo.clear()
+        self.csv_combo.addItems(recents)
+
+    def _remember_csv_path(self, path: str) -> None:
+        if not path:
+            return
+        recents = self.settings.value(S_KEY_RECENT_CSV, [], list)
+        if not isinstance(recents, list):
+            recents = []
+        if path in recents:
+            recents.remove(path)
+        recents.insert(0, path)
+        if len(recents) > RECENT_CSV_LIMIT:
+            recents = recents[:RECENT_CSV_LIMIT]
+        self.settings.setValue(S_KEY_RECENT_CSV, recents)
+        self.settings.setValue(S_KEY_LAST_CSV_DIR, os.path.dirname(path))
+        self.csv_combo.blockSignals(True)
+        self.csv_combo.clear()
+        self.csv_combo.addItems(recents)
+        self.csv_combo.setCurrentIndex(0)
+        self.csv_combo.blockSignals(False)
 
     # ---------- Actions ----------
 
@@ -200,11 +260,16 @@ class ListFeederDialog(QtWidgets.QDialog):
         hf = self.context_combo.currentData()
         mon = hf.get("monitor_dir", "") if isinstance(hf, dict) else ""
         self.monitor_edit.setText(mon or "")
+        if isinstance(hf, dict):
+            self.settings.setValue(S_KEY_LAST_CONTEXT_ID, hf.get("id", ""))
 
     def _pick_csv(self) -> None:
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "CSV wählen", "", "CSV (*.csv)")
+        start_dir = self.settings.value(S_KEY_LAST_CSV_DIR, "", str) or ""
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = ""
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "CSV wählen", start_dir, "CSV (*.csv)")
         if path:
-            self.csv_edit.setText(path)
+            self._remember_csv_path(path)
 
     def _pick_monitor(self) -> None:
         # (derzeit deaktiviert – Monitor kommt aus Kontext)
@@ -219,7 +284,7 @@ class ListFeederDialog(QtWidgets.QDialog):
     def _set_running(self, running: bool) -> None:
         self.start_btn.setEnabled(not running)
         self.cancel_btn.setEnabled(running)
-        for w in (self.csv_edit, self.csv_btn, self.context_combo,
+        for w in (self.csv_combo, self.csv_btn, self.context_combo,
                   self.monitor_btn, self.interval_spin, self.unique_chk):
             w.setEnabled(not running)
 
@@ -245,7 +310,7 @@ class ListFeederDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Fehler", "Bitte zuerst einen Kontext-Hotfolder wählen.")
             return
 
-        csv_path = self.csv_edit.text().strip()
+        csv_path = (self.csv_combo.currentText() or "").strip()
         monitor_dir = (hf.get("monitor_dir") or "").strip()
 
         if not csv_path or not os.path.exists(csv_path):
@@ -255,6 +320,8 @@ class ListFeederDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Fehler",
                                           "Der Monitor-Ordner des gewählten Hotfolders ist ungültig.")
             return
+
+        self._remember_csv_path(csv_path)
 
         self.log.clear()
         self.progress.setValue(0)
@@ -275,15 +342,15 @@ class ListFeederDialog(QtWidgets.QDialog):
             links_only=False,
             parent=self
         )
-        # bestehend
         self.worker.progress.connect(self._on_progress)
         self.worker.log.connect(self._append_log)
         self.worker.error.connect(self._on_error)
         self.worker.finished_ok.connect(self._on_finished)
         self.worker.cancelled.connect(self._on_cancelled)
-        # neu
-        self.worker.item_started.connect(self._on_item_started)
-        self.worker.item_result.connect(self._on_item_result)
+        if hasattr(self.worker, "item_started"):
+            self.worker.item_started.connect(self._on_item_started)  # type: ignore[attr-defined]
+        if hasattr(self.worker, "item_result"):
+            self.worker.item_result.connect(self._on_item_result)    # type: ignore[attr-defined]
 
         self._set_running(True)
         self._append_log(f"Kontext: {hf.get('name','?')}")
@@ -311,7 +378,6 @@ class ListFeederDialog(QtWidgets.QDialog):
             self.result_label.setText("✗ Fehler")
             self.result_label.setStyleSheet("color:#d9534f;")
             self._fails += 1
-        # processed/percent wird in _on_progress gesetzt
 
     def _on_progress(self, processed: int, total: int) -> None:
         self._processed = processed
@@ -319,7 +385,6 @@ class ListFeederDialog(QtWidgets.QDialog):
         pct = 0 if self._total == 0 else int(100 * processed / self._total)
         self.progress.setValue(pct)
         self.queue_label.setText(f"Warteschlange: {processed}/{self._total}")
-
         if self._fails > 0:
             self._set_progress_warning()
 
@@ -349,8 +414,31 @@ class ListFeederDialog(QtWidgets.QDialog):
         self.result_label.setText("✗ Abgebrochen")
         self.result_label.setStyleSheet("color:#d9534f;")
 
+    # ---------- Geometry persist ----------
 
-# Optional: Direkter Testlauf des Dialogs
+    def _restore_geometry(self) -> None:
+        geo = self.settings.value(S_KEY_GEOMETRY, None)
+        if isinstance(geo, QtCore.QByteArray) and not geo.isEmpty():
+            try:
+                self.restoreGeometry(geo)
+            except Exception:
+                pass
+
+    def _save_geometry(self) -> None:
+        try:
+            self.settings.setValue(S_KEY_GEOMETRY, self.saveGeometry())
+        except Exception:
+            pass
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self._save_geometry()
+        super().closeEvent(event)
+
+    def reject(self) -> None:
+        self._save_geometry()
+        super().reject()
+
+
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
     dlg = ListFeederDialog()

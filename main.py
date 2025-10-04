@@ -4,7 +4,6 @@
 import sys
 import os
 import socket
-from typing import Optional
 from PySide6 import QtWidgets, QtGui, QtCore
 
 from utils.splash_screen import SplashScreen
@@ -31,6 +30,40 @@ except Exception:
 DEBUG_OUTPUT = True
 
 
+class _RetentionWorker(QtCore.QObject):
+    """
+    Führt den Retention-Run im Hintergrund aus, damit das UI nicht blockiert.
+    Erwartet ein PlanCleaner-Objekt mit einer der Methoden:
+      - run_once_now()
+      - run_now()
+      - run_immediately()   (Fallback)
+    """
+    finished = QtCore.Signal(str)  # status text
+
+    def __init__(self, cleaner: PlanCleaner):
+        super().__init__()
+        self.cleaner = cleaner
+
+    @QtCore.Slot()
+    def run(self):
+        status = "Fertig."
+        try:
+            # Bevorzugt: run_once_now()
+            if hasattr(self.cleaner, "run_once_now"):
+                self.cleaner.run_once_now()
+            elif hasattr(self.cleaner, "run_now"):
+                self.cleaner.run_now()
+            elif hasattr(self.cleaner, "run_immediately"):
+                # Manche Implementationen akzeptieren das als Trigger für den nächsten Tick
+                self.cleaner.run_immediately = True  # type: ignore[attr-defined]
+            else:
+                status = "Cleaner unterstützt keinen manuellen Start."
+        except Exception as e:
+            status = f"Fehler: {e}"
+        finally:
+            self.finished.emit(status)
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -39,8 +72,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings = load_settings()
 
         # Referenzen halten:
-        self.scheduler: Optional[PlanScheduler] = None
-        self.cleaner: Optional[PlanCleaner] = None
+        self.scheduler: PlanScheduler | None = None
+        self.cleaner: PlanCleaner | None = None
+
+        self._retention_thread: QtCore.QThread | None = None
+        self._retention_worker: _RetentionWorker | None = None
+        self._retention_dialog: QtWidgets.QProgressDialog | None = None
 
         self.init_ui()
         self._build_menu()
@@ -161,6 +198,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.action_feed_list.triggered.connect(self._open_list_feeder_dialog)
         extras_menu.addAction(self.action_feed_list)
 
+        # NEU: Retention jetzt ausführen
+        self.action_retention_now = QtGui.QAction("Retention jetzt ausführen", self)
+        self.action_retention_now.setShortcut(QtGui.QKeySequence("Ctrl+R"))
+        self.action_retention_now.setStatusTip("Lösch-/Aufräumregeln (Success/Fault) sofort ausführen")
+        self.action_retention_now.triggered.connect(self._run_retention_now)
+        extras_menu.addAction(self.action_retention_now)
+
         menubar.addMenu("&Hilfe")
 
     # Toolbar
@@ -170,6 +214,11 @@ class MainWindow(QtWidgets.QMainWindow):
         act = QtGui.QAction("Liste einspeisen…", self)
         act.triggered.connect(self._open_list_feeder_dialog)
         tb.addAction(act)
+
+        # Optional auch in der Toolbar
+        act_ret = QtGui.QAction("Retention jetzt", self)
+        act_ret.triggered.connect(self._run_retention_now)
+        tb.addAction(act_ret)
 
     def _open_list_feeder_dialog(self):
         if ListFeederDialog is None:
@@ -189,13 +238,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self.hotfolder_list_widget, "get_current_monitor_dir"):
             try:
                 mon = self.hotfolder_list_widget.get_current_monitor_dir()
-                if mon:
-                    dlg.monitor_edit.setText(mon)  # nur wenn der Dialog dieses Feld hat (Feed-Modus)
+                if mon and hasattr(dlg, "monitor_edit"):
+                    dlg.monitor_edit.setText(mon)  # nur wenn der Dialog dieses Feld hat
             except Exception:
                 pass
 
         # --- Direktmodus-Callback (No-Touch) ---
-        def _direct_proc(file_path: str, target_subdir: Optional[str], rename_to: Optional[str]):
+        def _direct_proc(file_path: str, target_subdir: str | None, rename_to: str | None):
             """
             Ruf die bestehende Pipeline synchron auf.
             Erwartete Rückgabe: (ok: bool, message: str)
@@ -210,19 +259,74 @@ class MainWindow(QtWidgets.QMainWindow):
                     return bool(ok), str(msg)
                 except Exception as e:
                     return False, f"Exception in process_single_direct: {e}"
-
             return False, (
                 "Direct-Modus nicht verfügbar: "
                 "HotfolderListWidget.process_single_direct(...) ist nicht implementiert."
             )
 
-        # dem Dialog übergeben (falls vorhanden)
+        # dem Dialog übergeben (falls unterstützt)
         try:
             dlg.direct_process_callback = _direct_proc
         except Exception:
             pass
 
         dlg.exec()
+
+    # ---------- NEU: Retention jetzt ausführen ----------
+    def _run_retention_now(self):
+        if self.cleaner is None:
+            QtWidgets.QMessageBox.warning(self, "Retention", "Cleaner ist noch nicht initialisiert.")
+            return
+
+        # Aktion deaktivieren, solange ein Lauf aktiv ist
+        self.action_retention_now.setEnabled(False)
+
+        # Busy-Dialog
+        self._retention_dialog = QtWidgets.QProgressDialog(
+            "Prüfe & lösche gemäß Retention-Regeln …", "Abbrechen", 0, 0, self
+        )
+        self._retention_dialog.setWindowTitle("Retention läuft")
+        self._retention_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        self._retention_dialog.setAutoClose(False)
+        self._retention_dialog.setAutoReset(False)
+        self._retention_dialog.canceled.connect(self._on_retention_cancel_requested)
+        self._retention_dialog.show()
+
+        # Thread + Worker
+        self._retention_thread = QtCore.QThread(self)
+        self._retention_worker = _RetentionWorker(self.cleaner)
+        self._retention_worker.moveToThread(self._retention_thread)
+        self._retention_thread.started.connect(self._retention_worker.run)
+        self._retention_worker.finished.connect(self._on_retention_finished)
+        self._retention_worker.finished.connect(self._retention_thread.quit)
+        self._retention_worker.finished.connect(self._retention_worker.deleteLater)
+        self._retention_thread.finished.connect(self._on_retention_thread_done)
+        self._retention_thread.start()
+
+    def _on_retention_cancel_requested(self):
+        # Optional: Falls dein Cleaner Abbruch unterstützt, hier triggern.
+        # Beispiel:
+        # if hasattr(self.cleaner, "request_abort"):
+        #     self.cleaner.request_abort()
+        pass
+
+    def _on_retention_finished(self, status: str):
+        try:
+            if self._retention_dialog:
+                self._retention_dialog.close()
+        except Exception:
+            pass
+        QtWidgets.QMessageBox.information(self, "Retention", status)
+
+    def _on_retention_thread_done(self):
+        self.action_retention_now.setEnabled(True)
+        try:
+            if self._retention_thread:
+                self._retention_thread.deleteLater()
+        finally:
+            self._retention_thread = None
+            self._retention_worker = None
+            self._retention_dialog = None
 
     def toggle_debug(self):
         from utils.config_manager import debug_print  # lokal gehalten
@@ -336,8 +440,8 @@ def run():
             remove_empty_dirs=True,
             follow_symlinks=False,
             dry_run=False,
-            hf_gate_mode="always",
-            run_immediately=False,
+            hf_gate_mode="always",      # Auto-Delete läuft unabhängig vom HF-Status
+            run_immediately=False,      # erster Lauf nach dem ersten Intervall
         ),
         config_manager=cm,
     )
