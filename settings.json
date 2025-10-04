@@ -1,0 +1,221 @@
+{
+    "hotfolders": [
+        {
+            "id": "296c65be-923b-465c-9169-2e489fe726a2",
+            "name": "Test",
+            "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
+            "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor",
+            "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
+            "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
+            "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
+            "contentcheck_enabled": true,
+            "required_layers": [
+                "Freisteller",
+                "Messwerte",
+                "Korrektur"
+            ],
+            "required_metadata": [
+                "author",
+                "description",
+                "keywords"
+            ],
+            "keyword_check_enabled": true,
+            "keyword_check_word": "Rueckseite",
+            "keyword_layers": [
+                "Freisteller",
+                "Messwerte",
+                "Korrektur"
+            ],
+            "keyword_metadata": [
+                "author",
+                "description",
+                "keywords"
+            ],
+            "jsx_folder": "",
+            "additional_jsx": "",
+            "selected_jsx": "",
+            "body_visible": false
+        },
+        {
+            "id": "b0d16093-e9e4-4885-a5b9-484bab97e98e",
+            "name": "Render",
+            "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
+            "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/01_Render",
+            "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
+            "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
+            "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
+            "contentcheck_enabled": true,
+            "required_layers": [
+                "Freisteller",
+                "Messwerte",
+                "Korrektur"
+            ],
+            "required_metadata": [
+                "author",
+                "description",
+                "keywords"
+            ],
+            "keyword_check_enabled": true,
+            "keyword_check_word": "Rueckseite",
+            "keyword_layers": [],
+            "keyword_metadata": [
+                "author",
+                "description"
+            ],
+            "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+            "additional_jsx": "",
+            "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025_dynamisch.jsx",
+            "body_visible": false
+        },
+        {
+            "id": "490d7fbd-5d03-4f9e-a890-97470b108d28",
+            "name": "Wand",
+            "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
+            "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/02_Wand",
+            "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success/02_Wand",
+            "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
+            "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
+            "contentcheck_enabled": true,
+            "required_layers": [
+                "Freisteller"
+            ],
+            "required_metadata": [
+                "author",
+                "description",
+                "keywords"
+            ],
+            "keyword_check_enabled": true,
+            "keyword_check_word": "Rueckseite",
+            "keyword_layers": [],
+            "keyword_metadata": [
+                "author",
+                "description"
+            ],
+            "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+            "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_ReadWriteCSV_2025.jsx",
+            "additional_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024_dynamisch.jsx",
+            "body_visible": false
+        },
+        {
+            "id": "d1e2e7fd-7d7c-4ba0-a644-87ff7ed9122c",
+            "name": "Bo Yin Ra",
+            "path": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow",
+            "monitor_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/01_Monitor/11_BoYinRa",
+            "success_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/02_Success",
+            "fault_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/03_Fault",
+            "logfiles_dir": "/Users/sschonauer/Documents/Jobs/Grisebach/Entwicklung_Workflow/04_Logfiles",
+            "contentcheck_enabled": false,
+            "required_layers": [],
+            "required_metadata": [],
+            "keyword_check_enabled": false,
+            "keyword_check_word": "Rueckseite",
+            "keyword_layers": [],
+            "keyword_metadata": [],
+            "jsx_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+            "selected_jsx": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/SuperSkript_rcm_dynamisch.jsx",
+            "additional_jsx": "",
+            "body_visible": false
+        }
+    ],
+    "log_entries": [],
+    "recent_dirs": [
+        "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+        "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2020_01",
+        "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/JSX_Config",
+        "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+        "/Users/sschonauer"
+    ],
+    "resource_paths": {
+        "scripts": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+        "jsx_templates": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/jsx_templates",
+        "config": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config",
+        "logs": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/logs"
+    },
+    "script_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+    "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config",
+    "scriptPaths": {},
+    "recentScriptPaths": {},
+    "jsonPaths": [
+        "/Users/sschonauer"
+    ],
+    "script_configs": [
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "Grisebach 2025",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
+        },
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_C_ReadWriteCSV.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "Grisebach 2025",
+            "basicWandFiles": "",
+            "csvWandFile": "/Volumes/4TM2/Grisebach/01_dokumente/2025_02_25_GB_WBL_752_Osuagwu.csv",
+            "wandFileSavePath": ""
+        },
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "actionFolderName": "Grisebach DOM 2021",
+            "basicWandFiles": "/Volumes/4TM2/Grisebach/06_Wand/01_Vorlagen",
+            "csvWandFile": "",
+            "wandFileSavePath": "/Volumes/4TM2/Grisebach/30_Renderfiles/05_Wand/Test"
+        }
+    ],
+    "recent_json_folders": [],
+    "scripts": [
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Render_2025.jsx",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/config/GrisebachRecipes_2025_01",
+            "action_folder": "Grisebach 2025",
+            "id": "0af3adfd-398b-40ce-acfb-7dfe267ce80a"
+        }
+    ],
+    "global_script_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts",
+    "script_json_map": [
+        {
+            "script_path": "Choose your script here...",
+            "json_folder": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts"
+        },
+        {
+            "script_path": "Choose your script here...",
+            "json_folder": "Set your JSON folder..."
+        }
+    ],
+    "global_config": {
+        "actionFolderName": "",
+        "basicWandFiles": "",
+        "csvWandFile": "",
+        "wandFileSavePath": "",
+        "recipesPath": "",
+        "outputMainPath": ""
+    },
+    "scripts_base_folder": "",
+    "script_json_mapping": [],
+    "script_settings": [],
+    "renderConfig": {
+        "actionFolderName": "",
+        "basicWandFiles": "",
+        "csvWandFile": "",
+        "wandFileSavePath": ""
+    },
+    "scriptsConfig": [],
+    "scriptRecipeMappings": [
+        {
+            "script_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/scripts/GRIS_Wandabbildungen_2024.jsx",
+            "json_folder": "",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
+        },
+        {
+            "script_path": "",
+            "json_folder": "",
+            "basicWandFiles": "",
+            "csvWandFile": "",
+            "wandFileSavePath": ""
+        }
+    ]
+}

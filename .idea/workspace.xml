@@ -4,20 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="erste schritte">
-      <change afterPath="$PROJECT_DIR$/PRisM-RAC_DirectoryTree.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/config/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/config/config_manager.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/dynamic_jsx_generator.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/hotfolder_config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hotfolder_monitor.py" beforeDir="false" afterPath="$PROJECT_DIR$/hotfolder_monitor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/plan_cleaner.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/plan_cleaner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/plan_scheduler.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/plan_scheduler.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,6 +23,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="stable-v13" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -44,13 +40,26 @@
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/svenbeau/PRisM-RAC.git&quot;,
     &quot;accountId&quot;: &quot;ad371093-4476-432a-86de-3f00b33e749b&quot;
+  },
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
+    },
+    &quot;owner&quot;: &quot;svenbeau&quot;,
+    &quot;repository&quot;: &quot;PRisM-RAC&quot;
   }
 }</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/main.py" root0="FORCE_HIGHLIGHTING" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
   <component name="ProjectId" id="2tLLJVRQJMUXiQ27cV9Yrr8hWGr" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+  <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
   <component name="ProjectViewState">
@@ -59,25 +68,39 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;Python.contentcheck_email_notifier.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ftp_plan_dialog.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hotfolder_config.executor&quot;: &quot;Run&quot;,
     &quot;Python.hotfolder_monitor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hotfolder_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_editor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_explorer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.json_explorer_widget.executor&quot;: &quot;Run&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;Python.main_window.executor&quot;: &quot;Run&quot;,
+    &quot;Python.script_config_manager.executor&quot;: &quot;Run&quot;,
+    &quot;Python.settings_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.smtp_test.executor&quot;: &quot;Run&quot;,
     &quot;Python.start.executor&quot;: &quot;Run&quot;,
+    &quot;Python.transfer_plan_dialog.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;stable-v38&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/utils" />
       <recent name="$PROJECT_DIR$/ui" />
     </key>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-fc1d50d2d915-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.24978.54" />
+        <option value="bundled-python-sdk-b030e9c4a83c-d902c0275401-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-252.26199.168" />
       </set>
     </attachedChunks>
   </component>
@@ -90,35 +113,427 @@
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
     </task>
-    <task id="LOCAL-00001" summary="erste schritte">
+    <task id="LOCAL-00042" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
-      <created>1740143132171</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
+      <created>1741544388492</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
       <option name="project" value="LOCAL" />
-      <updated>1740143132171</updated>
+      <updated>1741544388492</updated>
     </task>
-    <task id="LOCAL-00002" summary="erste schritte">
+    <task id="LOCAL-00043" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
-      <created>1740143143764</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
+      <created>1741545678055</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
       <option name="project" value="LOCAL" />
-      <updated>1740143143764</updated>
+      <updated>1741545678055</updated>
     </task>
-    <task id="LOCAL-00003" summary="erste schritte">
+    <task id="LOCAL-00044" summary="Umbau Pfade für App">
       <option name="closed" value="true" />
-      <created>1740144970208</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
+      <created>1741604130699</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
       <option name="project" value="LOCAL" />
-      <updated>1740144970208</updated>
+      <updated>1741604130699</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00045" summary="Umbau Pfade für App">
+      <option name="closed" value="true" />
+      <created>1741610020239</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1741610020239</updated>
+    </task>
+    <task id="LOCAL-00046" summary="Umbau Pfade für App">
+      <option name="closed" value="true" />
+      <created>1741615677116</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1741615677116</updated>
+    </task>
+    <task id="LOCAL-00047" summary="Umbau Pfade für App">
+      <option name="closed" value="true" />
+      <created>1741627934262</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1741627934262</updated>
+    </task>
+    <task id="LOCAL-00048" summary="erste lauffähige Compilierung">
+      <option name="closed" value="true" />
+      <created>1741721011123</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1741721011123</updated>
+    </task>
+    <task id="LOCAL-00049" summary="erste lauffähige Compilierung">
+      <option name="closed" value="true" />
+      <created>1741721509587</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1741721509587</updated>
+    </task>
+    <task id="LOCAL-00050" summary="erste lauffähige Compilierung">
+      <option name="closed" value="true" />
+      <created>1741726366579</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1741726366579</updated>
+    </task>
+    <task id="LOCAL-00051" summary="aufräumen Settings">
+      <option name="closed" value="true" />
+      <created>1741730245147</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1741730245147</updated>
+    </task>
+    <task id="LOCAL-00052" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1741797014246</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1741797014246</updated>
+    </task>
+    <task id="LOCAL-00053" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1741797024304</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1741797024304</updated>
+    </task>
+    <task id="LOCAL-00054" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1741944662324</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1741944662325</updated>
+    </task>
+    <task id="LOCAL-00055" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1742021079544</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1742021079544</updated>
+    </task>
+    <task id="LOCAL-00056" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1742049566091</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1742049566091</updated>
+    </task>
+    <task id="LOCAL-00057" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1742052723320</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1742052723320</updated>
+    </task>
+    <task id="LOCAL-00058" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1742052773306</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1742052773306</updated>
+    </task>
+    <task id="LOCAL-00059" summary="Script - Rezept Ansicht neu">
+      <option name="closed" value="true" />
+      <created>1742055242980</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1742055242980</updated>
+    </task>
+    <task id="LOCAL-00060" summary="FTP mit Transferplänen">
+      <option name="closed" value="true" />
+      <created>1742070214205</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1742070214205</updated>
+    </task>
+    <task id="LOCAL-00061" summary="FTP mit Transferplänen">
+      <option name="closed" value="true" />
+      <created>1742070814120</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1742070814120</updated>
+    </task>
+    <task id="LOCAL-00062" summary="FTP mit Transferplänen">
+      <option name="closed" value="true" />
+      <created>1742073441424</created>
+      <option name="number" value="00062" />
+      <option name="presentableId" value="LOCAL-00062" />
+      <option name="project" value="LOCAL" />
+      <updated>1742073441424</updated>
+    </task>
+    <task id="LOCAL-00063" summary="FTP mit Transferplänen">
+      <option name="closed" value="true" />
+      <created>1742141785847</created>
+      <option name="number" value="00063" />
+      <option name="presentableId" value="LOCAL-00063" />
+      <option name="project" value="LOCAL" />
+      <updated>1742141785847</updated>
+    </task>
+    <task id="LOCAL-00064" summary="FTP mit Transferplänen funktioniert">
+      <option name="closed" value="true" />
+      <created>1742149368438</created>
+      <option name="number" value="00064" />
+      <option name="presentableId" value="LOCAL-00064" />
+      <option name="project" value="LOCAL" />
+      <updated>1742149368438</updated>
+    </task>
+    <task id="LOCAL-00065" summary="Umbau Log-Ansicht mit Transfer">
+      <option name="closed" value="true" />
+      <created>1742151217166</created>
+      <option name="number" value="00065" />
+      <option name="presentableId" value="LOCAL-00065" />
+      <option name="project" value="LOCAL" />
+      <updated>1742151217166</updated>
+    </task>
+    <task id="LOCAL-00066" summary="Umbau Log-Ansicht mit Transfer">
+      <option name="closed" value="true" />
+      <created>1742155227333</created>
+      <option name="number" value="00066" />
+      <option name="presentableId" value="LOCAL-00066" />
+      <option name="project" value="LOCAL" />
+      <updated>1742155227333</updated>
+    </task>
+    <task id="LOCAL-00067" summary="Contentcheck Fehler behoben.">
+      <option name="closed" value="true" />
+      <created>1742159613117</created>
+      <option name="number" value="00067" />
+      <option name="presentableId" value="LOCAL-00067" />
+      <option name="project" value="LOCAL" />
+      <updated>1742159613117</updated>
+    </task>
+    <task id="LOCAL-00068" summary="Contentcheck Fehler behoben.">
+      <option name="closed" value="true" />
+      <created>1742211509525</created>
+      <option name="number" value="00068" />
+      <option name="presentableId" value="LOCAL-00068" />
+      <option name="project" value="LOCAL" />
+      <updated>1742211509526</updated>
+    </task>
+    <task id="LOCAL-00069" summary="Contentcheck Fehler behoben.">
+      <option name="closed" value="true" />
+      <created>1742217464664</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1742217464664</updated>
+    </task>
+    <task id="LOCAL-00070" summary="Contentcheck Fehler behoben.">
+      <option name="closed" value="true" />
+      <created>1742217748732</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1742217748732</updated>
+    </task>
+    <task id="LOCAL-00071" summary="Contentcheck Fehler behoben.">
+      <option name="closed" value="true" />
+      <created>1742219221637</created>
+      <option name="number" value="00071" />
+      <option name="presentableId" value="LOCAL-00071" />
+      <option name="project" value="LOCAL" />
+      <updated>1742219221637</updated>
+    </task>
+    <task id="LOCAL-00072" summary="Bedienelemete werden mit kopiert">
+      <option name="closed" value="true" />
+      <created>1742228973594</created>
+      <option name="number" value="00072" />
+      <option name="presentableId" value="LOCAL-00072" />
+      <option name="project" value="LOCAL" />
+      <updated>1742228973594</updated>
+    </task>
+    <task id="LOCAL-00073" summary="Bedienelemete werden mit kopiert">
+      <option name="closed" value="true" />
+      <created>1742303318577</created>
+      <option name="number" value="00073" />
+      <option name="presentableId" value="LOCAL-00073" />
+      <option name="project" value="LOCAL" />
+      <updated>1742303318577</updated>
+    </task>
+    <task id="LOCAL-00074" summary="Bedienelemete werden mit kopiert">
+      <option name="closed" value="true" />
+      <created>1742311546806</created>
+      <option name="number" value="00074" />
+      <option name="presentableId" value="LOCAL-00074" />
+      <option name="project" value="LOCAL" />
+      <updated>1742311546806</updated>
+    </task>
+    <task id="LOCAL-00075" summary="Bedienelemete werden mit kopiert">
+      <option name="closed" value="true" />
+      <created>1742313229723</created>
+      <option name="number" value="00075" />
+      <option name="presentableId" value="LOCAL-00075" />
+      <option name="project" value="LOCAL" />
+      <updated>1742313229723</updated>
+    </task>
+    <task id="LOCAL-00076" summary="weiterentwicklung von -v22 (da wurde das Logfile auf einen fixen Pfad erzeugt.) das funktioniert schon mal">
+      <option name="closed" value="true" />
+      <created>1742381819833</created>
+      <option name="number" value="00076" />
+      <option name="presentableId" value="LOCAL-00076" />
+      <option name="project" value="LOCAL" />
+      <updated>1742381819833</updated>
+    </task>
+    <task id="LOCAL-00077" summary="Fehlerbehebung: Contentcheck und Keywordbased Contentcheck">
+      <option name="closed" value="true" />
+      <created>1758454059819</created>
+      <option name="number" value="00077" />
+      <option name="presentableId" value="LOCAL-00077" />
+      <option name="project" value="LOCAL" />
+      <updated>1758454059819</updated>
+    </task>
+    <task id="LOCAL-00078" summary="Contentcheck und Keywordbased Contentcheck funktionieren korrekt&#10;Logfiles werden in den konfigurierten Ordner geschrieben">
+      <option name="closed" value="true" />
+      <created>1758569785082</created>
+      <option name="number" value="00078" />
+      <option name="presentableId" value="LOCAL-00078" />
+      <option name="project" value="LOCAL" />
+      <updated>1758569785082</updated>
+    </task>
+    <task id="LOCAL-00079" summary="FTP-Fehler Servermanager behoben">
+      <option name="closed" value="true" />
+      <created>1758716969868</created>
+      <option name="number" value="00079" />
+      <option name="presentableId" value="LOCAL-00079" />
+      <option name="project" value="LOCAL" />
+      <updated>1758716969868</updated>
+    </task>
+    <task id="LOCAL-00080" summary="FTP-Fehler Servermanager behoben">
+      <option name="closed" value="true" />
+      <created>1758724560054</created>
+      <option name="number" value="00080" />
+      <option name="presentableId" value="LOCAL-00080" />
+      <option name="project" value="LOCAL" />
+      <updated>1758724560054</updated>
+    </task>
+    <task id="LOCAL-00081" summary="FTP-Widget Ordneransicht neu, Drag&amp;Drop">
+      <option name="closed" value="true" />
+      <created>1758732566171</created>
+      <option name="number" value="00081" />
+      <option name="presentableId" value="LOCAL-00081" />
+      <option name="project" value="LOCAL" />
+      <updated>1758732566171</updated>
+    </task>
+    <task id="LOCAL-00082" summary="FTP-Widget Ordneransicht neu, Drag&amp;Drop">
+      <option name="closed" value="true" />
+      <created>1758810693816</created>
+      <option name="number" value="00082" />
+      <option name="presentableId" value="LOCAL-00082" />
+      <option name="project" value="LOCAL" />
+      <updated>1758810693816</updated>
+    </task>
+    <task id="LOCAL-00083" summary="Mailermodul ändern">
+      <option name="closed" value="true" />
+      <created>1759049578057</created>
+      <option name="number" value="00083" />
+      <option name="presentableId" value="LOCAL-00083" />
+      <option name="project" value="LOCAL" />
+      <updated>1759049578058</updated>
+    </task>
+    <task id="LOCAL-00084" summary="SMPT Einstellung umziehen">
+      <option name="closed" value="true" />
+      <created>1759063525376</created>
+      <option name="number" value="00084" />
+      <option name="presentableId" value="LOCAL-00084" />
+      <option name="project" value="LOCAL" />
+      <updated>1759063525376</updated>
+    </task>
+    <task id="LOCAL-00085" summary="FTP-Upload stabiler bei Abbrüchen">
+      <option name="closed" value="true" />
+      <created>1759402073510</created>
+      <option name="number" value="00085" />
+      <option name="presentableId" value="LOCAL-00085" />
+      <option name="project" value="LOCAL" />
+      <updated>1759402073510</updated>
+    </task>
+    <task id="LOCAL-00086" summary="Contentcheck funktioniert besser">
+      <option name="closed" value="true" />
+      <created>1759421588339</created>
+      <option name="number" value="00086" />
+      <option name="presentableId" value="LOCAL-00086" />
+      <option name="project" value="LOCAL" />
+      <updated>1759421588339</updated>
+    </task>
+    <task id="LOCAL-00087" summary="config auf Paket und Application-Support Pfade erweitert">
+      <option name="closed" value="true" />
+      <created>1759473982243</created>
+      <option name="number" value="00087" />
+      <option name="presentableId" value="LOCAL-00087" />
+      <option name="project" value="LOCAL" />
+      <updated>1759473982243</updated>
+    </task>
+    <task id="LOCAL-00088" summary="keyword-contentcheck erweitert um und/oder/not">
+      <option name="closed" value="true" />
+      <created>1759515029943</created>
+      <option name="number" value="00088" />
+      <option name="presentableId" value="LOCAL-00088" />
+      <option name="project" value="LOCAL" />
+      <updated>1759515029943</updated>
+    </task>
+    <task id="LOCAL-00089" summary="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden">
+      <option name="closed" value="true" />
+      <created>1759527160605</created>
+      <option name="number" value="00089" />
+      <option name="presentableId" value="LOCAL-00089" />
+      <option name="project" value="LOCAL" />
+      <updated>1759527160605</updated>
+    </task>
+    <task id="LOCAL-00090" summary="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden">
+      <option name="closed" value="true" />
+      <created>1759529752223</created>
+      <option name="number" value="00090" />
+      <option name="presentableId" value="LOCAL-00090" />
+      <option name="project" value="LOCAL" />
+      <updated>1759529752223</updated>
+    </task>
+    <option name="localTasksCounter" value="91" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="erste schritte" />
-    <option name="LAST_COMMIT_MESSAGE" value="erste schritte" />
+    <MESSAGE value="Contentcheck funktioniert" />
+    <MESSAGE value="Samsatg Abend - Contentcheck funktioniert" />
+    <MESSAGE value="Mit JSON-Edit und Wandbild-Script" />
+    <MESSAGE value="Umbau zu globaler Konfiguration" />
+    <MESSAGE value="Umbau Pfade für App" />
+    <MESSAGE value="erste lauffähige Compilierung" />
+    <MESSAGE value="aufräumen Settings" />
+    <MESSAGE value="Script - Rezept Ansicht neu" />
+    <MESSAGE value="FTP mit Transferplänen" />
+    <MESSAGE value="FTP mit Transferplänen funktioniert" />
+    <MESSAGE value="Umbau Log-Ansicht mit Transfer" />
+    <MESSAGE value="Contentcheck Fehler behoben." />
+    <MESSAGE value="Bedienelemete werden mit kopiert" />
+    <MESSAGE value="weiterentwicklung von -v22 (da wurde das Logfile auf einen fixen Pfad erzeugt.) das funktioniert schon mal" />
+    <MESSAGE value="Fehlerbehebung: Contentcheck und Keywordbased Contentcheck" />
+    <MESSAGE value="Contentcheck und Keywordbased Contentcheck funktionieren korrekt&#10;Logfiles werden in den konfigurierten Ordner geschrieben" />
+    <MESSAGE value="FTP-Fehler Servermanager behoben" />
+    <MESSAGE value="FTP-Widget Ordneransicht neu, Drag&amp;Drop" />
+    <MESSAGE value="Mailermodul ändern" />
+    <MESSAGE value="SMPT Einstellung umziehen" />
+    <MESSAGE value="FTP-Upload stabiler bei Abbrüchen" />
+    <MESSAGE value="Contentcheck funktioniert besser" />
+    <MESSAGE value="config auf Paket und Application-Support Pfade erweitert" />
+    <MESSAGE value="keyword-contentcheck erweitert um und/oder/not" />
+    <MESSAGE value="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden" />
+    <option name="LAST_COMMIT_MESSAGE" value="Transferpläne anpassen (unklar ob alles läuft)&#10;Login hat funktioniert&#10;Übertragung hat stattgefunden" />
   </component>
 </project>

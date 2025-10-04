@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+from PySide6 import QtWidgets, QtCore, QtGui
+from utils.config_manager import debug_print
+from utils.transfer_plan_config_manager import TransferPlanConfigManager
+from ui.transfer_plan_dialog import TransferPlanDialog
+
+def resource_path(relative_path):
+    """Gibt den absoluten Pfad zur Ressource zurück – funktioniert im Entwicklungsmodus und im PyInstaller-Bundle."""
+    try:
+        # Wenn wir per PyInstaller laufen:
+        base_path = sys._MEIPASS  # type: ignore[attr-defined]
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+class TransferPlanWidget(QtWidgets.QFrame):
+    def __init__(self, plan_data: dict, parent=None):
+        super().__init__(parent)
+        self.plan_data = plan_data
+        self.body_visible = plan_data.get("body_visible", False)
+
+        self.icon_expand = QtGui.QIcon(resource_path("assets/dropdown_list.png"))
+        self.icon_collapse = QtGui.QIcon(resource_path("assets/close_list.png"))
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.setFrameShadow(QtWidgets.QFrame.Raised)
+
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Titelzeile (grauer Balken)
+        self.title_bar = QtWidgets.QWidget()
+        self.title_bar.setFixedHeight(40)
+        self.title_bar.setStyleSheet("background-color: #2b2b2b;")
+        title_layout = QtWidgets.QHBoxLayout(self.title_bar)
+        title_layout.setContentsMargins(10, 5, 10, 5)
+        title_layout.setSpacing(5)
+
+        self.title_label = QtWidgets.QLabel(self.plan_data.get("name", "Unbenannt"))
+        self.title_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 12pt;")
+        title_layout.addWidget(self.title_label, 1, QtCore.Qt.AlignVCenter)
+
+        self.toggle_btn = QtWidgets.QPushButton()
+        self.toggle_btn.setFlat(True)
+        self.toggle_btn.setIcon(self.icon_collapse if self.body_visible else self.icon_expand)
+        self.toggle_btn.clicked.connect(self.on_toggle_body)
+        title_layout.addWidget(self.toggle_btn, 0, QtCore.Qt.AlignRight)
+        main_layout.addWidget(self.title_bar)
+
+        # Subheader (dunkler Balken darunter)
+        self.subheader_frame = QtWidgets.QFrame()
+        self.subheader_frame.setFixedHeight(30)
+        self.subheader_frame.setStyleSheet("background-color: #b0b0b0;")
+        subheader_layout = QtWidgets.QHBoxLayout(self.subheader_frame)
+        subheader_layout.setContentsMargins(10, 5, 10, 5)
+        subheader_layout.setSpacing(0)
+
+        # Im Subheader sollen nur die letzten n Komponenten (z. B. Ordnernamen) angezeigt werden.
+        self.subheader_label = QtWidgets.QLabel("...")
+        self.subheader_label.setStyleSheet("color: #000000; font-weight: bold;")
+        subheader_layout.addWidget(self.subheader_label, 1, QtCore.Qt.AlignLeft)
+        main_layout.addWidget(self.subheader_frame)
+
+        # Body (sichtbar/unsichtbar)
+        self.body_widget = QtWidgets.QWidget()
+        body_layout = QtWidgets.QVBoxLayout(self.body_widget)
+        body_layout.setContentsMargins(10, 10, 10, 10)
+        body_layout.setSpacing(10)
+
+        # GroupBox für Details
+        self.config_group = QtWidgets.QGroupBox("Details")
+        self.config_group.setStyleSheet("""
+            QGroupBox { background-color: #e5e5e5; color: #000000; }
+            QGroupBox::title { background-color: #b0b0b0; color: #000000; }
+        """)
+        cfg_layout = QtWidgets.QVBoxLayout(self.config_group)
+
+        row = 0
+        self.lbl_src = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_src)
+        self.lbl_tgt = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_tgt)
+        self.lbl_ftp = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_ftp)
+        self.lbl_ver = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_ver)
+        self.lbl_sched = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_sched)
+        self.lbl_move = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_move)
+
+        self.config_group.setLayout(cfg_layout)
+        body_layout.addWidget(self.config_group)
+        self.body_widget.setLayout(body_layout)
+        main_layout.addWidget(self.body_widget)
+
+        # Button-Leiste (Bearbeiten, Jetzt ausführen)
+        self.button_bar = QtWidgets.QWidget()
+        button_layout = QtWidgets.QHBoxLayout(self.button_bar)
+        button_layout.setContentsMargins(10, 5, 10, 5)
+        button_layout.setSpacing(10)
+        button_layout.addStretch()
+
+        self.edit_btn = QtWidgets.QPushButton("Bearbeiten")
+        self.edit_btn.clicked.connect(self.on_edit)
+        button_layout.addWidget(self.edit_btn)
+
+        self.run_btn = QtWidgets.QPushButton("Jetzt ausführen")
+        self.run_btn.clicked.connect(self.on_run_now)
+        button_layout.addWidget(self.run_btn)
+
+        main_layout.addWidget(self.button_bar)
+
+        self.body_widget.setVisible(self.body_visible)
+        self.update_labels()
+
+    def create_label(self, text, row_index):
+        lbl = QtWidgets.QLabel(text)
+        lbl.setMinimumHeight(24)
+        lbl.setStyleSheet(f"""
+            color: #000000;
+            padding: 4px;
+            background-color: {'#f7f7f7' if row_index % 2 == 0 else '#e5e5e5'};
+        """)
+        return lbl
+
+    def on_toggle_body(self):
+        self.body_visible = not self.body_visible
+        self.body_widget.setVisible(self.body_visible)
+        self.toggle_btn.setIcon(self.icon_collapse if self.body_visible else self.icon_expand)
+        self.plan_data["body_visible"] = self.body_visible
+        mgr = TransferPlanConfigManager()
+        mgr.update_plan(self.plan_data["id"], self.plan_data)
+
+    def on_edit(self):
+        """
+        Öffnet den Dialog robust gegen unterschiedliche __init__-Signaturen:
+          1) bevorzugt: TransferPlanDialog(plan_data, parent=self)
+          2) Fallback : TransferPlanDialog(plan_data, None, self)  # alter manager-Parameter
+        Zusätzlich kompatibel zu PySide6/PyQt: exec_() ODER exec()
+        """
+        # 1) Konstruktor ohne manager
+        try:
+            dlg = TransferPlanDialog(self.plan_data, parent=self)
+        except TypeError as e:
+            debug_print(f"[TransferPlanWidget] Dialog-Init ohne manager fehlgeschlagen: {e} -> Fallback mit manager=None")
+            try:
+                # 2) Fallback: mit manager=None (positionale Übergabe, damit parent korrekt zugeordnet wird)
+                dlg = TransferPlanDialog(self.plan_data, None, self)
+            except TypeError as e2:
+                debug_print(f"[TransferPlanWidget] Dialog-Init mit manager=None fehlgeschlagen: {e2}")
+                QtWidgets.QMessageBox.critical(self, "Fehler", f"Dialog konnte nicht geöffnet werden:\n{e2}")
+                return
+
+        # Kompatibel ausführen: exec_() (falls vorhanden) sonst exec()
+        exec_method = getattr(dlg, "exec_", None)
+        if callable(exec_method):
+            result = dlg.exec_()
+        else:
+            result = dlg.exec()
+
+        if result == QtWidgets.QDialog.Accepted:
+            debug_print("TransferPlan geändert, update and reload.")
+            mgr = TransferPlanConfigManager()
+            mgr.update_plan(self.plan_data["id"], self.plan_data)
+
+            # Elternhierarchie nach load_plans() durchsuchen (wie gehabt)
+            parent_widget = self.parent()
+            while parent_widget and not hasattr(parent_widget, "load_plans"):
+                parent_widget = parent_widget.parent()
+            if parent_widget and hasattr(parent_widget, "load_plans"):
+                parent_widget.load_plans()
+        else:
+            debug_print("TransferPlan-Dialog abgebrochen.")
+
+    def on_run_now(self):
+        plan_name = self.plan_data.get("name", "Unbenannt")
+        debug_print(f"TransferPlanWidget: on_run_now() => Starte Transfer für Plan {plan_name}")
+        QtWidgets.QMessageBox.information(
+            self,
+            "Manueller Start",
+            f"Plan '{plan_name}' wird jetzt ausgeführt. Siehe Log für Details."
+        )
+        # Hier könnte der asynchrone Queue-Dialog gestartet werden, z.B.:
+        # from ui.transfer_queue_dialog import TransferQueueDialog
+        # dlg = TransferQueueDialog(self.plan_data, parent=self)
+        # dlg.show()
+        # dlg.start_transfer()
+
+    def update_labels(self):
+        debug_print("TransferPlanWidget.update_labels()")
+        self.title_label.setText(self.plan_data.get("name", "Unbenannt"))
+
+        src = self.plan_data.get("source_path", "")
+        tgt = self.plan_data.get("target_path", "")
+
+        # Hilfsfunktion: Extrahiere die letzten n Komponenten eines Pfads
+        def get_last_n_components(path, n):
+            norm = os.path.normpath(path)
+            components = norm.split(os.sep)
+            if len(components) < n:
+                return norm
+            return os.sep.join(components[-n:])
+
+        # Für den Subheader: Anzeige-Tiefe der Ordnerpfade steuern
+        subheader_depth = 2  # 1 => nur letzter Ordner; 2 => zwei Ebenen; etc.
+        src_sub = get_last_n_components(src, subheader_depth) if src else "(none)"
+        tgt_sub = get_last_n_components(tgt, subheader_depth) if tgt else "(none)"
+        self.subheader_label.setText(f"{src_sub} -> {tgt_sub}")
+
+        # Body-Labels: vollständige Pfade
+        self.lbl_src.setText(f"Quellordner: {src or '(none)'}")
+        self.lbl_tgt.setText(f"Zielordner: {tgt or '(none)'}")
+
+        if self.plan_data.get("use_ftp"):
+            ftp_server = self.plan_data.get("ftp_server", "")
+            ftp_str = f"FTP-Server: {ftp_server}"
+        else:
+            ftp_str = "Lokal (kein FTP)"
+        self.lbl_ftp.setText(ftp_str)
+
+        version_mode = self.plan_data.get("versioning_mode", "mirror")
+        suffix_fmt = self.plan_data.get("suffix_format", "_v{n}")
+        version_str = f"Versionierung: {version_mode} (Suffix={suffix_fmt})"
+        self.lbl_ver.setText(version_str)
+
+        schedule_type = self.plan_data.get("schedule_type", "once")
+        schedule_time = self.plan_data.get("schedule_time", "(none)")
+        sched_str = f"Zeitplan: {schedule_type} @ {schedule_time}"
+        self.lbl_sched.setText(sched_str)
+
+        move_after = self.plan_data.get("move_after", "(none)")
+        move_str = f"Nach Transfer verschieben: {move_after}"
+        self.lbl_move.setText(move_str)
