@@ -1,0 +1,16 @@
+cleaner = PlanCleaner(
+    config=CleanerConfig(
+        interval_ms=10 * 60 * 1000,
+        remove_empty_dirs=True,
+        follow_symlinks=False,
+        dry_run=False,
+        hf_gate_mode="always",          # oder "watcher_running" / "never"
+        run_immediately=False,
+
+        use_log_age_for_hf=True,
+        safety_window_minutes=5,
+        protect_last_n=2,               # schützt pro Ordner die 2 jüngsten (laut Log)
+        delete_without_log_entry=False
+    ),
+    config_manager=cm,
+)
