@@ -1,221 +1,242 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import csv
-import time
+import os
 import shutil
+import time
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Dict, Optional, Tuple
 
 from PySide6 import QtCore
 
+
 @dataclass
-class FeedItem:
+class _FeederRow:
     file_path: str
-    target_subdir: Optional[str] = None
-    rename_to: Optional[str] = None
+    target_subdir: str = ""
+    rename_to: str = ""
+
 
 class ListFeederWorker(QtCore.QThread):
     """
-    Liest eine CSV und speist die Dateien in den Monitor-Ordner ein.
-
-    Strategie (wenn move_files=False):
-      1) Hardlink (os.link) falls Quelle & Ziel auf demselben Volume
-      2) Symlink (os.symlink) andernfalls
-      3) Copy (shutil.copy2) als Fallback ODER Fehler, wenn links_only=True
-
-    Damit entsteht minimaler Traffic. Der bestehende Hotfolder-Workflow bleibt unangetastet.
+    Arbeiter-Thread für das Einspeisen einer CSV-Liste in den Monitor-Ordner.
+    Bevorzugt Links (Hardlink/Symlink), fällt – falls erlaubt – auf Kopieren zurück.
+    In unserer aktuellen UI-Konfiguration wird NICHT verschoben und Copy-Fallback ist erlaubt.
     """
-    progress = QtCore.Signal(int, int)       # processed, total
-    log = QtCore.Signal(str)                 # log text lines
-    error = QtCore.Signal(str)               # error message
-    finished_ok = QtCore.Signal()            # completed without fatal error
-    cancelled = QtCore.Signal()              # user cancelled
 
-    def __init__(self,
-                 csv_path: str,
-                 monitor_dir: str,
-                 move_files: bool = False,
-                 interval_seconds: float = 0.5,
-                 ensure_unique_names: bool = True,
-                 links_only: bool = False,
-                 parent=None):
+    progress = QtCore.Signal(int, int)     # processed, total
+    log = QtCore.Signal(str)
+    error = QtCore.Signal(str)
+    finished_ok = QtCore.Signal()
+    cancelled = QtCore.Signal()
+
+    def __init__(
+        self,
+        csv_path: str,
+        monitor_dir: str,
+        move_files: bool = False,
+        interval_seconds: float = 0.5,
+        ensure_unique_names: bool = True,
+        links_only: bool = False,
+        parent=None
+    ):
         super().__init__(parent)
         self.csv_path = csv_path
         self.monitor_dir = monitor_dir
-        self.move_files = move_files
-        self.interval_seconds = max(0.0, float(interval_seconds))
-        self.ensure_unique_names = ensure_unique_names
-        self.links_only = links_only
+        self.move_files = bool(move_files)
+        self.interval_seconds = float(interval_seconds or 0.0)
+        self.ensure_unique_names = bool(ensure_unique_names)
+        self.links_only = bool(links_only)
+
         self._cancel = False
-        self._items: List[FeedItem] = []
+
+    # ------------- Lebenszyklus -------------
 
     def cancel(self):
         self._cancel = True
 
-    # ---- intern ----
-
-    def _read_csv(self) -> List[FeedItem]:
-        items: List[FeedItem] = []
-        if not os.path.exists(self.csv_path):
-            raise FileNotFoundError(f"CSV nicht gefunden: {self.csv_path}")
-
-        with open(self.csv_path, "r", encoding="utf-8-sig", newline="") as f:
-            reader = csv.DictReader(f)
-            if not reader.fieldnames or "file_path" not in reader.fieldnames:
-                raise ValueError("CSV benötigt mindestens die Spalte 'file_path'.")
-
-            for row in reader:
-                file_path = (row.get("file_path") or "").strip()
-                if not file_path:
-                    continue
-                target_subdir = (row.get("target_subdir") or "").strip() or None
-                rename_to = (row.get("rename_to") or "").strip() or None
-                items.append(FeedItem(file_path=file_path,
-                                      target_subdir=target_subdir,
-                                      rename_to=rename_to))
-        return items
-
-    def _ensure_dir(self, path: str):
-        os.makedirs(path, exist_ok=True)
-
-    def _unique_name(self, dst_path: str) -> str:
-        if not self.ensure_unique_names or not os.path.exists(dst_path):
-            return dst_path
-        base_dir = os.path.dirname(dst_path)
-        stem, ext = os.path.splitext(os.path.basename(dst_path))
-        i = 1
-        while True:
-            cand = os.path.join(base_dir, f"{stem}__{i}{ext}")
-            if not os.path.exists(cand):
-                return cand
-            i += 1
-
-    def _emit(self, text: str):
-        self.log.emit(text)
-
-    def _same_device(self, a: str, b: str) -> bool:
-        try:
-            return os.stat(a).st_dev == os.stat(b).st_dev
-        except Exception:
-            return False
-
-    def _link_first_transfer(self, src: str, dst: str) -> str:
-        """
-        Versucht Hardlink -> Symlink -> Copy (falls erlaubt).
-        Rückgabe: 'hardlink' | 'symlink' | 'copy'
-        Wirft Exception, wenn links_only=True und Copy nötig wäre.
-        """
-        # Hardlink
-        try:
-            if self._same_device(src, os.path.dirname(dst)):
-                if os.path.exists(dst):
-                    os.remove(dst)
-                os.link(src, dst)
-                return "hardlink"
-        except Exception:
-            pass
-
-        # Symlink
-        try:
-            if os.path.exists(dst):
-                os.remove(dst)
-            os.symlink(src, dst)
-            return "symlink"
-        except Exception:
-            pass
-
-        # Copy-Fallback
-        if self.links_only:
-            raise RuntimeError("Verlinken nicht möglich (Hard/Sym). 'Nur verlinken' aktiv – Copy-Fallback unterdrückt.")
-        shutil.copy2(src, dst)
-        return "copy"
-
-    # ---- QThread.run ----
-
     def run(self):
         try:
-            self._items = self._read_csv()
+            rows = self._read_csv(self.csv_path)
         except Exception as e:
             self.error.emit(f"CSV konnte nicht gelesen werden: {e}")
             return
 
-        total = len(self._items)
-        processed = 0
-        self._emit(f"Starte Einspeisung: {total} Einträge aus {self.csv_path}")
+        total = len(rows)
+        self.progress.emit(0, total)
+        self.log.emit(f"Einträge geladen: {total}")
 
-        for item in self._items:
+        csv_dir = os.path.dirname(os.path.abspath(self.csv_path))
+
+        processed = 0
+        for idx, r in enumerate(rows, start=1):
             if self._cancel:
-                self._emit("Abbruch durch Benutzer.")
                 self.cancelled.emit()
                 return
 
-            src = item.file_path
+            # Quelle auflösen (relativ zur CSV zulassen)
+            src = r.file_path
             if not os.path.isabs(src):
-                csv_dir = os.path.dirname(os.path.abspath(self.csv_path))
-                src = os.path.abspath(os.path.join(csv_dir, src))
+                src = os.path.normpath(os.path.join(csv_dir, src))
 
             if not os.path.exists(src):
-                self._emit(f"Übersprungen (nicht gefunden): {src}")
-                processed += 1
+                self.log.emit(f"[SKIP {idx}] Quelle nicht gefunden: {src}")
                 self.progress.emit(processed, total)
                 continue
 
-            # Zielordner bestimmen
+            # Zielbasis: Monitor[/target_subdir]
             target_dir = self.monitor_dir
-            if item.target_subdir:
-                target_dir = os.path.join(self.monitor_dir, item.target_subdir)
+            if r.target_subdir:
+                target_dir = os.path.join(target_dir, r.target_subdir)
+
             try:
-                self._ensure_dir(target_dir)
+                os.makedirs(target_dir, exist_ok=True)
             except Exception as e:
-                self._emit(f"Fehler beim Erstellen von {target_dir}: {e}")
-                processed += 1
+                self.log.emit(f"[SKIP {idx}] Zielordner kann nicht erstellt werden: {target_dir} – {e}")
                 self.progress.emit(processed, total)
                 continue
 
-            # Zieldateiname
-            dst_name = item.rename_to if item.rename_to else os.path.basename(src)
-            dst_path = os.path.join(target_dir, dst_name)
-            dst_path = self._unique_name(dst_path)
+            # Zielname
+            base_name = r.rename_to.strip() or os.path.basename(src)
+            dst = os.path.join(target_dir, base_name)
 
-            # Transfer
+            # Eindeutige Namen bei Kollision
+            if self.ensure_unique_names:
+                dst = self._make_unique(dst)
+
             try:
-                if self.move_files:
-                    # Move: rename auf gleichem Volume; sonst shutil.move (kopiert)
-                    if self._same_device(src, target_dir):
-                        os.rename(src, dst_path)
-                        self._emit(f"Verschoben (rename, gleiches Volume): {src} → {dst_path}")
-                    else:
-                        shutil.move(src, dst_path)
-                        self._emit(f"Verschoben (move, anderes Volume): {src} → {dst_path}")
-                else:
-                    method = self._link_first_transfer(src, dst_path)
-                    if method == "hardlink":
-                        self._emit(f"Hardlink: {src} ⇒ {dst_path}")
-                    elif method == "symlink":
-                        self._emit(f"Symlink:  {src} ⇒ {dst_path}")
-                    else:
-                        self._emit(f"Kopiert:  {src} → {dst_path}")
-            except Exception as e:
-                self._emit(f"Fehler bei Transfer {src} → {dst_path}: {e}")
+                self._place_file(src, dst)
+                self.log.emit(f"[OK {idx}] → {dst}")
                 processed += 1
                 self.progress.emit(processed, total)
-                continue
+            except Exception as e:
+                self.log.emit(f"[FAIL {idx}] {os.path.basename(src)} → {dst}: {e}")
+                self.progress.emit(processed, total)
 
-            processed += 1
-            self.progress.emit(processed, total)
-
-            # Pause, damit der Hotfolder-Watcher sauber triggert
+            # kleine Pause zwischen Jobs
             if self.interval_seconds > 0:
-                slept = 0.0
-                while slept < self.interval_seconds:
+                # auch hier Abbruchchance
+                for _ in range(int(self.interval_seconds * 10)):
                     if self._cancel:
-                        self._emit("Abbruch durch Benutzer.")
                         self.cancelled.emit()
                         return
-                    time.sleep(min(0.1, self.interval_seconds - slept))
-                    slept += 0.1
+                    time.sleep(0.1)
 
-        self._emit("Einspeisung abgeschlossen.")
         self.finished_ok.emit()
+
+    # ------------- Helpers -------------
+
+    def _read_csv(self, path: str) -> List[_FeederRow]:
+        """
+        CSV robust einlesen:
+        - UTF-8 mit BOM (utf-8-sig)
+        - Delimiter-Autodetect (Sniffer) mit Fallback auf , ; \t
+        - Header normalisieren (strip + lower)
+        - akzeptierte Spalten: file_path [pflicht], target_subdir, rename_to
+        """
+        if not os.path.exists(path):
+            raise FileNotFoundError(path)
+
+        # 1) Dialekt erkennen
+        with open(path, "r", encoding="utf-8-sig", newline="") as f:
+            sample = f.read(4096)
+            f.seek(0)
+            try:
+                sniffer = csv.Sniffer()
+                dialect = sniffer.sniff(sample, delimiters=",;\t")
+            except Exception:
+                # Fallback: häufig in DE ; oder ,
+                class _Fallback(csv.Dialect):
+                    delimiter = ";"
+                    quotechar = '"'
+                    doublequote = True
+                    skipinitialspace = True
+                    lineterminator = "\n"
+                    quoting = csv.QUOTE_MINIMAL
+                dialect = _Fallback()
+
+            reader = csv.reader(f, dialect)
+            try:
+                raw_header = next(reader)
+            except StopIteration:
+                raise ValueError("CSV ist leer.")
+
+            header = [h.strip().lower() for h in raw_header]
+            # mappe Indexe
+            col_idx = {name: i for i, name in enumerate(header)}
+
+            if "file_path" not in col_idx:
+                # evtl. hat jemand "filepath" geschrieben?
+                alt = "filepath"
+                if alt in col_idx:
+                    col_idx["file_path"] = col_idx[alt]
+                else:
+                    raise ValueError("CSV benötigt mindestens die Spalte 'file_path'.")
+
+            # optional
+            tgt_idx = col_idx.get("target_subdir")
+            ren_idx = col_idx.get("rename_to")
+
+            rows: List[_FeederRow] = []
+            for row in reader:
+                if not any(cell.strip() for cell in row):
+                    continue  # komplett leere Zeile
+                try:
+                    fp = row[col_idx["file_path"]].strip()
+                except Exception:
+                    # Zeile zu kurz – überspringen
+                    continue
+                if not fp:
+                    continue
+                tgt = (row[tgt_idx].strip() if tgt_idx is not None and tgt_idx < len(row) else "")
+                ren = (row[ren_idx].strip() if ren_idx is not None and ren_idx < len(row) else "")
+                rows.append(_FeederRow(file_path=fp, target_subdir=tgt, rename_to=ren))
+
+            return rows
+
+    def _make_unique(self, dst: str) -> str:
+        """
+        Hängt __1,__2,… an, falls Pfad existiert.
+        """
+        if not os.path.exists(dst):
+            return dst
+        base, ext = os.path.splitext(dst)
+        n = 1
+        while True:
+            cand = f"{base}__{n}{ext}"
+            if not os.path.exists(cand):
+                return cand
+            n += 1
+
+    def _place_file(self, src: str, dst: str):
+        """
+        Datei gemäß Einstellungen in den Monitor bringen.
+        Reihenfolge:
+        - wenn move_files: shutil.move
+        - sonst: versuche Hardlink -> Symlink -> (falls erlaubt) Kopie
+        """
+        if self.move_files:
+            shutil.move(src, dst)
+            return
+
+        # 1) Hardlink versuchen
+        try:
+            os.link(src, dst)
+            return
+        except Exception:
+            pass
+
+        # 2) Symlink versuchen
+        try:
+            # relative Symlinks sind robuster beim Verschieben des Monitors
+            rel = os.path.relpath(src, os.path.dirname(dst))
+            os.symlink(rel, dst)
+            return
+        except Exception:
+            pass
+
+        # 3) Kopieren (nur wenn erlaubt)
+        if self.links_only:
+            raise RuntimeError("Link nicht möglich und 'links_only' ist aktiv.")
+        shutil.copy2(src, dst)

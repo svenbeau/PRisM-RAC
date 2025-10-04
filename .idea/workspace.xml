@@ -4,14 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Logfile Sortierung neu und dynamisch">
-      <change afterPath="$PROJECT_DIR$/ui/list_feeder_dialog.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/direct_list_processor.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/list_feeder.py" afterDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Listfeeder V1 mit rename">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/hotfolder_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/hotfolder_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/list_feeder_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/list_feeder_dialog.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -89,7 +84,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "stable-v40",
+    "git-widget-placeholder": "stable-v41",
     "last_opened_file_path": "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC",
     "settings.editor.selected.configurable": "preferences.lookFeel"
   }
@@ -115,22 +110,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00046" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741615677116</created>
-      <option name="number" value="00046" />
-      <option name="presentableId" value="LOCAL-00046" />
-      <option name="project" value="LOCAL" />
-      <updated>1741615677116</updated>
-    </task>
-    <task id="LOCAL-00047" summary="Umbau Pfade für App">
-      <option name="closed" value="true" />
-      <created>1741627934262</created>
-      <option name="number" value="00047" />
-      <option name="presentableId" value="LOCAL-00047" />
-      <option name="project" value="LOCAL" />
-      <updated>1741627934262</updated>
     </task>
     <task id="LOCAL-00048" summary="erste lauffähige Compilierung">
       <option name="closed" value="true" />
@@ -508,12 +487,26 @@
       <option name="project" value="LOCAL" />
       <updated>1759575652003</updated>
     </task>
-    <option name="localTasksCounter" value="95" />
+    <task id="LOCAL-00095" summary="Listfeeder V1">
+      <option name="closed" value="true" />
+      <created>1759581294397</created>
+      <option name="number" value="00095" />
+      <option name="presentableId" value="LOCAL-00095" />
+      <option name="project" value="LOCAL" />
+      <updated>1759581294397</updated>
+    </task>
+    <task id="LOCAL-00096" summary="Listfeeder V1 mit rename">
+      <option name="closed" value="true" />
+      <created>1759581381532</created>
+      <option name="number" value="00096" />
+      <option name="presentableId" value="LOCAL-00096" />
+      <option name="project" value="LOCAL" />
+      <updated>1759581381532</updated>
+    </task>
+    <option name="localTasksCounter" value="97" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Umbau Pfade für App" />
-    <MESSAGE value="erste lauffähige Compilierung" />
     <MESSAGE value="aufräumen Settings" />
     <MESSAGE value="Script - Rezept Ansicht neu" />
     <MESSAGE value="FTP mit Transferplänen" />
@@ -537,6 +530,8 @@
     <MESSAGE value="Hotfolder Cleaner Scheduler einrichten (funktioniert nur bei &quot;Start&quot;)" />
     <MESSAGE value="Hotfolder Cleaner Scheduler einrichten" />
     <MESSAGE value="Logfile Sortierung neu und dynamisch" />
-    <option name="LAST_COMMIT_MESSAGE" value="Logfile Sortierung neu und dynamisch" />
+    <MESSAGE value="Listfeeder V1" />
+    <MESSAGE value="Listfeeder V1 mit rename" />
+    <option name="LAST_COMMIT_MESSAGE" value="Listfeeder V1 mit rename" />
   </component>
 </project>
