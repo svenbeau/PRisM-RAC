@@ -1,0 +1,24 @@
+{
+    "source":"RecomART-Dom",
+    "target":"OnlineOnly",
+    "outputs":[ 
+        {
+            "name":"Web_Komplett",
+            "photoshopAction":"23 DOM Color 2 Web Komplett (WK)",
+            "outputFolder":"/Volumes/File_01/_GRIS/10_output/__render/03_Web/",
+            "suffix":"WK",
+            "filetype":"png",
+            "backside":true,
+            "backsideAction":null,
+            "backsideSuffix":"WF"
+        },
+        {
+            "name":"Web_Ausschnitt",
+            "photoshopAction":"22 DOM Color 2 Web Cropped (WC)",
+            "outputFolder":"/Volumes/File_01/_GRIS/10_output/__render/03_Web/",
+            "suffix":"WC",
+            "filetype":"png",
+            "backside":false
+        }
+        ]
+    }

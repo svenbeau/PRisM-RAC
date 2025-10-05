@@ -1,0 +1,4 @@
+# Für arm64
+pyinstaller PRisM-RAC_arm64.spec
+
+pyinstaller PRisM-RAC_arm64.spec && python post_build.py
