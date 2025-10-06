@@ -1,15 +1,16 @@
 # PRisM-RAC_x86_64.spec
 #🪄 Option 1 (empfohlen): x86-64 Build über Rosetta Terminal
 #	1.	Öffne ein neues Terminal im Rosetta-Modus:
-#arch -x86_64 zsh
+ # arch -x86_64 zsh
 #	2.	Erstelle ein neues virtuelles Environment:
-#cd ~/Documents/PycharmProjects/PRisM-RAC
- #python3 -m venv .venv_x86_64
- #source .venv_x86_64/bin/activate
+ # cd ~/Documents/PycharmProjects/PRisM-RAC
+ # python3 -m venv .venv_x86_64
+ # source .venv_x86_64/bin/activate
 #	3.	Installiere erneut deine Dependencies:
-#pip install -r requirements.txt
+ # pip install -r requirements.txt
 #	4.	Dann Baue dein x86-Bundle:
-#/usr/bin/env bash choose_arch_and_build.sh
+ # /usr/bin/env bash choose_arch_and_build.sh
+ # → Auswahl: x86_64
 
 # -*- mode: python ; coding: utf-8 -*-
 

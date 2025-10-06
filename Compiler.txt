@@ -1,3 +1,9 @@
+Run:
+choose_arch_and_build.sh
+> Auswahl ob silicon oder x86
+> für x86 siehe "PRisM-RAC_x86_64.spec"
+muss auf Rosetta umgestellt werden
+
 oben rechts in Run laufen lassen: Build_and_Pack_PRiSM_CC
 
 

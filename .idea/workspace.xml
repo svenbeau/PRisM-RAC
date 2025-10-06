@@ -5,11 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder">
-      <change afterPath="$PROJECT_DIR$/choose_arch_and_build.sh" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PRisM-RAC_x86_64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_x86_64.spec" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build_and_pack.sh" beforeDir="false" afterPath="$PROJECT_DIR$/build_and_pack.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -101,7 +97,7 @@
       <recent name="$PROJECT_DIR$/ui" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Shell Script.choose_arch_and_build.sh">
     <configuration name="Build &amp; Pack PRiSM-CC" type="ShConfigurationType">
       <option name="SCRIPT_TEXT" value="#!/usr/bin/env bash set -e cd &quot;$PWD&quot; echo '🔧 Schritt 1: Baue App mit PyInstaller (venv)' &quot;./.venv/bin/pyinstaller&quot; PRisM-RAC_arm64.spec echo '📦 Schritt 2: Bereite Distribution vor' ./prepare_app_for_distribution.sh echo '✅ Fertig: App gebaut &amp; gepackt.'" />
       <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
@@ -158,14 +154,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00056" summary="Script - Rezept Ansicht neu">
-      <option name="closed" value="true" />
-      <created>1742049566091</created>
-      <option name="number" value="00056" />
-      <option name="presentableId" value="LOCAL-00056" />
-      <option name="project" value="LOCAL" />
-      <updated>1742049566091</updated>
     </task>
     <task id="LOCAL-00057" summary="Script - Rezept Ansicht neu">
       <option name="closed" value="true" />
@@ -551,7 +539,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759751056206</updated>
     </task>
-    <option name="localTasksCounter" value="105" />
+    <task id="LOCAL-00105" summary="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder">
+      <option name="closed" value="true" />
+      <created>1759753873427</created>
+      <option name="number" value="00105" />
+      <option name="presentableId" value="LOCAL-00105" />
+      <option name="project" value="LOCAL" />
+      <updated>1759753873427</updated>
+    </task>
+    <option name="localTasksCounter" value="106" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
