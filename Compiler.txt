@@ -1,4 +1,68 @@
+oben rechts in Run laufen lassen: Build_and_Pack_PRiSM_CC
+
+
 # Für arm64
 pyinstaller PRisM-RAC_arm64.spec
 
 pyinstaller PRisM-RAC_arm64.spec && python post_build.py
+
+
+
+Wenn du kein Apple-Entwicklerkonto und kein Zertifikat hast, kannst du trotzdem eine voll funktionsfähige App für andere Macs bauen – du musst sie nur lokal von der Quarantäne befreien und gegebenenfalls bei den Empfängern manuell „freigeben“.
+Ich zeige dir den einfachsten funktionierenden Weg ohne Developer ID:
+
+⸻
+
+🔧 1. App ganz normal bauen
+___________________________________
+pyinstaller PRisM-RAC_arm64.spec
+___________________________________
+Ergebnis:
+___________________________________
+dist/PRisM-CC.app
+___________________________________
+🧹 2. Quarantäne-Attribute entfernen
+
+macOS markiert neu erzeugte oder kopierte Apps oft als „aus dem Internet geladen“.
+Dadurch kommt beim ersten Start:
+
+“App kann nicht geöffnet werden, da der Entwickler nicht verifiziert werden kann”
+
+➡️ Mit folgendem Befehl entfernst du das komplett:
+___________________________________
+xattr -cr "dist/PRisM-CC.app"
+___________________________________
+(„-c“ löscht alle Extended Attributes rekursiv, „-r“ für alle Dateien im Bundle.)
+
+🧪 3. Testen, ob sie startet
+___________________________________
+open "dist/PRisM-CC.app"
+___________________________________
+Wenn sie sich öffnet → alles gut.
+Falls macOS sie blockiert:
+	1.	Rechtsklick → Öffnen → macOS fragt „Wirklich öffnen?“
+	2.	Bestätigen → dann merkt sich Gatekeeper diese App und sie läuft künftig normal.
+
+
+📦 4. Auf andere Macs kopieren
+	•	Zippe die App vor dem Versand:
+______________________________________________________________________
+ditto -c -k --keepParent "dist/PRisM-CC.app" "PRisM-CC.zip"
+______________________________________________________________________
+
+	•	Auf dem Ziel-Mac:
+___________________________________
+xattr -cr PRisM-CC.app
+open PRisM-CC.app
+___________________________________
+und beim ersten Start ggf. wieder Rechtsklick → Öffnen.
+
+Das reicht vollkommen, solange du sie privat oder intern verteilst.
+
+✅ 5. Was funktioniert (auch ohne Signierung)
+	•	FTP (ftplib / paramiko) → läuft normal, keine Einschränkung.
+	•	SMTP (smtplib / SSL) → läuft normal.
+	•	Dateizugriff auf lokale Pfade und ~/Library/Application Support → läuft normal.
+	•	Photoshop-Integration (osascript / ExtendScript) → läuft normal.
+	•	Keine Sandbox, keine Network-Limits.
+	•	macOS-Firewall kann beim ersten Start einmal nachfragen → einfach „Zulassen“.

@@ -1,0 +1,182 @@
+Last login: Mon Oct  6 09:17:43 on console
+(base) sschonauer@MBP-von-Sven ~ % cd /Users/sschonauer/Documents/PycharmProjects/PRisM-RAC
+(base) sschonauer@MBP-von-Sven PRisM-RAC % tree -f
+.
+├── ./assets
+│   ├── ./assets/CC_PRisM_SplashScreen_600px.png
+│   ├── ./assets/close_list.png
+│   ├── ./assets/dropdown_list.png
+│   ├── ./assets/logo_alt.png
+│   ├── ./assets/logo.png
+│   └── ./assets/spinner.gif
+├── ./Beschreibung_HF_Workflow.rtf
+├── ./Bilder
+│   └── ./Bilder/UI_Design.psd
+├── ./build
+│   └── ./build/PRisM-RAC_arm64
+│       └── ./build/PRisM-RAC_arm64/localpycs
+│           ├── ./build/PRisM-RAC_arm64/localpycs/pyimod01_archive.pyc
+│           ├── ./build/PRisM-RAC_arm64/localpycs/pyimod02_importers.pyc
+│           ├── ./build/PRisM-RAC_arm64/localpycs/pyimod03_ctypes.pyc
+│           └── ./build/PRisM-RAC_arm64/localpycs/struct.pyc
+├── ./CC_SplashScreen.psd
+├── ./Compiler.txt
+├── ./config
+│   ├── ./config/__init__.py
+│   ├── ./config/GrisebachRecipes_2020_01
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_Foto_Color_print.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_Foto_Color.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_OnlineOnly.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/bartsch_SammlungSander.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/External_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/External_SammlungSander.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/Koenig_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/Koenig_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/rcm_Koenig_Integeration.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_BoYinRa_Film.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_BoYinRa.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Foto_Color_Print_Standard.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Foto_Color_Print.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Foto_Color.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Foto_Duplex.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_HPC.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_OnlineOnly_Color.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Referencescan.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomCruse_Rinn.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_OnlineOnly.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_OnlineOnlyMontage.json
+│   │   ├── ./config/GrisebachRecipes_2020_01/recomDom_SammlungSander.json
+│   │   └── ./config/GrisebachRecipes_2020_01/WandCSV
+│   │       └── ./config/GrisebachRecipes_2020_01/WandCSV/File01.csv
+│   ├── ./config/GrisebachRecipes_2025_01
+│   │   ├── ./config/GrisebachRecipes_2025_01/bartsch_OnlineOnly.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_AKatalog.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_BoYinRa.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_Foto_Color.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_Moderne.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomCruse_OnlineOnly_Color.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_19JH.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_AKatalog.json
+│   │   ├── ./config/GrisebachRecipes_2025_01/recomDom_Moderne.json
+│   │   └── ./config/GrisebachRecipes_2025_01/recomDom_OnlineOnly.json
+│   ├── ./config/HF_Settings_01 Grisebach Render.json
+│   ├── ./config/JSX_Config
+│   │   └── ./config/JSX_Config/GB_Config_Render.json
+│   ├── ./config/script_config.json
+│   ├── ./config/ScriptConfig_01-Grisebach-Render.json
+│   └── ./config/ScriptConfig_02-Grisebach-CSV-WBL.json
+├── ./dist
+├── ./dynamic_jsx_generator.py
+├── ./hotfolder
+├── ./hotfolder_monitor.py
+├── ./idea
+│   └── ./idea/runConfigurations
+│       └── ./idea/runConfigurations/Build_and_Pack_PRiSM_CC.xml
+├── ./jsx_templates
+│   ├── ./jsx_templates/contentcheck_template.jsx
+│   ├── ./jsx_templates/prism_guard.jsxinc
+│   └── ./jsx_templates/prism_runner.jsx
+├── ./logs
+│   └── ./logs/global_log.json
+├── ./main.py
+├── ./plan_cleaner_Einstellungen.txt
+├── ./post_build.py
+├── ./prepare_app_for_distribution.sh
+├── ./PRisM_Icon.ai
+├── ./PRisM_Icon.icns
+├── ./PRisM_Icon.png
+├── ./PRisM-RAC_arm64.spec
+├── ./PRisM-RAC_DirectoryTree.txt
+├── ./PRisM-RAC_x86_64.spec
+├── ./processors
+│   ├── ./processors/__init__.py
+│   └── ./processors/contentcheck_runner.py
+├── ./README.md
+├── ./requirements.txt
+├── ./scripts
+│   ├── ./scripts/AnalyseLayersAndMetadata.jsx
+│   ├── ./scripts/GRIS_C_ReadWriteCSV.jsx
+│   ├── ./scripts/GRIS_ReadWriteCSV_2025.jsx
+│   ├── ./scripts/GRIS_Render_2025_dynamisch.jsx
+│   ├── ./scripts/GRIS_Render_2025.jsx
+│   ├── ./scripts/GRIS_Wandabbildungen_2024_dynamisch.jsx
+│   ├── ./scripts/GRIS_Wandabbildungen_2024.jsx
+│   ├── ./scripts/ProcessFile.applescript
+│   ├── ./scripts/PS_Metadaten_XMP_check.jsx
+│   └── ./scripts/SuperSkript_rcm_dynamisch.jsx
+├── ./settings.json
+├── ./test
+│   └── ./test/test_dynamic_jsx_recipe_injector.py
+├── ./ui
+│   ├── ./ui/__init__.py
+│   ├── ./ui/ftp_plan_dialog.py
+│   ├── ./ui/ftp_plan_widget.py
+│   ├── ./ui/ftp_schedule_widget.py
+│   ├── ./ui/ftp_server_manager_dialog.py
+│   ├── ./ui/ftp_transfer_widget.py
+│   ├── ./ui/gate_status_badge.py
+│   ├── ./ui/hotfolder_config_dialog.py
+│   ├── ./ui/hotfolder_widget.py
+│   ├── ./ui/json_editor_dialog.py
+│   ├── ./ui/json_editor.py
+│   ├── ./ui/json_explorer_widget.py
+│   ├── ./ui/json_explorer.py
+│   ├── ./ui/list_feeder_dialog.py
+│   ├── ./ui/logfile_widget.py
+│   ├── ./ui/logs
+│   │   └── ./ui/logs/global_log.json
+│   ├── ./ui/main_window.py
+│   ├── ./ui/ps_timeout_dialog.py
+│   ├── ./ui/ps_ui_helpers.py
+│   ├── ./ui/script_recipe_dialog.py
+│   ├── ./ui/script_recipe_list_widget.py
+│   ├── ./ui/script_recipe_widget.py
+│   ├── ./ui/self_test_dialog.py
+│   ├── ./ui/settings_widget.py
+│   ├── ./ui/transfer_plan_dialog.py
+│   ├── ./ui/transfer_plan_list_widget.py
+│   ├── ./ui/transfer_plan_widget.py
+│   ├── ./ui/transfer_queue_dialog.py
+│   └── ./ui/transfer_reporter.py
+├── ./utils
+│   ├── ./utils/__init__.py
+│   ├── ./utils/auto_delete_manager.py
+│   ├── ./utils/config_manager.py
+│   ├── ./utils/contentcheck_bridge.py
+│   ├── ./utils/contentcheck_email_notifier.py
+│   ├── ./utils/direct_list_processor.py
+│   ├── ./utils/dynamic_jsx_recipe_injector.py
+│   ├── ./utils/dynamic_jsx.py
+│   ├── ./utils/ftp_manager.py
+│   ├── ./utils/helpers.py
+│   ├── ./utils/hotfolder_config_manager.py
+│   ├── ./utils/list_feeder.py
+│   ├── ./utils/log_exporter.py
+│   ├── ./utils/log_manager.py
+│   ├── ./utils/mailer.py
+│   ├── ./utils/path_manager.py
+│   ├── ./utils/plan_cleaner.py
+│   ├── ./utils/plan_scheduler.py
+│   ├── ./utils/prism_scheduled_transfer.py
+│   ├── ./utils/ps_worker.py
+│   ├── ./utils/script_config_manager.py
+│   ├── ./utils/script_recipe_loader.py
+│   ├── ./utils/self_check.py
+│   ├── ./utils/smtp_test.py
+│   ├── ./utils/splash_screen.py
+│   ├── ./utils/transfer_executor.py
+│   ├── ./utils/transfer_plan_config_manager.py
+│   ├── ./utils/transfer_plan_manager.py
+│   ├── ./utils/transfer_reporter.py
+│   └── ./utils/utils.py
+└── ./wrapper.py
+
+23 directories, 153 files
+(base) sschonauer@MBP-von-Sven PRisM-RAC %

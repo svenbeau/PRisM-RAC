@@ -5,7 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="mit Selbsttest für SMPT, HTTP, FTP">
+      <change afterPath="$PROJECT_DIR$/Tree.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/build_and_pack.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/prepare_app_for_distribution.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/prism_version.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/setup_venv.sh" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Compiler.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Compiler.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -83,9 +90,11 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;Shell Script.Build &amp; Pack PRiSM-CC.executor&quot;: &quot;Run&quot;,
+    &quot;Shell Script.Setup VENV (PRiSM-RAC).executor&quot;: &quot;Run&quot;,
     &quot;git-widget-placeholder&quot;: &quot;stable-v41&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;jupyter.general.settings&quot;
   }
 }</component>
   <component name="RecentsManager">
@@ -93,6 +102,27 @@
       <recent name="$PROJECT_DIR$/utils" />
       <recent name="$PROJECT_DIR$/ui" />
     </key>
+  </component>
+  <component name="RunManager" selected="Shell Script.Build &amp; Pack PRiSM-CC">
+    <configuration name="Build &amp; Pack PRiSM-CC" type="ShConfigurationType">
+      <option name="SCRIPT_TEXT" value="#!/usr/bin/env bash set -e cd &quot;$PWD&quot; echo '🔧 Schritt 1: Baue App mit PyInstaller (venv)' &quot;./.venv/bin/pyinstaller&quot; PRisM-RAC_arm64.spec echo '📦 Schritt 2: Bereite Distribution vor' ./prepare_app_for_distribution.sh echo '✅ Fertig: App gebaut &amp; gepackt.'" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="$PROJECT_DIR$/build_and_pack.sh" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="/bin/bash" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="true" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Shell Script.Setup VENV (PRiSM-RAC)" />
+      <item itemvalue="Shell Script.Build &amp; Pack PRiSM-CC" />
+    </list>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -109,14 +139,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00053" summary="Script - Rezept Ansicht neu">
-      <option name="closed" value="true" />
-      <created>1741797024304</created>
-      <option name="number" value="00053" />
-      <option name="presentableId" value="LOCAL-00053" />
-      <option name="project" value="LOCAL" />
-      <updated>1741797024304</updated>
     </task>
     <task id="LOCAL-00054" summary="Script - Rezept Ansicht neu">
       <option name="closed" value="true" />
@@ -502,11 +524,18 @@
       <option name="project" value="LOCAL" />
       <updated>1759602009088</updated>
     </task>
-    <option name="localTasksCounter" value="102" />
+    <task id="LOCAL-00102" summary="mit Selbsttest für SMPT, HTTP, FTP">
+      <option name="closed" value="true" />
+      <created>1759735598299</created>
+      <option name="number" value="00102" />
+      <option name="presentableId" value="LOCAL-00102" />
+      <option name="project" value="LOCAL" />
+      <updated>1759735598299</updated>
+    </task>
+    <option name="localTasksCounter" value="103" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Script - Rezept Ansicht neu" />
     <MESSAGE value="FTP mit Transferplänen" />
     <MESSAGE value="FTP mit Transferplänen funktioniert" />
     <MESSAGE value="Umbau Log-Ansicht mit Transfer" />
@@ -531,6 +560,7 @@
     <MESSAGE value="Listfeeder V1" />
     <MESSAGE value="Listfeeder V1 mit rename" />
     <MESSAGE value="Listfeeder V1 mit rename, kopiert die Quelldaten in den Monitor-Ordner des ausgewählten Ordners" />
-    <option name="LAST_COMMIT_MESSAGE" value="Listfeeder V1 mit rename, kopiert die Quelldaten in den Monitor-Ordner des ausgewählten Ordners" />
+    <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP" />
+    <option name="LAST_COMMIT_MESSAGE" value="mit Selbsttest für SMPT, HTTP, FTP" />
   </component>
 </project>
