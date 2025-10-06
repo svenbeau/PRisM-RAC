@@ -4,31 +4,55 @@
 import os
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
+
+# --- Projekt-Root robust ermitteln ---
+try:
+    PROJECT_ROOT = Path(__file__).resolve().parent
+except NameError:
+    PROJECT_ROOT = Path.cwd()
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# --- Version zentral aus prism_version.py ---
+from prism_version import __version__ as APP_VERSION
 
 block_cipher = None
 
-# Name der Anwendung (angepasst für x86_64)
-APP_NAME = "PRisM-CC_x86_64"
+# ===== App-Metadaten =====
+APP_NAME   = "PRisM-RAC"
+APP_SCRIPT = "main.py"  # Einstiegsskript
 
-# Wrapper-Skript, das als Einstieg dient
-APP_SCRIPT = "wrapper.py"
+# ===== Suchpfade =====
+pathex = [str(PROJECT_ROOT)]
 
-# Pfade, in denen PyInstaller nach Modulen und Ressourcen suchen soll
-pathex = [
-    os.path.abspath('.'),
-]
+# ===== Imports / Bundling-Helfer =====
+hidden_imports = []
 
-# Optionale versteckte Importe – hier ggf. anpassen
-hidden_imports = []  # Entferne den collect_submodules Aufruf, wenn das Paket nicht existiert
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+import certifi
 
-# Hier definieren wir die Assets-Ordner und andere Daten, die ins Bundle aufgenommen werden
+# PySide6 vollständig berücksichtigen
+hidden_imports += collect_submodules("PySide6")
+
+# Optional: Paramiko/Cryptography (SFTP)
+try:
+    import paramiko  # noqa: F401
+    hidden_imports += collect_submodules("paramiko")
+    hidden_imports += collect_submodules("cryptography")
+except Exception:
+    pass
+
+# ===== Daten =====
 datas = [
-    ("assets", "assets"),  # Füge das komplette assets-Verzeichnis hinzu
-    ("scripts", "scripts"),  # Füge auch das scripts-Verzeichnis hinzu
-    ("config", "config"),   # Füge auch das config-Verzeichnis hinzu
+    ("assets", "assets"),
+    ("jsx_templates", "jsx_templates"),
+    ("config", "config"),
 ]
+datas += collect_data_files("PySide6", includes=["Qt/plugins/**"])
+datas += [(certifi.where(), "certifi")]
 
+# ===== Analyse =====
 a = Analysis(
     [APP_SCRIPT],
     pathex=pathex,
@@ -38,28 +62,28 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=["PyQt5", "PyQt6", "PySide2"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
-    noarchive=False
+    noarchive=False,
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
-    pyz,  # Wichtig: Stelle sicher, dass pyz hier enthalten ist
+    pyz,
     a.scripts,
-    [],  # Leere Liste hier
-    exclude_binaries=True,  # Wichtig: Verwende exclude_binaries=True
+    [],
+    exclude_binaries=True,
     name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
-    # icon='PRisM_Icon.icns',
+    target_arch="x86_64",       # 🔧 Unterschied zu arm64
 )
 
 coll = COLLECT(
@@ -68,22 +92,25 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name=APP_NAME,
 )
 
+icon_path = str(PROJECT_ROOT / "PRisM_Icon.icns")
+
 app = BUNDLE(
-    coll,  # Verwende coll statt exe
-    name='PRisM-CC_x86_64.app',
-    icon='/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns',
-    bundle_identifier='com.svenbeau.prismcc.x86_64',
+    coll,
+    name=f"{APP_NAME}.app",
+    icon=icon_path,
+    bundle_identifier="com.svenbeau.prismrac.x86_64",  # 🔧 Unterschied
     info_plist={
-        'CFBundleName': 'PRisM-CC_x86_64',
-        'CFBundleShortVersionString': '1.0.0',
-        'CFBundleVersion': '1.0.0',
-        'CFBundleDevelopmentRegion': 'en',
-        'LSMinimumSystemVersion': '10.13.0',
-        'NSHumanReadableCopyright': '© 2025 Sven Schoenauer',
-    }
+        "CFBundleName": APP_NAME,
+        "CFBundleDisplayName": APP_NAME,
+        "CFBundleShortVersionString": APP_VERSION,
+        "CFBundleVersion": APP_VERSION,
+        "CFBundleDevelopmentRegion": "en",
+        "LSMinimumSystemVersion": "10.15",
+        "NSHumanReadableCopyright": "© 2025 Sven Schoenauer",
+    },
 )

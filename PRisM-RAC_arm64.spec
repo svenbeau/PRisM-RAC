@@ -5,47 +5,52 @@ import os
 import sys
 from pathlib import Path
 
+# --- Projekt-Root robust ermitteln ---
+try:
+    PROJECT_ROOT = Path(__file__).resolve().parent   # normaler Weg
+except NameError:
+    PROJECT_ROOT = Path.cwd()                        # Fallback wenn __file__ fehlt
+
+# Sicherstellen, dass das Projekt im sys.path ist (für prism_version-Import)
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# --- Version zentral aus prism_version.py ---
+from prism_version import __version__ as APP_VERSION
+
 block_cipher = None
 
 # ===== App-Metadaten =====
-APP_NAME = "PRisM-RAC"
+APP_NAME   = "PRisM-RAC"
 APP_SCRIPT = "main.py"  # Einstiegsskript
 
 # ===== Suchpfade =====
-pathex = [os.path.abspath(".")]
+pathex = [str(PROJECT_ROOT)]
 
 # ===== Imports / Bundling-Helfer =====
 hidden_imports = []
 
-# WICHTIG: Qt-Plugins + Daten einsammeln
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 import certifi
 
-# PySide6 vollständig berücksichtigen (Import-Pfade, Styles, etc.)
+# PySide6 vollständig berücksichtigen
 hidden_imports += collect_submodules("PySide6")
 
-# Optional: Paramiko/Cryptography (nur falls installiert/benötigt – SFTP)
+# Optional: Paramiko/Cryptography (SFTP), nur falls installiert
 try:
     import paramiko  # noqa: F401
     hidden_imports += collect_submodules("paramiko")
     hidden_imports += collect_submodules("cryptography")
 except Exception:
-    # Wenn nicht installiert, ignorieren wir SFTP-spezifische Hidden-Imports
     pass
 
-# Daten, die wir ins Bundle nehmen
+# ===== Daten, die ins Bundle kommen =====
 datas = [
-    # Deine Projekt-Ressourcen
     ("assets", "assets"),
     ("jsx_templates", "jsx_templates"),
-    # Default-Configs als Seed (post_build kopiert sie später ins App-Support-Verzeichnis)
     ("config", "config"),
 ]
-
-# Qt-Plugins (plattformen, imageformats, iconengines, etc.)
 datas += collect_data_files("PySide6", includes=["Qt/plugins/**"])
-
-# CA-Bundle für TLS/SSL (SMTP/FTPS/HTTPS)
 datas += [(certifi.where(), "certifi")]
 
 # ===== PyInstaller-Analyse =====
@@ -58,7 +63,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["PyQt5", "PyQt6", "PySide2"],  # nur PySide6 verwenden
+    excludes=["PyQt5", "PyQt6", "PySide2"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -67,7 +72,6 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# ===== Executable =====
 exe = EXE(
     pyz,
     a.scripts,
@@ -77,13 +81,12 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False,                  # macOS: stabiler ohne UPX
+    upx=False,                # macOS: stabiler ohne UPX
     console=False,
     disable_windowed_traceback=False,
     target_arch="arm64",
 )
 
-# ===== Collect-Phase =====
 coll = COLLECT(
     exe,
     a.binaries,
@@ -95,8 +98,7 @@ coll = COLLECT(
     name=APP_NAME,
 )
 
-# ===== App-Bundle =====
-icon_path = "/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC/PRisM_Icon.icns"
+icon_path = str(PROJECT_ROOT / "PRisM_Icon.icns")
 
 app = BUNDLE(
     coll,
@@ -105,10 +107,10 @@ app = BUNDLE(
     bundle_identifier="com.svenbeau.prismrac.arm64",
     info_plist={
         "CFBundleName": APP_NAME,
-        "CFBundleShortVersionString": "1.0.0",
-        "CFBundleVersion": "1.0.0",
+        "CFBundleDisplayName": APP_NAME,
+        "CFBundleShortVersionString": APP_VERSION,  # z. B. 1.1.0
+        "CFBundleVersion": APP_VERSION,             # Build-Nummer
         "CFBundleDevelopmentRegion": "en",
-        # Apple Silicon i. d. R. ab 12.0 sinnvoll; 10.13 war Intel-Ära
         "LSMinimumSystemVersion": "12.0",
         "NSHumanReadableCopyright": "© 2025 Sven Schoenauer",
     },

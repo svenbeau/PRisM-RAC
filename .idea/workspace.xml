@@ -4,15 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="mit Selbsttest für SMPT, HTTP, FTP">
-      <change afterPath="$PROJECT_DIR$/Tree.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build_and_pack.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/prepare_app_for_distribution.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/prism_version.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/setup_venv.sh" afterDir="false" />
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Compiler.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Compiler.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" beforeDir="false" afterPath="$PROJECT_DIR$/PRisM-RAC_arm64.spec" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build_and_pack.sh" beforeDir="false" afterPath="$PROJECT_DIR$/build_and_pack.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -94,7 +89,7 @@
     &quot;Shell Script.Setup VENV (PRiSM-RAC).executor&quot;: &quot;Run&quot;,
     &quot;git-widget-placeholder&quot;: &quot;stable-v41&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/sschonauer/Documents/PycharmProjects/PRisM-RAC&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;jupyter.general.settings&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.intellij.pycharm.community.ide.impl.configuration.PythonContentEntriesConfigurable&quot;
   }
 }</component>
   <component name="RecentsManager">
@@ -139,14 +134,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00054" summary="Script - Rezept Ansicht neu">
-      <option name="closed" value="true" />
-      <created>1741944662324</created>
-      <option name="number" value="00054" />
-      <option name="presentableId" value="LOCAL-00054" />
-      <option name="project" value="LOCAL" />
-      <updated>1741944662325</updated>
     </task>
     <task id="LOCAL-00055" summary="Script - Rezept Ansicht neu">
       <option name="closed" value="true" />
@@ -532,11 +519,18 @@
       <option name="project" value="LOCAL" />
       <updated>1759735598299</updated>
     </task>
-    <option name="localTasksCounter" value="103" />
+    <task id="LOCAL-00103" summary="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder">
+      <option name="closed" value="true" />
+      <created>1759748074348</created>
+      <option name="number" value="00103" />
+      <option name="presentableId" value="LOCAL-00103" />
+      <option name="project" value="LOCAL" />
+      <updated>1759748074348</updated>
+    </task>
+    <option name="localTasksCounter" value="104" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="FTP mit Transferplänen" />
     <MESSAGE value="FTP mit Transferplänen funktioniert" />
     <MESSAGE value="Umbau Log-Ansicht mit Transfer" />
     <MESSAGE value="Contentcheck Fehler behoben." />
@@ -561,6 +555,7 @@
     <MESSAGE value="Listfeeder V1 mit rename" />
     <MESSAGE value="Listfeeder V1 mit rename, kopiert die Quelldaten in den Monitor-Ordner des ausgewählten Ordners" />
     <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP" />
-    <option name="LAST_COMMIT_MESSAGE" value="mit Selbsttest für SMPT, HTTP, FTP" />
+    <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder" />
+    <option name="LAST_COMMIT_MESSAGE" value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder" />
   </component>
 </project>
