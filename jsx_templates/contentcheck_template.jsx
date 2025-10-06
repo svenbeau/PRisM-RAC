@@ -1,4 +1,3 @@
-****
 // contentcheck_template.jsx
 // Erwartung: Python injiziert VOR diesem Template einen Header mit:
 //   var DEBUG_OUTPUT
@@ -280,4 +279,3 @@ if (resultObj.details.layerStatus === "FAIL" || resultObj.details.metaStatus ===
     failLogFile.encoding = "UTF8";
     if (failLogFile.open("w")) { failLogFile.write(serializeToJsonPretty(failObj, "")); failLogFile.close(); debug_print("Contentcheck-Fail Log gespeichert: " + failLogFile.fullName); }
 }
-****
