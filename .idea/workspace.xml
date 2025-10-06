@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/jsx_templates/contentcheck_template.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/choose_arch_and_build.sh" beforeDir="false" afterPath="$PROJECT_DIR$/choose_arch_and_build.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -155,14 +155,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00059" summary="Script - Rezept Ansicht neu">
-      <option name="closed" value="true" />
-      <created>1742055242980</created>
-      <option name="number" value="00059" />
-      <option name="presentableId" value="LOCAL-00059" />
-      <option name="project" value="LOCAL" />
-      <updated>1742055242980</updated>
     </task>
     <task id="LOCAL-00060" summary="FTP mit Transferplänen">
       <option name="closed" value="true" />
@@ -548,11 +540,18 @@
       <option name="project" value="LOCAL" />
       <updated>1759760952213</updated>
     </task>
-    <option name="localTasksCounter" value="108" />
+    <task id="LOCAL-00108" summary="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben">
+      <option name="closed" value="true" />
+      <created>1759768292849</created>
+      <option name="number" value="00108" />
+      <option name="presentableId" value="LOCAL-00108" />
+      <option name="project" value="LOCAL" />
+      <updated>1759768292849</updated>
+    </task>
+    <option name="localTasksCounter" value="109" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="FTP mit Transferplänen funktioniert" />
     <MESSAGE value="Umbau Log-Ansicht mit Transfer" />
     <MESSAGE value="Contentcheck Fehler behoben." />
     <MESSAGE value="Bedienelemete werden mit kopiert" />
@@ -577,6 +576,7 @@
     <MESSAGE value="Listfeeder V1 mit rename, kopiert die Quelldaten in den Monitor-Ordner des ausgewählten Ordners" />
     <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP" />
     <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder" />
-    <option name="LAST_COMMIT_MESSAGE" value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder" />
+    <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben" />
+    <option name="LAST_COMMIT_MESSAGE" value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben" />
   </component>
 </project>
