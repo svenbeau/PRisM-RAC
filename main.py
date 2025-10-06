@@ -4,6 +4,7 @@
 import sys
 import os
 import socket
+from typing import Optional, Tuple  # <-- Neu: für Python < 3.10
 from PySide6 import QtWidgets, QtGui, QtCore
 
 from utils.splash_screen import SplashScreen
@@ -68,12 +69,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1200, 900)
         self.settings = load_settings()
 
-        self.scheduler: PlanScheduler | None = None
-        self.cleaner: PlanCleaner | None = None
+        self.scheduler: Optional[PlanScheduler] = None          # <-- Optional statt |
+        self.cleaner: Optional[PlanCleaner] = None              # <-- Optional statt |
 
-        self._retention_thread: QtCore.QThread | None = None
-        self._retention_worker: _RetentionWorker | None = None
-        self._retention_dialog: QtWidgets.QProgressDialog | None = None
+        self._retention_thread: Optional[QtCore.QThread] = None
+        self._retention_worker: Optional[_RetentionWorker] = None
+        self._retention_dialog: Optional[QtWidgets.QProgressDialog] = None
 
         self.init_ui()
         self._build_menu()
@@ -241,7 +242,9 @@ class MainWindow(QtWidgets.QMainWindow):
             except Exception:
                 pass
 
-        def _direct_proc(file_path: str, target_subdir: str | None, rename_to: str | None):
+        def _direct_proc(file_path: str,
+                         target_subdir: Optional[str],
+                         rename_to: Optional[str]) -> Tuple[bool, str]:
             if hasattr(self.hotfolder_list_widget, "process_single_direct"):
                 try:
                     ok, msg = self.hotfolder_list_widget.process_single_direct(
