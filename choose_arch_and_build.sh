@@ -43,7 +43,7 @@ if [[ ! -f "$SPEC_FILE" ]]; then
 fi
 
 # Sauber neu bauen
-pyinstaller --clean "$SPEC_FILE"
+pyinstaller --clean --distpath "$DIST_DIR" --workpath "build_${ARCH_LABEL}" "$SPEC_FILE"
 
 echo "📦 PyInstaller-Build abgeschlossen."
 
