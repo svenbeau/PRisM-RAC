@@ -1,117 +1,189 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtCore
+from utils.config_manager import debug_print
+from utils.transfer_plan_manager import update_transfer_plan as _update_transfer_plan  # Fallback, falls kein manager übergeben
 
 
 class TransferPlanWidget(QtWidgets.QWidget):
     """
-    Kompakte Darstellung eines Transferplans mit Edit-/Löschen-Buttons.
-    Stellt die erwarteten Qt-Signale bereit:
-        - editRequested(str plan_id)
-        - deleteRequested(str plan_id)
+    Collapsible Widget zur Anzeige/Bearbeitung eines einzelnen Transfer-Plans.
+    - manager ist OPTIONAL: wenn None, wird update_transfer_plan() direkt aufgerufen.
+    - Header-Buttons: Jetzt ausführen / Bearbeiten / Löschen
+    - Signale: runNowRequested(plan: dict), editRequested(plan: dict), deleteRequested(plan_id: str)
     """
-    editRequested = QtCore.Signal(str)
-    deleteRequested = QtCore.Signal(str)
 
-    def __init__(self, plan: dict, parent=None):
+    # Signale nach oben (für Schedule-Widget)
+    runNowRequested = QtCore.Signal(dict)   # gibt komplettes plan_data-Dict
+    editRequested = QtCore.Signal(dict)     # gibt komplettes plan_data-Dict
+    deleteRequested = QtCore.Signal(str)    # gibt plan_id
+
+    def __init__(self, plan_data, manager=None, parent=None):
         super().__init__(parent)
-        self.plan = plan or {}
-        self.plan_id = self.plan.get("id", "")
-
+        self.plan_data = dict(plan_data or {})
+        self.manager = manager  # optional
+        self.is_collapsed = not self.plan_data.get("body_visible", True)
         self._build_ui()
-        self._fill_from_plan()
+        self._refresh_header_info()
+
+    # ---------------- UI ----------------
 
     def _build_ui(self):
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        layout.setSpacing(10)
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(6, 6, 6, 6)
+        main_layout.setSpacing(4)
 
-        # Linke Spalte: Titel + Infozeilen
-        left_box = QtWidgets.QVBoxLayout()
-        left_box.setSpacing(2)
+        # Header
+        header = QtWidgets.QHBoxLayout()
+        self.toggle_btn = QtWidgets.QToolButton()
+        self.toggle_btn.setText("▼" if not self.is_collapsed else "▶")
+        self.toggle_btn.setStyleSheet("font-weight: bold;")
+        self.toggle_btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.toggle_btn.clicked.connect(self.toggle_body)
 
-        self.title_lbl = QtWidgets.QLabel("")
-        font = self.title_lbl.font()
-        font.setBold(True)
-        self.title_lbl.setFont(font)
+        self.name_label = QtWidgets.QLabel(self.plan_data.get("name", "Neuer Transfer-Plan"))
+        header.addWidget(self.toggle_btn)
+        header.addWidget(self.name_label, 1)
 
-        self.src_lbl = QtWidgets.QLabel("")
-        self.dst_lbl = QtWidgets.QLabel("")
-        self.sched_lbl = QtWidgets.QLabel("")
-        self.opts_lbl = QtWidgets.QLabel("")
+        # Header: Aktions-Buttons
+        self.btn_run_now = QtWidgets.QPushButton("Jetzt ausführen")
+        self.btn_edit = QtWidgets.QPushButton("Bearbeiten")
+        self.btn_delete = QtWidgets.QPushButton("Löschen")
+        self.btn_run_now.clicked.connect(self._emit_run_now)
+        self.btn_edit.clicked.connect(self._emit_edit)
+        self.btn_delete.clicked.connect(self._emit_delete)
+        header.addWidget(self.btn_run_now)
+        header.addWidget(self.btn_edit)
+        header.addWidget(self.btn_delete)
 
-        for lbl in (self.src_lbl, self.dst_lbl, self.sched_lbl, self.opts_lbl):
-            lbl.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+        main_layout.addLayout(header)
 
-        left_box.addWidget(self.title_lbl)
-        left_box.addWidget(self.src_lbl)
-        left_box.addWidget(self.dst_lbl)
-        left_box.addWidget(self.sched_lbl)
-        left_box.addWidget(self.opts_lbl)
-        left_box.addStretch()
+        # Body (Form)
+        self.body_widget = QtWidgets.QWidget()
+        body_layout = QtWidgets.QFormLayout(self.body_widget)
 
-        # Rechte Spalte: Buttons
-        btn_box = QtWidgets.QVBoxLayout()
-        btn_box.setSpacing(6)
+        self.edit_name = QtWidgets.QLineEdit(self.plan_data.get("name", ""))
+        body_layout.addRow("Plan-Name:", self.edit_name)
 
-        self.edit_btn = QtWidgets.QPushButton("Bearbeiten")
-        self.del_btn = QtWidgets.QPushButton("Löschen")
+        # Quelle
+        self.source_type_combo = QtWidgets.QComboBox()
+        self.source_type_combo.addItems(["local", "ftp"])
+        self.source_type_combo.setCurrentText(self.plan_data.get("source_type", "local"))
+        body_layout.addRow("Quelle (Typ):", self.source_type_combo)
 
-        self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self.plan_id))
-        self.del_btn.clicked.connect(lambda: self.deleteRequested.emit(self.plan_id))
+        self.edit_source_path = QtWidgets.QLineEdit(self.plan_data.get("source_path", ""))
+        body_layout.addRow("Quelle (Pfad):", self.edit_source_path)
 
-        btn_box.addWidget(self.edit_btn)
-        btn_box.addWidget(self.del_btn)
-        btn_box.addStretch()
+        # Ziel (vereinheitlicht: destination_path <-> target_path)
+        self.edit_destination_path = QtWidgets.QLineEdit(self.plan_data.get("destination_path", self.plan_data.get("target_path", "")))
+        body_layout.addRow("Ziel (Pfad):", self.edit_destination_path)
 
-        layout.addLayout(left_box, 1)
-        layout.addLayout(btn_box, 0)
+        # Versionierung (vereinheitlicht: version_mode <-> versioning_mode)
+        self.version_mode_combo = QtWidgets.QComboBox()
+        self.version_mode_combo.addItems(["mirror", "suffix"])
+        self.version_mode_combo.setCurrentText(self.plan_data.get("version_mode", self.plan_data.get("versioning_mode", "mirror")))
+        body_layout.addRow("Versionierung:", self.version_mode_combo)
 
-        # Rahmen/Style minimal
-        self.setAutoFillBackground(True)
-        pal = self.palette()
-        pal.setColor(self.backgroundRole(), pal.color(QtGui.QPalette.AlternateBase))
-        self.setPalette(pal)
+        self.suffix_edit = QtWidgets.QLineEdit(self.plan_data.get("suffix_format", "_v{n}"))
+        body_layout.addRow("Suffix-Format:", self.suffix_edit)
 
-    def _fill_from_plan(self):
-        name = self.plan.get("name", "Unbenannter Plan")
+        # Zeitplan
+        self.schedule_type_combo = QtWidgets.QComboBox()
+        self.schedule_type_combo.addItems(["once", "daily", "weekly"])
+        self.schedule_type_combo.setCurrentText(self.plan_data.get("schedule_type", "once"))
+        body_layout.addRow("Zeitplan:", self.schedule_type_combo)
 
-        source_is_ftp = bool(self.plan.get("source_is_ftp", False))
-        if source_is_ftp:
-            src_server = self.plan.get("source_ftp_server", "")
-            src_path = self.plan.get("source_remote_path", "")
-            src_txt = f"Quelle: FTP [{src_server}] : {src_path or '—'}"
-        else:
-            src_txt = f"Quelle: {self.plan.get('source_path', '') or '—'}"
+        self.schedule_time_edit = QtWidgets.QDateTimeEdit()
+        self.schedule_time_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.schedule_time_edit.setCalendarPopup(True)
+        from datetime import datetime, timedelta
+        raw = self.plan_data.get("schedule_time", "")
+        dt = None
+        try:
+            if raw:
+                dt = datetime.strptime(raw, "%Y-%m-%d %H:%M")
+        except Exception:
+            dt = None
+        if not dt:
+            dt = datetime.now() + timedelta(minutes=10)
+        self.schedule_time_edit.setDateTime(dt)
+        body_layout.addRow("Zeitpunkt:", self.schedule_time_edit)
 
-        use_ftp = bool(self.plan.get("use_ftp", False))
-        if use_ftp:
-            dst_server = self.plan.get("ftp_server", "")
-            dst_path = self.plan.get("target_path", "")
-            dst_txt = f"Ziel: FTP [{dst_server}] : {dst_path or '—'}"
-        else:
-            dst_txt = f"Ziel: {self.plan.get('target_path', '') or '—'}"
+        # Speichern-Button (nur Plan-Daten updaten)
+        self.save_btn = QtWidgets.QPushButton("Speichern")
+        self.save_btn.clicked.connect(self.save_plan)
+        body_layout.addRow(self.save_btn)
 
-        schedule_type = self.plan.get("schedule_type", "once")
-        schedule_time = self.plan.get("schedule_time", "")
-        sched_txt = f"Zeitplan: {schedule_type}"
-        if schedule_type == "once" and schedule_time:
-            sched_txt += f" @ {schedule_time}"
+        main_layout.addWidget(self.body_widget)
+        self.body_widget.setVisible(not self.is_collapsed)
 
-        versioning = self.plan.get("versioning_mode", "mirror")
-        verify = self.plan.get("verify_mode", "size_only")
-        retry = self.plan.get("retry_count", 3)
-        opts_txt = f"Modus: {versioning} • Verify: {verify} • Retries: {retry}"
+    def _refresh_header_info(self):
+        self.name_label.setText(self.plan_data.get("name", "Neuer Transfer-Plan"))
 
-        self.title_lbl.setText(name)
-        self.src_lbl.setText(src_txt)
-        self.dst_lbl.setText(dst_txt)
-        self.sched_lbl.setText(sched_txt)
-        self.opts_lbl.setText(opts_txt)
+    # ---------------- Aktionen/Signale ----------------
 
-    # Falls das Widget nach einem Edit aktualisiert werden soll:
-    def update_plan(self, new_plan: dict):
-        self.plan = new_plan or {}
-        self.plan_id = self.plan.get("id", self.plan_id)
-        self._fill_from_plan()
+    def _emit_run_now(self):
+        debug_print(f"[TransferPlanWidget] runNowRequested id={self.plan_data.get('id')}")
+        self.runNowRequested.emit(dict(self.plan_data))
+
+    def _emit_edit(self):
+        debug_print(f"[TransferPlanWidget] editRequested id={self.plan_data.get('id')}")
+        self.editRequested.emit(dict(self.plan_data))
+
+    def _emit_delete(self):
+        debug_print(f"[TransferPlanWidget] deleteRequested id={self.plan_data.get('id')}")
+        self.deleteRequested.emit(self.plan_data.get("id", ""))
+
+    def toggle_body(self):
+        self.is_collapsed = not self.is_collapsed
+        self.body_widget.setVisible(not self.is_collapsed)
+        self.toggle_btn.setText("▼" if not self.is_collapsed else "▶")
+        # body_visible persistieren
+        self.plan_data["body_visible"] = (not self.is_collapsed)
+        self._update_plan_persist({"body_visible": not self.is_collapsed})
+
+    def save_plan(self):
+        """
+        Liest die UI-Felder aus, aktualisiert self.plan_data und persistiert.
+        """
+        debug_print(f"[TransferPlanWidget] save_plan() id={self.plan_data.get('id')}")
+        self.plan_data["name"] = self.edit_name.text().strip()
+        self.plan_data["source_type"] = self.source_type_combo.currentText()
+        self.plan_data["source_path"] = self.edit_source_path.text().strip()
+
+        # Ziel vereinheitlichen
+        dest = self.edit_destination_path.text().strip()
+        self.plan_data["destination_path"] = dest
+        if dest:
+            self.plan_data["target_path"] = dest  # für execute_transfer_plan()
+
+        # Versionierung vereinheitlichen
+        vm = self.version_mode_combo.currentText()
+        self.plan_data["version_mode"] = vm
+        self.plan_data["versioning_mode"] = vm  # für execute_transfer_plan()
+
+        self.plan_data["suffix_format"] = self.suffix_edit.text().strip()
+        self.plan_data["schedule_type"] = self.schedule_type_combo.currentText()
+        self.plan_data["schedule_time"] = self.schedule_time_edit.dateTime().toString("yyyy-MM-dd HH:mm")
+
+        self._update_plan_persist(self.plan_data)
+        self._refresh_header_info()
+        QtWidgets.QMessageBox.information(self, "Gespeichert", "Plan wurde aktualisiert.")
+
+    def _update_plan_persist(self, data: dict):
+        """
+        Persistiert Änderungen: bevorzugt manager.update_plan, sonst direkter Fallback.
+        """
+        plan_id = self.plan_data.get("id")
+        if hasattr(self.manager, "update_plan"):
+            try:
+                self.manager.update_plan(plan_id, data)
+                return
+            except Exception as e:
+                debug_print(f"[TransferPlanWidget] manager.update_plan Fehler: {e}")
+        # Fallback
+        try:
+            _update_transfer_plan(self.plan_data if "name" in data else {**self.plan_data, **data})
+        except Exception as e:
+            debug_print(f"[TransferPlanWidget] update_transfer_plan() Fallback-Fehler: {e}")
