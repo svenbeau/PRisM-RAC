@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from PySide6 import QtWidgets, QtCore
 
@@ -13,34 +12,33 @@ from utils.transfer_plan_manager import (
     remove_transfer_plan,
     update_transfer_plan,
 )
-from utils.config_manager import debug_print  # für Logs
-from ui.ftp_plan_widget import FtpPlanWidget
-from ui.ftp_plan_dialog import FtpPlanDialog
+from utils.config_manager import debug_print
+
+from ui.ftp_plan_widget import TransferPlanWidget
+from ui.ftp_plan_dialog import TransferPlanDialog
+from ui.transfer_queue_dialog import TransferQueueDialog  # vorhandener Dialog mit Datei-Warteschlange/Progress
 
 
 class FtpScheduleWidget(QtWidgets.QWidget):
     """
-    Widget zur Verwaltung der Transferpläne.
-    Zusätzlich ist hier jetzt ein kleiner Scheduler eingebaut:
-      - Ein QTimer prüft periodisch (alle 15 s), ob Pläne fällig sind.
-      - Fällige Pläne lösen das Signal `planTriggered` mit dem Plan-Dict aus.
-      - Der Aufrufer (z. B. Haupt-Widget) kann dieses Signal an einen Worker binden.
+    Verwaltung der Transferpläne + eingebauter Scheduler.
+    - „Jetzt ausführen“ und Scheduler-Trigger öffnen je Plan ein TransferQueueDialog-Fenster,
+      befüllen die Dateiliste und starten den Transfer asynchron.
+    - Unten: kleines Log für Scheduler-Ereignisse.
     """
 
-    # ==> Hook: hier kann der Aufrufer seinen Worker anbinden
-    planTriggered = QtCore.Signal(dict)
+    planTriggered = QtCore.Signal(dict)  # optionaler Hook nach außen
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._plans_cache: List[Dict] = []
-        self._last_reload_mtime: Optional[float] = None
+        self._tick_interval_ms = 15_000
+        self._tolerance = timedelta(seconds=90)
+        self._open_transfers: List[TransferQueueDialog] = []  # Referenzen halten, damit Dialoge nicht vom GC gekillt werden
 
-        self.init_ui()
+        self._build_ui()
         self.load_plans()
 
-        # --- Scheduler: alle 15 Sekunden prüfen ---
-        self._tick_interval_ms = 15_000
-        self._tolerance = timedelta(seconds=90)  # Fenstertoleranz
+        # Scheduler starten
         self._timer = QtCore.QTimer(self)
         self._timer.setInterval(self._tick_interval_ms)
         self._timer.timeout.connect(self._on_timer_tick)
@@ -49,97 +47,135 @@ class FtpScheduleWidget(QtWidgets.QWidget):
 
     # ---------------- UI ----------------
 
-    def init_ui(self):
-        main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.setSpacing(5)
+    def _build_ui(self):
+        main = QtWidgets.QVBoxLayout(self)
+        main.setContentsMargins(5, 5, 5, 5)
+        main.setSpacing(5)
 
-        btn_layout = QtWidgets.QHBoxLayout()
+        # Button-Leiste
+        row = QtWidgets.QHBoxLayout()
         self.add_btn = QtWidgets.QPushButton("Transferplan hinzufügen")
         self.del_btn = QtWidgets.QPushButton("Transferplan entfernen")
-        btn_layout.addWidget(self.add_btn)
-        btn_layout.addWidget(self.del_btn)
-        btn_layout.addStretch()
-        main_layout.addLayout(btn_layout)
+        row.addWidget(self.add_btn)
+        row.addWidget(self.del_btn)
+        row.addStretch(1)
+        main.addLayout(row)
 
-        self.scroll_area = QtWidgets.QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.container_widget = QtWidgets.QWidget()
-        self.container_layout = QtWidgets.QVBoxLayout(self.container_widget)
-        self.container_layout.setContentsMargins(5, 5, 5, 5)
-        self.container_layout.setSpacing(10)
-        self.scroll_area.setWidget(self.container_widget)
-        main_layout.addWidget(self.scroll_area, stretch=1)
+        # Scroll für Plan-Widgets
+        self.scroll = QtWidgets.QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.inner = QtWidgets.QWidget()
+        self.inner_layout = QtWidgets.QVBoxLayout(self.inner)
+        self.inner_layout.setContentsMargins(5, 5, 5, 5)
+        self.inner_layout.setSpacing(10)
+        self.scroll.setWidget(self.inner)
+        main.addWidget(self.scroll, 1)
 
+        # Kleines Log nur für Scheduler-Meldungen
+        self.log_edit = QtWidgets.QPlainTextEdit()
+        self.log_edit.setReadOnly(True)
+        self.log_edit.setMinimumHeight(90)
+        main.addWidget(self.log_edit, 0)
+
+        # Aktionen
         self.add_btn.clicked.connect(self.add_plan)
-        self.del_btn.clicked.connect(self.remove_plan)
+        self.del_btn.clicked.connect(self.remove_any_plan)
+
+    def _append_log(self, msg: str):
+        self.log_edit.appendPlainText(msg)
+        self.log_edit.verticalScrollBar().setValue(self.log_edit.verticalScrollBar().maximum())
+
+    # ---------------- Plans laden / UI befüllen ----------------
 
     def load_plans(self):
-        """UI auffrischen + Cache aktualisieren."""
-        # Alte Widgets entfernen
-        while self.container_layout.count():
-            item = self.container_layout.takeAt(0)
+        # vorhandene löschen
+        while self.inner_layout.count():
+            item = self.inner_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        self._plans_cache = load_transfer_plans()
-        for plan in self._plans_cache:
-            widget = FtpPlanWidget(plan, parent=self.container_widget)
-            widget.editRequested.connect(self.edit_plan)
-            widget.deleteRequested.connect(self.delete_plan)
-            self.container_layout.addWidget(widget)
-        self.container_layout.addStretch()
-        debug_print(f"[SCHEDULER] Pläne geladen: {len(self._plans_cache)}")
+        plans = load_transfer_plans()
+        for plan in plans:
+            w = TransferPlanWidget(plan, manager=None, parent=self.inner)
+            w.editRequested.connect(self.edit_plan)
+            w.deleteRequested.connect(self.delete_plan_by_id)
+            w.runNowRequested.connect(self._on_run_now)  # öffnet TransferQueueDialog und startet
+            self.inner_layout.addWidget(w)
+
+        self.inner_layout.addStretch(1)
+        debug_print(f"[SCHEDULER] Pläne geladen: {len(plans)}")
 
     # ---------------- CRUD ----------------
 
     def add_plan(self):
-        dlg = FtpPlanDialog(parent=self)
+        dlg = TransferPlanDialog({"id": self._gen_id()}, parent=self)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
-            new_plan = dlg.get_plan()
-            # Standardfelder für Scheduler, wenn nicht vorhanden
+            new_plan = dlg.plan_data
             new_plan.setdefault("last_run", "")
             new_plan.setdefault("completed_once_at", "")
+            self._normalize_schedule(new_plan)
             add_transfer_plan(new_plan)
             self.load_plans()
 
-    def edit_plan(self, plan):
-        dlg = FtpPlanDialog(plan, parent=self)
+    def edit_plan(self, plan: dict):
+        dlg = TransferPlanDialog(plan, parent=self)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
-            updated_plan = dlg.get_plan()
-            # vorhandene Scheduler-Felder erhalten, falls UI sie nicht setzt
-            updated_plan.setdefault("last_run", plan.get("last_run", ""))
-            updated_plan.setdefault("completed_once_at", plan.get("completed_once_at", ""))
-            update_transfer_plan(updated_plan)
+            updated = dlg.plan_data
+            updated.setdefault("last_run", plan.get("last_run", ""))
+            updated.setdefault("completed_once_at", plan.get("completed_once_at", ""))
+            self._normalize_schedule(updated)
+            update_transfer_plan(updated)
             self.load_plans()
 
-    def delete_plan(self, plan_id):
+    def delete_plan_by_id(self, plan_id: str):
         reply = QtWidgets.QMessageBox.question(
-            self,
-            "Löschen",
-            "Transferplan wirklich löschen?",
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            self, "Löschen", "Transferplan wirklich löschen?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
         )
         if reply == QtWidgets.QMessageBox.Yes:
             remove_transfer_plan(plan_id)
             self.load_plans()
 
-    def remove_plan(self):
-        # Beispielweise: Entferne den ersten Plan (oder implementiere eine Auswahl)
+    def remove_any_plan(self):
         plans = load_transfer_plans()
         if not plans:
             QtWidgets.QMessageBox.information(self, "Info", "Keine Transferpläne vorhanden.")
             return
-        plan_id = plans[0].get("id")
-        self.delete_plan(plan_id)
+        self.delete_plan_by_id(plans[0].get("id", ""))
+
+    # ---------------- Ad-hoc: Jetzt ausführen -> TransferQueueDialog ----------------
+
+    def _on_run_now(self, plan: dict):
+        """
+        Öffnet den vorhandenen TransferQueueDialog für diesen Plan und startet den Transfer.
+        Mehrere Pläne können parallel laufen: pro Plan ein Dialogfenster.
+        """
+        self._append_log(f"[UI] Starte 'Jetzt ausführen' → {plan.get('name')}")
+        self._open_transfer_dialog(plan, bring_to_front=True)
+
+    def _open_transfer_dialog(self, plan: dict, bring_to_front: bool = False):
+        dlg = TransferQueueDialog(plan, parent=self)
+        # Referenz halten, bis der Dialog/Worker fertig ist
+        self._open_transfers.append(dlg)
+        def _cleanup():
+            try:
+                self._open_transfers.remove(dlg)
+            except ValueError:
+                pass
+        dlg.finished.connect(_cleanup)
+
+        dlg.show()
+        if bring_to_front:
+            dlg.raise_()
+            dlg.activateWindow()
+        # WICHTIG: Dateiliste sammeln + Worker starten
+        dlg.start_transfer()
 
     # ---------------- Scheduler ----------------
 
     @QtCore.Slot()
     def _on_timer_tick(self):
-        """Periodischer Tick: Pläne neu laden (leicht), Fälligkeit prüfen, fällige auslösen."""
         try:
-            # Immer frisch laden (Datei ist klein) – vermeidet In-Memory-Drift nach UI-Änderungen
             plans = load_transfer_plans()
         except Exception as e:
             debug_print(f"[SCHEDULER] Fehler beim Laden der Pläne: {e}")
@@ -150,110 +186,102 @@ class FtpScheduleWidget(QtWidgets.QWidget):
 
         for plan in plans:
             if self._is_due(plan, now):
-                debug_print(f"[SCHEDULER] Trigger: {plan.get('name')} ({plan.get('id')})")
+                self._append_log(f"[SCHEDULER] Trigger: {plan.get('name')} ({plan.get('id')})")
                 any_triggered = True
-
-                # Markiere Start (last_run), für „once“ zusätzlich completed_once_at
+                # Stempel setzen und persistieren
                 plan["last_run"] = now.strftime("%Y-%m-%d %H:%M")
                 if plan.get("schedule_type", "once") == "once":
                     plan["completed_once_at"] = plan["last_run"]
-
-                # Persistieren
                 try:
                     update_transfer_plan(plan)
                 except Exception as e:
                     debug_print(f"[SCHEDULER] update_transfer_plan() Fehler: {e}")
 
-                # Ausführen signalisieren (Worker/Engine anbinden)
+                # Dialog öffnen & starten (nicht modal, kann im Hintergrund laufen)
+                self._open_transfer_dialog(plan, bring_to_front=False)
+                # Optional zusätzlich nach außen signalisieren:
                 self.planTriggered.emit(plan)
 
         if any_triggered:
-            # UI auffrischen, damit Zeitstempel sichtbar werden
             self.load_plans()
 
     def _is_due(self, plan: Dict, now: datetime) -> bool:
-        """
-        Prüft, ob ein Plan fällig ist.
-        Regeln:
-          - schedule_time ist lokaler Zeitpunkt "YYYY-MM-DD HH:mm".
-          - Fenster: |now - schedule_time(heute/entspr. Intervall)| <= tolerance.
-          - „once“: nur wenn noch kein completed_once_at gesetzt ist.
-          - „daily/weekly“: wenn seit last_run kein Lauf im entsprechenden Intervall stattfand
-                            und wir im Toleranzfenster um die geplante Uhrzeit sind.
-        """
-        schedule_type = plan.get("schedule_type", "once")
-        verify_str = plan.get("verify_mode", "size_only")  # nur falls du das loggen willst
-        retry_count = int(plan.get("retry_count", 5))      # dito
-
-        # 1) schedule_time parsen
-        sched_raw = plan.get("schedule_time", "")
+        stype = plan.get("schedule_type", "once")
+        raw = plan.get("schedule_time", "")
         try:
-            sched_dt = datetime.strptime(sched_raw, "%Y-%m-%d %H:%M") if sched_raw else None
+            sched_dt = datetime.strptime(raw, "%Y-%m-%d %H:%M") if raw else None
         except ValueError:
-            # Falls Format nicht stimmt, nicht laufen lassen
-            debug_print(f"[SCHEDULER] Ungültiges schedule_time: {sched_raw} für Plan {plan.get('name')}")
+            debug_print(f"[SCHEDULER] Ungültiges schedule_time: {raw} ({plan.get('name')})")
             return False
 
-        # 2) „once“: war schon?
-        if schedule_type == "once":
+        if stype == "once":
             if plan.get("completed_once_at"):
                 return False
-            # fällig sobald schedule_time <= now (mit Toleranzfenster nach vorne UND hinten)
             return self._in_window(sched_dt, now, self._tolerance)
 
-        # 3) „daily“ / „weekly“
-        last_run_str = plan.get("last_run", "")
-        last_run_dt = None
-        if last_run_str:
+        last_run = None
+        if plan.get("last_run"):
             try:
-                last_run_dt = datetime.strptime(last_run_str, "%Y-%m-%d %H:%M")
+                last_run = datetime.strptime(plan["last_run"], "%Y-%m-%d %H:%M")
             except ValueError:
-                last_run_dt = None
+                last_run = None
 
-        # Ziel-uhrzeit aus sched_dt (nur Uhrzeit relevant)
         target_hour = sched_dt.hour
         target_min = sched_dt.minute
 
-        if schedule_type == "daily":
-            # Heute um target_hour:target_min ist der Target-Zeitpunkt
+        if stype == "daily":
             today_target = now.replace(hour=target_hour, minute=target_min, second=0, microsecond=0)
             if not self._in_window(today_target, now, self._tolerance):
                 return False
-            # Wenn heute schon gelaufen, nicht nochmal
-            if last_run_dt and last_run_dt.date() == now.date():
+            if last_run and last_run.date() == now.date():
                 return False
             return True
 
-        if schedule_type == "weekly":
-            # In derselben Kalenderwoche, am Wochentag von sched_dt, um target Uhrzeit
-            # Wir verwenden isocalendar(): (year, week, weekday 1..7)
+        if stype == "weekly":
             target_weekday = sched_dt.isoweekday()
-            now_weekday = now.isoweekday()
-            if target_weekday != now_weekday:
+            if now.isoweekday() != target_weekday:
                 return False
             weekly_target = now.replace(hour=target_hour, minute=target_min, second=0, microsecond=0)
             if not self._in_window(weekly_target, now, self._tolerance):
                 return False
-            if last_run_dt:
-                last_year, last_week, _ = last_run_dt.isocalendar()
-                now_year, now_week, _ = now.isocalendar()
-                if (last_year, last_week) == (now_year, now_week):
+            if last_run:
+                ly, lw, _ = last_run.isocalendar()
+                ny, nw, _ = now.isocalendar()
+                if (ly, lw) == (ny, nw):
                     return False
             return True
 
-        # Unbekannter Typ -> nicht laufen
         return False
 
     @staticmethod
     def _in_window(target: datetime, now: datetime, tol: timedelta) -> bool:
-        """True, wenn now im +-tol-Fenster um target liegt ODER target <= now (Failsafe für knappe Ticks)."""
         if target is None:
             return False
         delta = now - target
-        # Fenstercheck
         if abs(delta) <= tol:
             return True
-        # Failsafe: falls Timer knapp nach target tickt
         if delta.total_seconds() > 0 and delta <= tol:
             return True
         return False
+
+    # ---------------- Utils ----------------
+
+    @staticmethod
+    def _gen_id() -> str:
+        import uuid
+        return str(uuid.uuid4())
+
+    @staticmethod
+    def _normalize_schedule(p: dict):
+        """
+        Harmonisierungen:
+        - 'destination_path' → 'target_path'
+        - 'version_mode' ↔ 'versioning_mode'
+        """
+        dest = (p.get("destination_path") or "").strip()
+        if dest and not p.get("target_path"):
+            p["target_path"] = dest
+
+        vm = p.get("version_mode") or p.get("versioning_mode") or "mirror"
+        p["version_mode"] = vm
+        p["versioning_mode"] = vm
