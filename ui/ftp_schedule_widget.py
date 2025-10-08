@@ -11,9 +11,10 @@ from utils.transfer_plan_manager import (
 )
 from utils.config_manager import debug_print
 
-from ui.ftp_plan_widget import TransferPlanWidget
-from ui.ftp_plan_dialog import TransferPlanDialog
-from ui.transfer_queue_panel import TransferQueuePanel   # <= NEU
+# ⬇️ Korrigiert: Karten-Widget & Dialog-Namen
+from ui.ftp_plan_widget import FtpPlanWidget
+from ui.ftp_plan_dialog import FtpPlanDialog
+from ui.transfer_queue_panel import TransferQueuePanel   # Panel unten im Widget
 
 class FtpScheduleWidget(QtWidgets.QWidget):
     planTriggered = QtCore.Signal(dict)
@@ -66,7 +67,7 @@ class FtpScheduleWidget(QtWidgets.QWidget):
 
         plans = load_transfer_plans()
         for plan in plans:
-            w = TransferPlanWidget(plan, manager=None, parent=self.inner)
+            w = FtpPlanWidget(plan, manager=None, parent=self.inner)
             w.editRequested.connect(self.edit_plan)
             w.deleteRequested.connect(self.delete_plan_by_id)
             w.runNowRequested.connect(self._on_run_now)    # -> unten im Panel
@@ -75,13 +76,13 @@ class FtpScheduleWidget(QtWidgets.QWidget):
         debug_print(f"[SCHEDULER] Pläne geladen: {len(plans)}")
 
     def add_plan(self):
-        dlg = TransferPlanDialog({"id": self._gen_id()}, parent=self)
+        dlg = FtpPlanDialog({"id": self._gen_id()}, parent=self)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             p = dlg.plan_data; p.setdefault("last_run",""); p.setdefault("completed_once_at","")
             self._normalize_schedule(p); add_transfer_plan(p); self.load_plans()
 
     def edit_plan(self, plan: dict):
-        dlg = TransferPlanDialog(plan, parent=self)
+        dlg = FtpPlanDialog(plan, parent=self)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             upd = dlg.plan_data
             upd.setdefault("last_run", plan.get("last_run",""))
