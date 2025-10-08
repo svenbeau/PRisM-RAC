@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="FTP-Pläne manuell ausführen, mit neuem Fenster für Übertragung">
-      <change beforePath="$PROJECT_DIR$/ui/ftp_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_plan_widget.py" afterDir="false" />
-    </list>
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="FTP-Pläne manuell ausführen, mit neuem Fenster für Übertragung" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -178,14 +176,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00065" summary="Umbau Log-Ansicht mit Transfer">
-      <option name="closed" value="true" />
-      <created>1742151217166</created>
-      <option name="number" value="00065" />
-      <option name="presentableId" value="LOCAL-00065" />
-      <option name="project" value="LOCAL" />
-      <updated>1742151217166</updated>
     </task>
     <task id="LOCAL-00066" summary="Umbau Log-Ansicht mit Transfer">
       <option name="closed" value="true" />
@@ -571,7 +561,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759932290086</updated>
     </task>
-    <option name="localTasksCounter" value="114" />
+    <task id="LOCAL-00114" summary="FTP-Pläne manuell ausführen, mit neuem Fenster für Übertragung">
+      <option name="closed" value="true" />
+      <created>1759932777819</created>
+      <option name="number" value="00114" />
+      <option name="presentableId" value="LOCAL-00114" />
+      <option name="project" value="LOCAL" />
+      <updated>1759932777819</updated>
+    </task>
+    <option name="localTasksCounter" value="115" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
