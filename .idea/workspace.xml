@@ -5,8 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="FTP-Pläne manuell ausführen, mit neuem Fenster für Übertragung">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/ftp_plan_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_plan_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/ftp_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ftp_plan_widget.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
