@@ -1,244 +1,320 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import csv
 import os
+import csv
 import shutil
 import time
 from dataclasses import dataclass
-from typing import List
+from typing import Optional, Tuple, List
 
 from PySide6 import QtCore
 
+# Kompatibel zu deinem Projekt
+try:
+    from utils.config_manager import debug_print
+except Exception:
+    def debug_print(msg: str):  # Fallback, falls außerhalb des Projekts gestartet
+        print(f"[DEBUG] {msg}")
+
 
 @dataclass
-class _FeederRow:
-    file_path: str
-    target_subdir: str = ""
-    rename_to: str = ""
+class _CsvRow:
+    src: str
+    target_subdir: str
+    rename_to: str
 
 
 class ListFeederWorker(QtCore.QThread):
     """
-    Arbeiter-Thread für das Einspeisen einer CSV-Liste in den Monitor-Ordner.
-    Bevorzugt Links (Hardlink/Symlink), fällt – falls erlaubt – auf Kopieren zurück.
-    In der aktuellen UI-Konfiguration wird NICHT verschoben und Copy-Fallback ist erlaubt.
+    Liest eine CSV und speist die dort gelisteten Dateien in den Monitor-Ordner ein.
+    Diese Version arbeitet **Copy-only**:
+      - Keine Hardlinks
+      - Keine Symlinks
+      - Immer echte Kopien (shutil.copy2)
+    Konflikte werden (optional) durch eindeutige Namen vermieden.
     """
 
-    # bestehend
-    progress = QtCore.Signal(int, int)     # processed, total
-    log = QtCore.Signal(str)
-    error = QtCore.Signal(str)
-    finished_ok = QtCore.Signal()
-    cancelled = QtCore.Signal()
+    # Bestehende Signale (vom Dialog bereits verdrahtet)
+    progress = QtCore.Signal(int, int)           # processed, total
+    log = QtCore.Signal(str)                     # text
+    error = QtCore.Signal(str)                   # fatal error -> Dialog zeigt MessageBox
+    finished_ok = QtCore.Signal()                # Ende ohne Abbruch
+    cancelled = QtCore.Signal()                  # Benutzerabbruch
 
-    # NEU: Warteschlangen-Signale
-    item_started = QtCore.Signal(str, int, int)      # src, idx(1-based), total
-    item_result = QtCore.Signal(bool, str, int)      # ok, dst, idx(1-based)
+    # Vom Dialog genutzt
+    item_started = QtCore.Signal(str, int, int)  # src, idx, total
+    item_result = QtCore.Signal(bool, str, int)  # ok, dst, idx
 
     def __init__(
         self,
+        *,
         csv_path: str,
         monitor_dir: str,
-        move_files: bool = False,
+        move_files: bool = False,                 # wird in dieser Copy-only-Version ignoriert (immer Kopie)
         interval_seconds: float = 0.5,
         ensure_unique_names: bool = True,
-        links_only: bool = False,
+        links_only: bool = False,                 # wird ignoriert (keine Links in dieser Version)
         parent=None
     ):
         super().__init__(parent)
         self.csv_path = csv_path
         self.monitor_dir = monitor_dir
-        self.move_files = bool(move_files)
-        self.interval_seconds = float(interval_seconds or 0.0)
+        self.interval_seconds = max(0.0, float(interval_seconds))
         self.ensure_unique_names = bool(ensure_unique_names)
-        self.links_only = bool(links_only)
 
-        self._cancel = False
-        self._fail_count = 0
+        self._abort = False
+        self._rows: List[_CsvRow] = []
 
-    # ------------- Lebenszyklus -------------
+    # ---------- öffentlich ----------
 
     def cancel(self):
-        self._cancel = True
+        self._abort = True
 
-    @property
-    def fail_count(self) -> int:
-        return int(self._fail_count)
+    # ---------- Thread ----------
 
     def run(self):
         try:
-            rows = self._read_csv(self.csv_path)
-        except Exception as e:
-            self.error.emit(f"CSV konnte nicht gelesen werden: {e}")
-            return
-
-        total = len(rows)
-        self.progress.emit(0, total)
-        self.log.emit(f"Einträge geladen: {total}")
-
-        csv_dir = os.path.dirname(os.path.abspath(self.csv_path))
-
-        processed = 0
-        for idx, r in enumerate(rows, start=1):
-            if self._cancel:
-                self.cancelled.emit()
+            # 1) CSV einlesen
+            ok, msg = self._load_csv()
+            if not ok:
+                self._emit_error(msg)
                 return
 
-            # Quelle auflösen (relativ zur CSV zulassen)
-            src = r.file_path
-            if not os.path.isabs(src):
-                src = os.path.normpath(os.path.join(csv_dir, src))
+            total = len(self._rows)
+            self.log.emit(f"CSV gelesen: {total} Einträge")
+            if total == 0:
+                self.finished_ok.emit()
+                return
 
-            # Start-Info an UI
-            self.item_started.emit(src, idx, total)
+            # 2) pro Eintrag kopieren
+            processed = 0
+            for idx, row in enumerate(self._rows, start=1):
+                if self._abort:
+                    self.cancelled.emit()
+                    return
 
-            if not os.path.exists(src):
-                self.log.emit(f"[SKIP {idx}] Quelle nicht gefunden: {src}")
-                self.item_result.emit(False, "", idx)
-                self._fail_count += 1
+                self.item_started.emit(row.src, idx, total)
+                ok, dst, emsg = self._copy_one(row)
+                if ok:
+                    self.log.emit(f"✓ {os.path.basename(row.src)} → {dst}")
+                else:
+                    self.log.emit(f"✗ {os.path.basename(row.src)} – {emsg}")
+
+                self.item_result.emit(ok, dst, idx)
+
+                processed += 1
                 self.progress.emit(processed, total)
-                continue
 
-            # Zielbasis: Monitor[/target_subdir]
-            target_dir = self.monitor_dir
-            if r.target_subdir:
-                target_dir = os.path.join(target_dir, r.target_subdir)
+                # kurze Pause, damit der HF seriell arbeiten kann
+                self._sleep_seconds(self.interval_seconds)
 
-            try:
-                os.makedirs(target_dir, exist_ok=True)
-            except Exception as e:
-                self.log.emit(f"[SKIP {idx}] Zielordner kann nicht erstellt werden: {target_dir} – {e}")
-                self.item_result.emit(False, "", idx)
-                self._fail_count += 1
-                self.progress.emit(processed, total)
+            self.finished_ok.emit()
+
+        except Exception as e:
+            self._emit_error(f"Unerwarteter Fehler im Worker: {e}")
+
+    # ---------- CSV ----------
+
+    @staticmethod
+    def _clean(s: str) -> str:
+        """Header/Strings robust normalisieren (BOM, NBSP, Quotes, Whitespace)."""
+        if s is None:
+            return ""
+        return (
+            str(s)
+            .replace("\ufeff", "")     # BOM
+            .replace("\xa0", " ")      # NBSP -> space
+            .strip()
+            .strip('"')
+            .strip("'")
+        )
+
+    def _detect_delimiter_and_skip(self, f) -> Tuple[str, bool]:
+        """
+        Erkennt den Delimiter (berücksichtigt `sep=;`-Zeile).
+        Gibt (delimiter, skip_first_line) zurück.
+        """
+        pos0 = f.tell()
+        first = f.readline()
+        first_clean = (first or "").strip().lower()
+        if first_clean.startswith("sep=") and len(first_clean) >= 5:
+            delim = first_clean.split("=", 1)[1][:1]
+            debug_print(f"[ListFeederWorker] CSV 'sep=' erkannt → Delimiter='{delim}'")
+            return delim or ";", True
+
+        # Kein sep=; -> sniffen auf Basis eines Samples
+        sample = first + f.read(4096)
+        f.seek(pos0, 0)
+
+        # Manuelle Heuristik: zähle Zeichen
+        counts = {
+            ",": sample.count(","),
+            ";": sample.count(";"),
+            "\t": sample.count("\t"),
+            "|": sample.count("|"),
+        }
+        # Favorisiere das häufigste von den gängigen Kandidaten
+        delim = max(counts, key=counts.get)
+        # Wenn alles 0 ist, default auf Komma
+        if counts[delim] == 0:
+            delim = ","
+
+        debug_print(f"[ListFeederWorker] CSV Delimiter erkannt → '{delim}' (Heuristik {counts})")
+        return delim, False
+
+    def _load_csv(self) -> Tuple[bool, str]:
+        if not self.csv_path or not os.path.exists(self.csv_path):
+            return False, "CSV konnte nicht gelesen werden: Datei existiert nicht."
+
+        rows: List[_CsvRow] = []
+        base_dir = os.path.dirname(os.path.abspath(self.csv_path))
+
+        try:
+            with open(self.csv_path, "r", encoding="utf-8-sig", newline="") as f:
+                delimiter, skip_first = self._detect_delimiter_and_skip(f)
+                if skip_first:
+                    _ = f.readline()  # sep=...-Zeile überspringen
+
+                reader = csv.DictReader(f, delimiter=delimiter)
+                raw_headers = reader.fieldnames or []
+                headers = [self._clean(h) for h in raw_headers]
+                headers_lower = [h.lower() for h in headers]
+                debug_print(f"[ListFeederWorker] CSV-Spalten: {headers} (Delimiter='{delimiter}')")
+
+                # Pflichtfeld prüfen (case-insensitiv)
+                if "file_path" not in headers_lower:
+                    self.log.emit(f"[DEBUG] Header erkannt: {headers}")
+                    return False, "CSV benötigt mindestens die Spalte 'file_path'."
+
+                # Mapping: lowercase -> Originalheader
+                lower_to_orig = {h.lower(): h for h in headers}
+
+                def get_val(row: dict, key: str) -> str:
+                    # tolerant: case-insensitiv & robust clean
+                    if key in row:
+                        return self._clean(row.get(key, ""))
+                    lk = key.lower()
+                    orig = lower_to_orig.get(lk)
+                    if orig is not None and orig in row:
+                        return self._clean(row.get(orig, ""))
+                    return ""
+
+                for rec in reader:
+                    raw_path = get_val(rec, "file_path")
+                    if not raw_path:
+                        continue
+
+                    # relative Pfade relativ zur CSV
+                    src = os.path.abspath(os.path.join(base_dir, raw_path)) \
+                        if not os.path.isabs(raw_path) else os.path.abspath(raw_path)
+
+                    target_subdir = get_val(rec, "target_subdir")
+                    rename_to = get_val(rec, "rename_to")
+
+                    rows.append(_CsvRow(src=src,
+                                        target_subdir=target_subdir,
+                                        rename_to=rename_to))
+
+        except Exception as e:
+            return False, f"CSV konnte nicht gelesen werden: {e}"
+
+        # Validierung
+        kept: List[_CsvRow] = []
+        bad = 0
+        for r in rows:
+            if not os.path.exists(r.src) or not os.path.isfile(r.src):
+                bad += 1
+                self.log.emit(f"[WARN] Quelle nicht gefunden/keine Datei: {r.src}")
                 continue
+            kept.append(r)
+
+        self._rows = kept
+        if bad > 0:
+            self.log.emit(f"[INFO] {bad} Eintrag/Einträge wegen fehlender Quelle übersprungen.")
+        return True, ""
+
+    # ---------- Kopierlogik (Copy-only) ----------
+
+    def _copy_one(self, row: _CsvRow) -> Tuple[bool, str, str]:
+        """
+        Kopiert row.src nach monitor_dir[/target_subdir]/(rename_to|basename).
+        Liefert (ok, dst_path, msg).
+        """
+        try:
+            # Zielverzeichnis
+            dst_dir = self.monitor_dir
+            if row.target_subdir:
+                row_dir = row.target_subdir.replace("\\", "/").strip("/").strip()
+                if row_dir:
+                    dst_dir = os.path.join(dst_dir, row_dir)
+
+            os.makedirs(dst_dir, exist_ok=True)
 
             # Zielname
-            base_name = r.rename_to.strip() or os.path.basename(src)
-            dst = os.path.join(target_dir, base_name)
-
-            # Eindeutige Namen bei Kollision
-            if self.ensure_unique_names:
-                dst = self._make_unique(dst)
-
-            try:
-                self._place_file(src, dst)
-                self.log.emit(f"[OK {idx}] → {dst}")
-                processed += 1
-                self.item_result.emit(True, dst, idx)
-                self.progress.emit(processed, total)
-            except Exception as e:
-                self.log.emit(f"[FAIL {idx}] {os.path.basename(src)} → {dst}: {e}")
-                self._fail_count += 1
-                self.item_result.emit(False, dst, idx)
-                self.progress.emit(processed, total)
-
-            # kleine Pause zwischen Jobs (mit Abbruchfenster)
-            if self.interval_seconds > 0:
-                for _ in range(int(self.interval_seconds * 10)):
-                    if self._cancel:
-                        self.cancelled.emit()
-                        return
-                    time.sleep(0.1)
-
-        self.finished_ok.emit()
-
-    # ------------- Helpers -------------
-
-    def _read_csv(self, path: str) -> List[_FeederRow]:
-        """
-        CSV robust einlesen:
-        - UTF-8 mit BOM (utf-8-sig)
-        - Delimiter-Autodetect (Sniffer) mit Fallback auf ; , \t
-        - Header normalisieren (strip + lower)
-        - akzeptierte Spalten: file_path [pflicht], target_subdir, rename_to
-        """
-        if not os.path.exists(path):
-            raise FileNotFoundError(path)
-
-        with open(path, "r", encoding="utf-8-sig", newline="") as f:
-            sample = f.read(4096)
-            f.seek(0)
-            try:
-                sniffer = csv.Sniffer()
-                dialect = sniffer.sniff(sample, delimiters=",;\t")
-            except Exception:
-                class _Fallback(csv.Dialect):
-                    delimiter = ";"
-                    quotechar = '"'
-                    doublequote = True
-                    skipinitialspace = True
-                    lineterminator = "\n"
-                    quoting = csv.QUOTE_MINIMAL
-                dialect = _Fallback()
-
-            reader = csv.reader(f, dialect)
-            try:
-                raw_header = next(reader)
-            except StopIteration:
-                raise ValueError("CSV ist leer.")
-
-            header = [h.strip().lower() for h in raw_header]
-            col_idx = {name: i for i, name in enumerate(header)}
-
-            if "file_path" not in col_idx:
-                if "filepath" in col_idx:
-                    col_idx["file_path"] = col_idx["filepath"]
+            if row.rename_to:
+                base, ext = os.path.splitext(row.rename_to)
+                if not ext:
+                    _, src_ext = os.path.splitext(row.src)
+                    dst_name = base + src_ext
                 else:
-                    raise ValueError("CSV benötigt mindestens die Spalte 'file_path'.")
+                    dst_name = row.rename_to
+            else:
+                dst_name = os.path.basename(row.src)
 
-            tgt_idx = col_idx.get("target_subdir")
-            ren_idx = col_idx.get("rename_to")
+            dst_path = os.path.join(dst_dir, dst_name)
 
-            rows: List[_FeederRow] = []
-            for row in reader:
-                if not any((c.strip() if i < len(row) else "") for i, c in enumerate(row or [])):
-                    continue
-                try:
-                    fp = row[col_idx["file_path"]].strip()
-                except Exception:
-                    continue
-                if not fp:
-                    continue
-                tgt = (row[tgt_idx].strip() if tgt_idx is not None and tgt_idx < len(row) else "")
-                ren = (row[ren_idx].strip() if ren_idx is not None and ren_idx < len(row) else "")
-                rows.append(_FeederRow(file_path=fp, target_subdir=tgt, rename_to=ren))
+            if self.ensure_unique_names and os.path.exists(dst_path):
+                dst_path = self._unique_path(dst_path)
 
-            return rows
+            # echte Kopie inkl. Metadaten/Zeitstempel
+            self._copy_file(row.src, dst_path)
 
-    def _make_unique(self, dst: str) -> str:
-        if not os.path.exists(dst):
-            return dst
-        base, ext = os.path.splitext(dst)
-        n = 1
-        while True:
-            cand = f"{base}__{n}{ext}"
-            if not os.path.exists(cand):
-                return cand
-            n += 1
+            return True, dst_path, ""
 
-    def _place_file(self, src: str, dst: str):
-        if self.move_files:
-            shutil.move(src, dst)
-            return
+        except Exception as e:
+            return False, "", str(e)
 
-        # 1) Hardlink
-        try:
-            os.link(src, dst)
-            return
-        except Exception:
-            pass
-
-        # 2) Symlink
-        try:
-            rel = os.path.relpath(src, os.path.dirname(dst))
-            os.symlink(rel, dst)
-            return
-        except Exception:
-            pass
-
-        # 3) Kopieren (wenn Links nicht möglich)
-        if self.links_only:
-            raise RuntimeError("Link nicht möglich und 'links_only' ist aktiv.")
+    @staticmethod
+    def _copy_file(src: str, dst: str) -> None:
+        # copy2: erhält mtime/atime, Permissions soweit möglich
         shutil.copy2(src, dst)
+        # Optional: mtime auf "jetzt" setzen (derzeit deaktiviert)
+        # os.utime(dst, None)
+
+    @staticmethod
+    def _unique_path(path: str) -> str:
+        """
+        Hängt __1, __2, … an, bis ein freier Name gefunden ist.
+        """
+        base, ext = os.path.splitext(path)
+        i = 1
+        candidate = f"{base}__{i}{ext}"
+        while os.path.exists(candidate):
+            i += 1
+            candidate = f"{base}__{i}{ext}"
+        return candidate
+
+    # ---------- Utils ----------
+
+    @staticmethod
+    def _sleep_seconds(sec: float):
+        # fein granular, damit Abbruch zeitnah greift
+        end = time.time() + max(0.0, sec)
+        while time.time() < end:
+            time.sleep(min(0.05, end - time.time()))
+
+    def _emit_error(self, msg: str):
+        """
+        Einheitliche Fehlerausgabe:
+        - schreibt in Debug-Log
+        - emittiert error-Signal (Dialog zeigt MessageBox)
+        """
+        try:
+            debug_print(f"[ListFeederWorker] ERROR: {msg}")
+        except Exception:
+            pass
+        try:
+            self.error.emit(str(msg))
+        except Exception:
+            pass

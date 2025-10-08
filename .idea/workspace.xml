@@ -6,7 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/choose_arch_and_build.sh" beforeDir="false" afterPath="$PROJECT_DIR$/choose_arch_and_build.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/list_feeder.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/list_feeder.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -98,7 +98,29 @@
       <recent name="$PROJECT_DIR$/ui" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Shell Script.choose_arch_and_build.sh">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="PRisM-RAC" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="Build &amp; Pack PRiSM-CC" type="ShConfigurationType">
       <option name="SCRIPT_TEXT" value="#!/usr/bin/env bash set -e cd &quot;$PWD&quot; echo '🔧 Schritt 1: Baue App mit PyInstaller (venv)' &quot;./.venv/bin/pyinstaller&quot; PRisM-RAC_arm64.spec echo '📦 Schritt 2: Bereite Distribution vor' ./prepare_app_for_distribution.sh echo '✅ Fertig: App gebaut &amp; gepackt.'" />
       <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
@@ -130,6 +152,7 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="Python.main" />
       <item itemvalue="Shell Script.Build &amp; Pack PRiSM-CC" />
       <item itemvalue="Shell Script.Setup VENV (PRiSM-RAC)" />
       <item itemvalue="Shell Script.choose_arch_and_build.sh" />
@@ -137,6 +160,7 @@
     <recent_temporary>
       <list>
         <item itemvalue="Shell Script.choose_arch_and_build.sh" />
+        <item itemvalue="Python.main" />
       </list>
     </recent_temporary>
   </component>
@@ -155,14 +179,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00061" summary="FTP mit Transferplänen">
-      <option name="closed" value="true" />
-      <created>1742070814120</created>
-      <option name="number" value="00061" />
-      <option name="presentableId" value="LOCAL-00061" />
-      <option name="project" value="LOCAL" />
-      <updated>1742070814120</updated>
     </task>
     <task id="LOCAL-00062" summary="FTP mit Transferplänen">
       <option name="closed" value="true" />
@@ -548,7 +564,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759769254269</updated>
     </task>
-    <option name="localTasksCounter" value="110" />
+    <task id="LOCAL-00110" summary="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben">
+      <option name="closed" value="true" />
+      <created>1759833318352</created>
+      <option name="number" value="00110" />
+      <option name="presentableId" value="LOCAL-00110" />
+      <option name="project" value="LOCAL" />
+      <updated>1759833318352</updated>
+    </task>
+    <option name="localTasksCounter" value="111" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
