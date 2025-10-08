@@ -1,189 +1,327 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 from PySide6 import QtWidgets, QtCore
-from utils.config_manager import debug_print
-from utils.transfer_plan_manager import update_transfer_plan as _update_transfer_plan  # Fallback, falls kein manager übergeben
+from utils.config_manager import debug_print, load_ftp_servers
 
-
-class TransferPlanWidget(QtWidgets.QWidget):
+class TransferPlanDialog(QtWidgets.QDialog):
     """
-    Collapsible Widget zur Anzeige/Bearbeitung eines einzelnen Transfer-Plans.
-    - manager ist OPTIONAL: wenn None, wird update_transfer_plan() direkt aufgerufen.
-    - Header-Buttons: Jetzt ausführen / Bearbeiten / Löschen
-    - Signale: runNowRequested(plan: dict), editRequested(plan: dict), deleteRequested(plan_id: str)
-    """
+    Dialog zur Konfiguration eines Transferplans.
 
-    # Signale nach oben (für Schedule-Widget)
-    runNowRequested = QtCore.Signal(dict)   # gibt komplettes plan_data-Dict
-    editRequested = QtCore.Signal(dict)     # gibt komplettes plan_data-Dict
-    deleteRequested = QtCore.Signal(str)    # gibt plan_id
+    WICHTIG: Abwärtskompatible Signatur
+        __init__(plan_data, manager=None, parent=None)
+    -> Dein TransferPlanWidget kann den Dialog weiterhin mit nur (plan_data, parent=self) öffnen.
+    -> Ein optionaler manager wird ignoriert, wenn nicht benötigt.
+
+    Unterstützte Felder (wie in deinen Logs/JSON):
+      - name
+      - source_is_ftp, source_ftp_server, source_remote_path, source_path, source_remote_archive
+      - use_ftp, ftp_server, target_path
+      - versioning_mode ("mirror" | "suffix"), suffix_format
+      - retry_count, verify_mode ("size_only" | "md5")
+      - schedule_type ("once" | "daily" | "weekly"), schedule_time ("yyyy-MM-dd HH:mm")
+      - move_after
+      - auto_delete_after_move_enabled, auto_delete_after_move_hours
+    """
 
     def __init__(self, plan_data, manager=None, parent=None):
         super().__init__(parent)
-        self.plan_data = dict(plan_data or {})
-        self.manager = manager  # optional
-        self.is_collapsed = not self.plan_data.get("body_visible", True)
+        # plan_data wird in-place aktualisiert (Verhalten wie bisher)
+        self.plan_data = plan_data if isinstance(plan_data, dict) else {}
+        self._manager = manager  # bewusst optional/ungenutzt für Abwärtskompatibilität
+
+        self.setWindowTitle("Transferplan konfigurieren")
+        self.resize(600, 460)
+
         self._build_ui()
-        self._refresh_header_info()
+        self._load_ftp_servers()
+        self._load_plan_into_widgets()
 
-    # ---------------- UI ----------------
-
+    # ---------------------------------------------------------------------
+    # UI
+    # ---------------------------------------------------------------------
     def _build_ui(self):
         main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.setContentsMargins(6, 6, 6, 6)
-        main_layout.setSpacing(4)
+        form_layout = QtWidgets.QFormLayout()
+        main_layout.addLayout(form_layout)
 
-        # Header
-        header = QtWidgets.QHBoxLayout()
-        self.toggle_btn = QtWidgets.QToolButton()
-        self.toggle_btn.setText("▼" if not self.is_collapsed else "▶")
-        self.toggle_btn.setStyleSheet("font-weight: bold;")
-        self.toggle_btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
-        self.toggle_btn.clicked.connect(self.toggle_body)
+        # --- Planname ---
+        self.name_edit = QtWidgets.QLineEdit()
+        form_layout.addRow("Plan Name:", self.name_edit)
 
-        self.name_label = QtWidgets.QLabel(self.plan_data.get("name", "Neuer Transfer-Plan"))
-        header.addWidget(self.toggle_btn)
-        header.addWidget(self.name_label, 1)
+        # ========== QUELLE ==========
+        self.src_is_ftp_check = QtWidgets.QCheckBox("Quelle ist FTP/SFTP")
+        self.src_is_ftp_check.stateChanged.connect(self._on_src_ftp_toggled)
+        form_layout.addRow("", self.src_is_ftp_check)
 
-        # Header: Aktions-Buttons
-        self.btn_run_now = QtWidgets.QPushButton("Jetzt ausführen")
-        self.btn_edit = QtWidgets.QPushButton("Bearbeiten")
-        self.btn_delete = QtWidgets.QPushButton("Löschen")
-        self.btn_run_now.clicked.connect(self._emit_run_now)
-        self.btn_edit.clicked.connect(self._emit_edit)
-        self.btn_delete.clicked.connect(self._emit_delete)
-        header.addWidget(self.btn_run_now)
-        header.addWidget(self.btn_edit)
-        header.addWidget(self.btn_delete)
+        self.src_ftp_combo = QtWidgets.QComboBox()
+        form_layout.addRow("Quell-Server:", self.src_ftp_combo)
 
-        main_layout.addLayout(header)
+        self.src_remote_edit = QtWidgets.QLineEdit()
+        self.src_remote_edit.setPlaceholderText("Remote-Pfad, z. B. /incoming/jobs")
+        form_layout.addRow("Quell-Remote-Pfad:", self.src_remote_edit)
 
-        # Body (Form)
-        self.body_widget = QtWidgets.QWidget()
-        body_layout = QtWidgets.QFormLayout(self.body_widget)
+        # Quellordner (lokal)
+        self.source_btn = QtWidgets.QPushButton("Ordner wählen")
+        self.source_btn.clicked.connect(self._pick_source_folder)
+        self.source_label = QtWidgets.QLabel("(none)")
+        src_hbox = QtWidgets.QHBoxLayout()
+        src_hbox.addWidget(self.source_label, 1)
+        src_hbox.addWidget(self.source_btn)
+        form_layout.addRow("Quellordner lokal:", src_hbox)
 
-        self.edit_name = QtWidgets.QLineEdit(self.plan_data.get("name", ""))
-        body_layout.addRow("Plan-Name:", self.edit_name)
+        # Optionales Remote-Archiv (wenn Quelle FTP/SFTP ist)
+        self.src_move_after_remote_edit = QtWidgets.QLineEdit()
+        self.src_move_after_remote_edit.setPlaceholderText("Optional: Remote-Archivpfad auf Quell-Server")
+        form_layout.addRow("Quelle: Remote-Archiv:", self.src_move_after_remote_edit)
+
+        # ========== ZIEL ==========
+        self.ftp_check = QtWidgets.QCheckBox("Ziel über FTP/SFTP übertragen")
+        self.ftp_check.stateChanged.connect(self._on_dst_ftp_toggled)
+        form_layout.addRow("", self.ftp_check)
+
+        self.ftp_combo = QtWidgets.QComboBox()
+        form_layout.addRow("Ziel-Server:", self.ftp_combo)
+
+        # Zielordner (lokal oder Remote-Pfad-String)
+        self.target_edit = QtWidgets.QLineEdit()
+        self.target_btn = QtWidgets.QPushButton("Ordner wählen")
+        self.target_btn.clicked.connect(self._pick_target_folder)
+        target_hbox = QtWidgets.QHBoxLayout()
+        target_hbox.addWidget(self.target_edit, 1)
+        target_hbox.addWidget(self.target_btn)
+        form_layout.addRow("Zielordner (lokal od. Remote-Pfad):", target_hbox)
+
+        # ========== VERSIONIERUNG ==========
+        self.version_combo = QtWidgets.QComboBox()
+        self.version_combo.addItems(["mirror", "suffix"])
+        form_layout.addRow("Versionierung:", self.version_combo)
+
+        self.suffix_edit = QtWidgets.QLineEdit("_v{n}")
+        form_layout.addRow("Suffix (bei 'suffix'):", self.suffix_edit)
+
+        # ========== ROBUSTHEIT ==========
+        self.retry_spin = QtWidgets.QSpinBox()
+        self.retry_spin.setRange(1, 20)
+        self.retry_spin.setValue(5)
+        form_layout.addRow("Wiederholungen bei Fehlern:", self.retry_spin)
+
+        self.verify_combo = QtWidgets.QComboBox()
+        # Index 0: size_only, Index 1: md5
+        self.verify_combo.addItems(["size_only", "md5 (langsamer)"])
+        form_layout.addRow("Integritätsprüfung:", self.verify_combo)
+
+        # ========== ZEITPLAN ==========
+        self.schedule_combo = QtWidgets.QComboBox()
+        self.schedule_combo.addItems(["once", "daily", "weekly"])
+        form_layout.addRow("Zeitplan:", self.schedule_combo)
+
+        self.datetime_edit = QtWidgets.QDateTimeEdit(QtCore.QDateTime.currentDateTime())
+        self.datetime_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.datetime_edit.setCalendarPopup(True)
+        form_layout.addRow("Geplanter Zeitpunkt:", self.datetime_edit)
+
+        # ========== MOVE-AFTER (lokal) ==========
+        self.move_btn = QtWidgets.QPushButton("Ordner wählen")
+        self.move_btn.clicked.connect(self._pick_move_after_folder)
+        self.move_label = QtWidgets.QLabel("(none)")
+        mv_hbox = QtWidgets.QHBoxLayout()
+        mv_hbox.addWidget(self.move_label, 1)
+        mv_hbox.addWidget(self.move_btn)
+        form_layout.addRow("Nach Transfer verschieben (lokal):", mv_hbox)
+
+        # Auto-Delete im lokalen Move-Ordner
+        self.auto_delete_move_checkbox = QtWidgets.QCheckBox("Auto-Delete aktivieren")
+        self.auto_delete_move_hours_spin = QtWidgets.QSpinBox()
+        self.auto_delete_move_hours_spin.setRange(1, 24 * 30)
+        self.auto_delete_move_hours_spin.setValue(48)
+        mv_delete_hbox = QtWidgets.QHBoxLayout()
+        mv_delete_hbox.addWidget(self.auto_delete_move_checkbox)
+        mv_delete_hbox.addWidget(QtWidgets.QLabel("Stunden:"))
+        mv_delete_hbox.addWidget(self.auto_delete_move_hours_spin)
+        form_layout.addRow("Dateien löschen in:", mv_delete_hbox)
+
+        # Buttons
+        btn_layout = QtWidgets.QHBoxLayout()
+        btn_layout.addStretch()
+        self.cancel_btn = QtWidgets.QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(self.cancel_btn)
+        self.ok_btn = QtWidgets.QPushButton("OK")
+        self.ok_btn.clicked.connect(self._on_ok)
+        btn_layout.addWidget(self.ok_btn)
+        main_layout.addLayout(btn_layout)
+
+    # ---------------------------------------------------------------------
+    # Daten laden
+    # ---------------------------------------------------------------------
+    def _load_ftp_servers(self):
+        servers = load_ftp_servers()
+        # Ziel-Server
+        self.ftp_combo.clear()
+        self.ftp_combo.addItem("(none)")
+        # Quell-Server
+        self.src_ftp_combo.clear()
+        self.src_ftp_combo.addItem("(none)")
+        for srv in servers:
+            name = srv.get("name", "Unnamed")
+            self.ftp_combo.addItem(name)
+            self.src_ftp_combo.addItem(name)
+        debug_print(f"TransferPlanDialog: load_ftp_servers => {servers}")
+
+    def _load_plan_into_widgets(self):
+        """Befüllt die Widgets aus self.plan_data."""
+        pd = self.plan_data or {}
+
+        # Planname
+        self.name_edit.setText(pd.get("name", "Neuer Transfer-Plan"))
 
         # Quelle
-        self.source_type_combo = QtWidgets.QComboBox()
-        self.source_type_combo.addItems(["local", "ftp"])
-        self.source_type_combo.setCurrentText(self.plan_data.get("source_type", "local"))
-        body_layout.addRow("Quelle (Typ):", self.source_type_combo)
+        self.src_is_ftp_check.setChecked(pd.get("source_is_ftp", False))
+        src_server = pd.get("source_ftp_server", "")
+        idx_src = self.src_ftp_combo.findText(src_server) if src_server else 0
+        self.src_ftp_combo.setCurrentIndex(idx_src if idx_src >= 0 else 0)
+        self.src_remote_edit.setText(pd.get("source_remote_path", ""))
 
-        self.edit_source_path = QtWidgets.QLineEdit(self.plan_data.get("source_path", ""))
-        body_layout.addRow("Quelle (Pfad):", self.edit_source_path)
+        src_local = pd.get("source_path", "")
+        self.source_label.setText(src_local or "(none)")
 
-        # Ziel (vereinheitlicht: destination_path <-> target_path)
-        self.edit_destination_path = QtWidgets.QLineEdit(self.plan_data.get("destination_path", self.plan_data.get("target_path", "")))
-        body_layout.addRow("Ziel (Pfad):", self.edit_destination_path)
+        self.src_move_after_remote_edit.setText(pd.get("source_remote_archive", ""))
 
-        # Versionierung (vereinheitlicht: version_mode <-> versioning_mode)
-        self.version_mode_combo = QtWidgets.QComboBox()
-        self.version_mode_combo.addItems(["mirror", "suffix"])
-        self.version_mode_combo.setCurrentText(self.plan_data.get("version_mode", self.plan_data.get("versioning_mode", "mirror")))
-        body_layout.addRow("Versionierung:", self.version_mode_combo)
+        # Ziel
+        use_ftp = pd.get("use_ftp", False)
+        self.ftp_check.setChecked(use_ftp)
+        ftp_name = pd.get("ftp_server", "")
+        if ftp_name:
+            idx = self.ftp_combo.findText(ftp_name)
+            self.ftp_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        else:
+            self.ftp_combo.setCurrentIndex(0)
 
-        self.suffix_edit = QtWidgets.QLineEdit(self.plan_data.get("suffix_format", "_v{n}"))
-        body_layout.addRow("Suffix-Format:", self.suffix_edit)
+        self.target_edit.setText(pd.get("target_path", ""))
+
+        # Versionierung
+        version_mode = pd.get("versioning_mode", "mirror")
+        self.version_combo.setCurrentText(version_mode)
+        self.suffix_edit.setText(pd.get("suffix_format", "_v{n}"))
+
+        # Robustheit
+        self.retry_spin.setValue(pd.get("retry_count", 5))
+        self.verify_combo.setCurrentText(pd.get("verify_mode", "size_only") if pd.get("verify_mode") else "size_only")
 
         # Zeitplan
-        self.schedule_type_combo = QtWidgets.QComboBox()
-        self.schedule_type_combo.addItems(["once", "daily", "weekly"])
-        self.schedule_type_combo.setCurrentText(self.plan_data.get("schedule_type", "once"))
-        body_layout.addRow("Zeitplan:", self.schedule_type_combo)
+        schedule_type = pd.get("schedule_type", "once")
+        self.schedule_combo.setCurrentText(schedule_type)
 
-        self.schedule_time_edit = QtWidgets.QDateTimeEdit()
-        self.schedule_time_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
-        self.schedule_time_edit.setCalendarPopup(True)
-        from datetime import datetime, timedelta
-        raw = self.plan_data.get("schedule_time", "")
-        dt = None
-        try:
-            if raw:
-                dt = datetime.strptime(raw, "%Y-%m-%d %H:%M")
-        except Exception:
-            dt = None
-        if not dt:
-            dt = datetime.now() + timedelta(minutes=10)
-        self.schedule_time_edit.setDateTime(dt)
-        body_layout.addRow("Zeitpunkt:", self.schedule_time_edit)
+        dt_str = pd.get("schedule_time", "")
+        if dt_str:
+            dt = QtCore.QDateTime.fromString(dt_str, "yyyy-MM-dd HH:mm")
+            if dt.isValid():
+                self.datetime_edit.setDateTime(dt)
 
-        # Speichern-Button (nur Plan-Daten updaten)
-        self.save_btn = QtWidgets.QPushButton("Speichern")
-        self.save_btn.clicked.connect(self.save_plan)
-        body_layout.addRow(self.save_btn)
+        # Move-After lokal
+        move_after = pd.get("move_after", "")
+        self.move_label.setText(move_after or "(none)")
 
-        main_layout.addWidget(self.body_widget)
-        self.body_widget.setVisible(not self.is_collapsed)
+        self.auto_delete_move_checkbox.setChecked(pd.get("auto_delete_after_move_enabled", False))
+        self.auto_delete_move_hours_spin.setValue(pd.get("auto_delete_after_move_hours", 48))
 
-    def _refresh_header_info(self):
-        self.name_label.setText(self.plan_data.get("name", "Neuer Transfer-Plan"))
+        # Initiale Enable/Disable-States
+        self._on_src_ftp_toggled()
+        self._on_dst_ftp_toggled()
 
-    # ---------------- Aktionen/Signale ----------------
+    # ---------------------------------------------------------------------
+    # Aktionen
+    # ---------------------------------------------------------------------
+    def _on_ok(self):
+        debug_print("TransferPlanDialog.on_ok() aufgerufen.")
+        pd = self.plan_data
 
-    def _emit_run_now(self):
-        debug_print(f"[TransferPlanWidget] runNowRequested id={self.plan_data.get('id')}")
-        self.runNowRequested.emit(dict(self.plan_data))
+        # Planname
+        pd["name"] = self.name_edit.text().strip()
 
-    def _emit_edit(self):
-        debug_print(f"[TransferPlanWidget] editRequested id={self.plan_data.get('id')}")
-        self.editRequested.emit(dict(self.plan_data))
+        # Quelle
+        pd["source_is_ftp"] = self.src_is_ftp_check.isChecked()
+        if pd["source_is_ftp"]:
+            chosen_server = self.src_ftp_combo.currentText()
+            pd["source_ftp_server"] = "" if chosen_server == "(none)" else chosen_server
+            pd["source_remote_path"] = self.src_remote_edit.text().strip()
+        else:
+            pd["source_ftp_server"] = ""
+            pd["source_remote_path"] = ""
 
-    def _emit_delete(self):
-        debug_print(f"[TransferPlanWidget] deleteRequested id={self.plan_data.get('id')}")
-        self.deleteRequested.emit(self.plan_data.get("id", ""))
+        src_str = self.source_label.text()
+        pd["source_path"] = "" if src_str == "(none)" else src_str
 
-    def toggle_body(self):
-        self.is_collapsed = not self.is_collapsed
-        self.body_widget.setVisible(not self.is_collapsed)
-        self.toggle_btn.setText("▼" if not self.is_collapsed else "▶")
-        # body_visible persistieren
-        self.plan_data["body_visible"] = (not self.is_collapsed)
-        self._update_plan_persist({"body_visible": not self.is_collapsed})
+        pd["source_remote_archive"] = self.src_move_after_remote_edit.text().strip()
 
-    def save_plan(self):
-        """
-        Liest die UI-Felder aus, aktualisiert self.plan_data und persistiert.
-        """
-        debug_print(f"[TransferPlanWidget] save_plan() id={self.plan_data.get('id')}")
-        self.plan_data["name"] = self.edit_name.text().strip()
-        self.plan_data["source_type"] = self.source_type_combo.currentText()
-        self.plan_data["source_path"] = self.edit_source_path.text().strip()
+        # Ziel
+        pd["use_ftp"] = self.ftp_check.isChecked()
+        if pd["use_ftp"]:
+            chosen_server = self.ftp_combo.currentText()
+            pd["ftp_server"] = "" if chosen_server == "(none)" else chosen_server
+        else:
+            pd["ftp_server"] = ""
 
-        # Ziel vereinheitlichen
-        dest = self.edit_destination_path.text().strip()
-        self.plan_data["destination_path"] = dest
-        if dest:
-            self.plan_data["target_path"] = dest  # für execute_transfer_plan()
+        pd["target_path"] = self.target_edit.text().strip()
 
-        # Versionierung vereinheitlichen
-        vm = self.version_mode_combo.currentText()
-        self.plan_data["version_mode"] = vm
-        self.plan_data["versioning_mode"] = vm  # für execute_transfer_plan()
+        # Versionierung
+        pd["versioning_mode"] = self.version_combo.currentText()
+        pd["suffix_format"] = self.suffix_edit.text().strip()
 
-        self.plan_data["suffix_format"] = self.suffix_edit.text().strip()
-        self.plan_data["schedule_type"] = self.schedule_type_combo.currentText()
-        self.plan_data["schedule_time"] = self.schedule_time_edit.dateTime().toString("yyyy-MM-dd HH:mm")
+        # Robustheit
+        pd["retry_count"] = self.retry_spin.value()
+        pd["verify_mode"] = "size_only" if self.verify_combo.currentIndex() == 0 else "md5"
 
-        self._update_plan_persist(self.plan_data)
-        self._refresh_header_info()
-        QtWidgets.QMessageBox.information(self, "Gespeichert", "Plan wurde aktualisiert.")
+        # Zeitplan
+        pd["schedule_type"] = self.schedule_combo.currentText()
+        dt_obj = self.datetime_edit.dateTime()
+        pd["schedule_time"] = dt_obj.toString("yyyy-MM-dd HH:mm")
 
-    def _update_plan_persist(self, data: dict):
-        """
-        Persistiert Änderungen: bevorzugt manager.update_plan, sonst direkter Fallback.
-        """
-        plan_id = self.plan_data.get("id")
-        if hasattr(self.manager, "update_plan"):
-            try:
-                self.manager.update_plan(plan_id, data)
-                return
-            except Exception as e:
-                debug_print(f"[TransferPlanWidget] manager.update_plan Fehler: {e}")
-        # Fallback
-        try:
-            _update_transfer_plan(self.plan_data if "name" in data else {**self.plan_data, **data})
-        except Exception as e:
-            debug_print(f"[TransferPlanWidget] update_transfer_plan() Fallback-Fehler: {e}")
+        # Move-After / Auto-Delete
+        mv_str = self.move_label.text()
+        pd["move_after"] = "" if mv_str == "(none)" else mv_str
+        pd["auto_delete_after_move_enabled"] = self.auto_delete_move_checkbox.isChecked()
+        pd["auto_delete_after_move_hours"] = self.auto_delete_move_hours_spin.value()
+
+        debug_print(f"TransferPlanDialog => final plan_data: {pd}")
+        self.accept()
+
+    # --- Picker ---
+    def _pick_source_folder(self):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Quellordner wählen")
+        if folder:
+            self.source_label.setText(folder)
+
+    def _pick_target_folder(self):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Zielordner wählen")
+        if folder:
+            self.target_edit.setText(folder)
+
+    def _pick_move_after_folder(self):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Nach Transfer verschieben nach…")
+        if folder:
+            self.move_label.setText(folder)
+
+    # --- Toggles ---
+    def _on_src_ftp_toggled(self):
+        checked = self.src_is_ftp_check.isChecked()
+        self.src_ftp_combo.setEnabled(checked)
+        self.src_remote_edit.setEnabled(checked)
+        self.src_move_after_remote_edit.setEnabled(checked)
+        # Lokale Quelle deaktivieren, wenn FTP-Quelle aktiv
+        self.source_btn.setEnabled(not checked)
+
+    def _on_dst_ftp_toggled(self):
+        checked = self.ftp_check.isChecked()
+        self.ftp_combo.setEnabled(checked)
+        # Lokale Zielauswahl bleibt erlaubt (lokaler Pfad ODER Remote-String)
+
+
+# ---------------------------------------------------------------------
+# Abwärtskompatibilität: alter Klassenname
+# ---------------------------------------------------------------------
+# Manche Module importieren noch `FtpPlanDialog`. Der Dialog heißt jetzt
+# `TransferPlanDialog`. Damit alte Importe weiter funktionieren:
+FtpPlanDialog = TransferPlanDialog

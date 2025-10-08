@@ -4,7 +4,7 @@
 import sys
 import os
 import socket
-from typing import Optional, Tuple  # <-- Neu: für Python < 3.10
+from typing import Optional, Tuple
 from PySide6 import QtWidgets, QtGui, QtCore
 
 from utils.splash_screen import SplashScreen
@@ -16,19 +16,19 @@ from ui.json_explorer_widget import JSONExplorerWidget
 from ui.settings_widget import SettingsWidget
 from ui.ftp_transfer_widget import FtpTransferWidget
 from ui.script_recipe_list_widget import ScriptRecipeListWidget
-from ui.transfer_plan_list_widget import TransferPlanListWidget
+# ⬇️ wir verwenden das neue Scheduler-Widget mit eingebauter Queue
+from ui.ftp_schedule_widget import FtpScheduleWidget
 
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from utils.plan_scheduler import PlanScheduler, SchedulerConfig
 from utils.plan_cleaner import PlanCleaner, CleanerConfig
 
-# Dialog (Feed/Direkt)
+# Dialoge
 try:
     from ui.list_feeder_dialog import ListFeederDialog
 except Exception:
     ListFeederDialog = None
 
-# Self-Test-Dialog
 try:
     from ui.self_test_dialog import SelfTestDialog
 except Exception:
@@ -53,7 +53,7 @@ class _RetentionWorker(QtCore.QObject):
             elif hasattr(self.cleaner, "run_now"):
                 self.cleaner.run_now()
             elif hasattr(self.cleaner, "run_immediately"):
-                self.cleaner.run_immediately = True  # type: ignore[attr-defined]
+                self.cleaner.run_immediately = True
             else:
                 status = "Cleaner unterstützt keinen manuellen Start."
         except Exception as e:
@@ -69,8 +69,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1200, 900)
         self.settings = load_settings()
 
-        self.scheduler: Optional[PlanScheduler] = None          # <-- Optional statt |
-        self.cleaner: Optional[PlanCleaner] = None              # <-- Optional statt |
+        self.scheduler: Optional[PlanScheduler] = None
+        self.cleaner: Optional[PlanCleaner] = None
 
         self._retention_thread: Optional[QtCore.QThread] = None
         self._retention_worker: Optional[_RetentionWorker] = None
@@ -80,6 +80,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._build_menu()
         self._build_toolbar()
 
+    # ------------------------------------------------------------------
+    # UI-Aufbau
+    # ------------------------------------------------------------------
     def init_ui(self):
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
@@ -87,6 +90,7 @@ class MainWindow(QtWidgets.QMainWindow):
         main_vlayout.setContentsMargins(5, 5, 5, 5)
         main_vlayout.setSpacing(5)
 
+        # ---------------- Logo & Debug Toggle ----------------
         top_bar = QtWidgets.QHBoxLayout()
         top_bar.setContentsMargins(10, 5, 10, 5)
 
@@ -115,15 +119,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.debug_toggle_btn = QtWidgets.QPushButton("Debug Stop")
         self.debug_toggle_btn.setCheckable(True)
-        self.debug_toggle_btn.setChecked(True)
+        self.debug_toggle_btn.setChecked(True)  # <- korrekt eingerückt
         self.debug_toggle_btn.clicked.connect(self.toggle_debug)
         top_bar.addWidget(self.debug_toggle_btn, alignment=QtCore.Qt.AlignRight)
 
         main_vlayout.addLayout(top_bar)
 
+        # ---------------- Hauptbereich ----------------
         main_hlayout = QtWidgets.QHBoxLayout()
         main_vlayout.addLayout(main_hlayout, stretch=1)
 
+        # Seitenleiste
         left_widget = QtWidgets.QWidget()
         left_vlayout = QtWidgets.QVBoxLayout(left_widget)
         left_vlayout.setContentsMargins(5, 5, 5, 5)
@@ -152,6 +158,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         main_hlayout.addWidget(left_widget, stretch=0)
 
+        # Stack mit allen Haupt-Widgets
         self.stack = QtWidgets.QStackedWidget()
         main_hlayout.addWidget(self.stack, stretch=1)
 
@@ -159,10 +166,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.script_recipe_list_widget = ScriptRecipeListWidget(self.settings, parent=self.stack)
         self.json_explorer_widget = JSONExplorerWidget(self.settings, parent=self.stack)
         self.ftp_transfer_widget = FtpTransferWidget(parent=self.stack)
-        self.transfer_plan_list_widget = TransferPlanListWidget(self.settings, parent=self.stack)
+        # ⬇️ Hier verwenden wir das neue Widget mit Queue statt TransferPlanListWidget
+        self.transfer_plan_list_widget = FtpScheduleWidget(parent=self.stack)
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
 
+        # Index-Zuweisung
         self.stack.addWidget(self.hotfolder_list_widget)       # 0
         self.stack.addWidget(self.script_recipe_list_widget)   # 1
         self.stack.addWidget(self.json_explorer_widget)        # 2
@@ -172,6 +181,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stack.addWidget(self.settings_widget)             # 6
         self.stack.setCurrentIndex(0)
 
+        # Navigation
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.script_recipe_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.json_editor_btn.clicked.connect(lambda: self.stack.setCurrentIndex(2))
@@ -180,6 +190,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
 
+    # ------------------------------------------------------------------
+    # Menü & Toolbar
+    # ------------------------------------------------------------------
     def _build_menu(self):
         menubar = self.menuBar()
         menubar.addMenu("&Datei")
@@ -198,7 +211,6 @@ class MainWindow(QtWidgets.QMainWindow):
         extras_menu.addAction(self.action_retention_now)
 
         help_menu = menubar.addMenu("&Hilfe")
-
         self.action_self_test = QtGui.QAction("Systemcheck…", self)
         self.action_self_test.setShortcut(QtGui.QKeySequence("Ctrl+D"))
         self.action_self_test.setStatusTip("Netzwerk & System testen (HTTPS/SMTP/FTP/SFTP/Write)")
@@ -220,6 +232,9 @@ class MainWindow(QtWidgets.QMainWindow):
         act_selftest.triggered.connect(self._open_self_test_dialog)
         tb.addAction(act_selftest)
 
+    # ------------------------------------------------------------------
+    # Dialoge & Aktionen
+    # ------------------------------------------------------------------
     def _open_list_feeder_dialog(self):
         if ListFeederDialog is None:
             QtWidgets.QMessageBox.warning(
@@ -233,7 +248,6 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         dlg = ListFeederDialog(self)
-
         if hasattr(self.hotfolder_list_widget, "get_current_monitor_dir"):
             try:
                 mon = self.hotfolder_list_widget.get_current_monitor_dir()
@@ -278,17 +292,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 "im Projekt vorhanden ist."
             )
             return
-        # >>> NEU: aktuelle App-Settings direkt übergeben
         dlg = SelfTestDialog(self, settings_override=self.settings)
         dlg.exec()
 
+    # ------------------------------------------------------------------
+    # Retention-Lauf
+    # ------------------------------------------------------------------
     def _run_retention_now(self):
         if self.cleaner is None:
             QtWidgets.QMessageBox.warning(self, "Retention", "Cleaner ist noch nicht initialisiert.")
             return
 
         self.action_retention_now.setEnabled(False)
-
         self._retention_dialog = QtWidgets.QProgressDialog(
             "Prüfe & lösche gemäß Retention-Regeln …", "Abbrechen", 0, 0, self
         )
@@ -330,6 +345,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self._retention_worker = None
             self._retention_dialog = None
 
+    # ------------------------------------------------------------------
+    # Sonstiges
+    # ------------------------------------------------------------------
     def toggle_debug(self):
         from utils.config_manager import debug_print
         global DEBUG_OUTPUT
@@ -374,6 +392,9 @@ class MainWindow(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
 
+# ----------------------------------------------------------------------
+# App-Start
+# ----------------------------------------------------------------------
 def run():
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("PRisM-CC")
@@ -386,8 +407,10 @@ def run():
 
     main_window = MainWindow()
 
+    # Config-Manager
     cm = TransferPlanConfigManager()
 
+    # optionaler externer PlanScheduler (kann beibehalten werden)
     def vpn_precheck(plan: dict) -> bool:
         if not plan.get("use_ftp"):
             return True

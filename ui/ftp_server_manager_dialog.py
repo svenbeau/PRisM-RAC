@@ -1,70 +1,79 @@
 #!/usr/bin/env python3
+#ftp_server_manager_dialog.py
 # -*- coding: utf-8 -*-
 
-import keyring
 import copy
+import keyring
+from keyring.errors import KeyringError
 from PySide6 import QtWidgets, QtCore
+
 from utils.config_manager import (
-    load_settings,     # Nur falls du self.settings brauchst
+    load_settings,     # nur falls self.settings gebraucht wird
     debug_print,
-    load_ftp_servers,  # NEU: Zum Laden aus ftp_servers.json
-    save_ftp_servers   # NEU: Zum Speichern in ftp_servers.json
+    load_ftp_servers,  # Lesen aus ftp_servers.json
+    save_ftp_servers   # Schreiben in ftp_servers.json
 )
+
 
 class FtpServerManagerDialog(QtWidgets.QDialog):
     """
     Verwalten mehrerer FTP-Server (Name, Host, Port, User, Protocol).
-    Passwörter liegen im Keyring, Key=User.
-    Daten werden NICHT in settings.json gespeichert, sondern in ftp_servers.json.
+    Passwörter liegen im Keyring, Key = User (Service: "PRisM-FTP").
+    Die Serverliste wird in ftp_servers.json gehalten (nicht settings.json).
     """
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Server-Verwaltung")
-        self.resize(600, 300)
+        self.resize(700, 360)
 
-        # self.settings ist nur ein Verweis auf das Haupt-Settings-Objekt,
-        # in das wir bei "Übernehmen" den aktuell ausgewählten Server
-        # für das Hauptprogramm übernehmen (Host, Port, User, etc.).
+        # Referenz auf Haupt-Settings, um den ausgewählten Server ins UI zu übernehmen
         self.settings = settings
 
-        # Statt self.settings.get("ftp_servers", []) nutzen wir load_ftp_servers().
-        self.servers = load_ftp_servers()  # => Liste von Dicts
+        # Serverliste laden
+        self.servers = load_ftp_servers() or []
 
-        layout = QtWidgets.QVBoxLayout(self)
+        # UI
+        main = QtWidgets.QVBoxLayout(self)
 
         self.table = QtWidgets.QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["Name", "Host", "Port", "User", "Protocol"])
-        layout.addWidget(self.table)
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        main.addWidget(self.table)
 
-        btn_layout = QtWidgets.QHBoxLayout()
-
+        btn_row = QtWidgets.QHBoxLayout()
         self.add_btn = QtWidgets.QPushButton("Neu")
         self.add_btn.clicked.connect(self.add_server)
-        btn_layout.addWidget(self.add_btn)
+        btn_row.addWidget(self.add_btn)
 
         self.edit_btn = QtWidgets.QPushButton("Bearbeiten")
         self.edit_btn.clicked.connect(self.edit_server)
-        btn_layout.addWidget(self.edit_btn)
+        btn_row.addWidget(self.edit_btn)
 
         self.del_btn = QtWidgets.QPushButton("Löschen")
         self.del_btn.clicked.connect(self.delete_server)
-        btn_layout.addWidget(self.del_btn)
+        btn_row.addWidget(self.del_btn)
 
-        btn_layout.addStretch()
+        btn_row.addStretch()
 
         self.cancel_btn = QtWidgets.QPushButton("Abbrechen")
         self.cancel_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(self.cancel_btn)
+        btn_row.addWidget(self.cancel_btn)
 
         self.ok_btn = QtWidgets.QPushButton("Übernehmen")
         self.ok_btn.clicked.connect(self.accept_dialog)
-        btn_layout.addWidget(self.ok_btn)
+        btn_row.addWidget(self.ok_btn)
 
-        layout.addLayout(btn_layout)
+        main.addLayout(btn_row)
 
         self.load_table()
 
+    # -------------------------
+    # Tabellen-Handling
+    # -------------------------
     def load_table(self):
         self.table.setRowCount(len(self.servers))
         for row, srv in enumerate(self.servers):
@@ -74,6 +83,10 @@ class FtpServerManagerDialog(QtWidgets.QDialog):
             user_item = QtWidgets.QTableWidgetItem(srv.get("user", ""))
             proto_item = QtWidgets.QTableWidgetItem(srv.get("protocol", "ftp"))
 
+            # read-only
+            for it in (name_item, host_item, port_item, user_item, proto_item):
+                it.setFlags(it.flags() ^ QtCore.Qt.ItemIsEditable)
+
             self.table.setItem(row, 0, name_item)
             self.table.setItem(row, 1, host_item)
             self.table.setItem(row, 2, port_item)
@@ -82,159 +95,194 @@ class FtpServerManagerDialog(QtWidgets.QDialog):
 
         self.table.resizeColumnsToContents()
 
+    # -------------------------
+    # CRUD
+    # -------------------------
     def add_server(self):
         srv = self.edit_server_dialog({})
         if srv:
             self.servers.append(srv)
             self.load_table()
+            # neueste Zeile auswählen
+            last_row = self.table.rowCount() - 1
+            if last_row >= 0:
+                self.table.selectRow(last_row)
 
     def edit_server(self):
         row = self.table.currentRow()
         if row < 0 or row >= len(self.servers):
             QtWidgets.QMessageBox.information(self, "Info", "Bitte einen Server auswählen.")
             return
-        existing = self.servers[row]
+        existing = copy.deepcopy(self.servers[row])
         new_srv = self.edit_server_dialog(existing)
         if new_srv:
             self.servers[row] = new_srv
             self.load_table()
+            self.table.selectRow(row)
 
     def delete_server(self):
         row = self.table.currentRow()
         if row < 0 or row >= len(self.servers):
             return
+        name = self.servers[row].get("name") or self.servers[row].get("host", "(ohne Name)")
         confirm = QtWidgets.QMessageBox.question(
-            self, "Löschen?",
-            f"Soll der Eintrag '{self.servers[row].get('name')}' wirklich gelöscht werden?",
+            self,
+            "Löschen?",
+            f"Soll der Eintrag „{name}“ wirklich gelöscht werden?",
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
         )
         if confirm == QtWidgets.QMessageBox.Yes:
             del self.servers[row]
             self.load_table()
 
-    def edit_server_dialog(self, srv):
+    # -------------------------
+    # Editor-Dialog
+    # -------------------------
+    def edit_server_dialog(self, srv: dict):
         """
-        Öffnet einen kleinen Dialog zum Bearbeiten oder Anlegen eines Servers.
-        srv = {} für neu, oder existierender Eintrag.
-        Gibt dict oder None zurück.
+        Kleiner Editor-Dialog.
+        srv = {} -> Neu
+        srv = {...} -> Bearbeiten
+        Rückgabe: dict oder None
         """
         dlg = QtWidgets.QDialog(self)
         dlg.setWindowTitle("Server-Eintrag bearbeiten" if srv else "Neuer Server")
-        dlg.resize(400, 200)
+        dlg.resize(420, 260)
+        vbox = QtWidgets.QVBoxLayout(dlg)
 
-        v = QtWidgets.QVBoxLayout(dlg)
-
-        # Name
-        name_label = QtWidgets.QLabel("Name:")
         name_edit = QtWidgets.QLineEdit(srv.get("name", ""))
-        # Host
-        host_label = QtWidgets.QLabel("Host:")
         host_edit = QtWidgets.QLineEdit(srv.get("host", ""))
-        # Port
-        port_label = QtWidgets.QLabel("Port:")
         port_edit = QtWidgets.QLineEdit(str(srv.get("port", 21)))
-        # User
-        user_label = QtWidgets.QLabel("User:")
         user_edit = QtWidgets.QLineEdit(srv.get("user", ""))
-        # Protocol
-        proto_label = QtWidgets.QLabel("Protocol:")
+
         proto_combo = QtWidgets.QComboBox()
         proto_combo.addItems(["ftp", "sftp"])
         proto_combo.setCurrentText(srv.get("protocol", "ftp"))
 
-        # Passwort
-        pass_label = QtWidgets.QLabel("Passwort (optional):")
         pass_edit = QtWidgets.QLineEdit()
         pass_edit.setEchoMode(QtWidgets.QLineEdit.Password)
 
-        # Falls wir ein existierendes user haben, laden wir das PW aus Keyring
+        # Passwort (falls vorhanden) aus Keyring lesbar machen — nie hart erzwingen
         existing_user = srv.get("user", "")
         if existing_user:
-            pw = keyring.get_password("PRisM-FTP", existing_user)
+            try:
+                pw = keyring.get_password("PRisM-FTP", existing_user)
+            except KeyringError as e:
+                debug_print(f"[ftp_server_manager] Keyring get_password() Fehler: {e}")
+                pw = None
+            except Exception as e:
+                debug_print(f"[ftp_server_manager] Keyring get_password() unerwartet: {e}")
+                pw = None
             if pw:
                 pass_edit.setText(pw)
 
-        form_layout = QtWidgets.QFormLayout()
-        form_layout.addRow(name_label, name_edit)
-        form_layout.addRow(host_label, host_edit)
-        form_layout.addRow(port_label, port_edit)
-        form_layout.addRow(user_label, user_edit)
-        form_layout.addRow(proto_label, proto_combo)
-        form_layout.addRow(pass_label, pass_edit)
+        form = QtWidgets.QFormLayout()
+        form.addRow("Name:", name_edit)
+        form.addRow("Host:", host_edit)
+        form.addRow("Port:", port_edit)
+        form.addRow("User:", user_edit)
+        form.addRow("Protocol:", proto_combo)
+        form.addRow("Passwort (optional):", pass_edit)
+        vbox.addLayout(form)
 
-        v.addLayout(form_layout)
+        # Buttons
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
+            QtCore.Qt.Horizontal,
+            dlg
+        )
+        buttons.accepted.connect(lambda: self._on_editor_ok(dlg, name_edit, host_edit, port_edit,
+                                                            user_edit, proto_combo, pass_edit))
+        buttons.rejected.connect(dlg.reject)
+        vbox.addWidget(buttons)
 
-        btn_layout = QtWidgets.QHBoxLayout()
-        btn_layout.addStretch()
-
-        cancel_btn = QtWidgets.QPushButton("Abbrechen")
-        cancel_btn.clicked.connect(dlg.reject)
-        btn_layout.addWidget(cancel_btn)
-
-        ok_btn = QtWidgets.QPushButton("OK")
-        def ok_clicked():
-            # Validierung
-            name_val = name_edit.text().strip()
-            host_val = host_edit.text().strip()
-            user_val = user_edit.text().strip()
-            try:
-                port_val = int(port_edit.text().strip())
-            except ValueError:
-                port_val = 21
-            proto_val = proto_combo.currentText()
-            pw_val = pass_edit.text().strip()
-
-            if not host_val:
-                QtWidgets.QMessageBox.information(dlg, "Info", "Host darf nicht leer sein.")
-                return
-
-            new_srv = {
-                "name": name_val,
-                "host": host_val,
-                "port": port_val,
-                "user": user_val,
-                "protocol": proto_val
-            }
-            # Passwort in Keyring speichern
-            if user_val and pw_val:
-                keyring.set_password("PRisM-FTP", user_val, pw_val)
-
-            dlg.done(QtWidgets.QDialog.Accepted)
-            dlg.new_srv = new_srv
-
-        ok_btn.clicked.connect(ok_clicked)
-        btn_layout.addWidget(ok_btn)
-
-        v.addLayout(btn_layout)
+        # Enter soll OK auslösen
+        ok_button = buttons.button(QtWidgets.QDialogButtonBox.Ok)
+        ok_button.setDefault(True)
 
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             return dlg.new_srv
-        else:
-            return None
+        return None
 
+    def _on_editor_ok(self, dlg, name_edit, host_edit, port_edit, user_edit, proto_combo, pass_edit):
+        # Validierung
+        name_val = name_edit.text().strip()
+        host_val = host_edit.text().strip()
+        user_val = user_edit.text().strip()
+        proto_val = proto_combo.currentText().strip()
+
+        try:
+            port_val = int((port_edit.text() or "").strip())
+        except ValueError:
+            port_val = 21
+
+        if not host_val:
+            QtWidgets.QMessageBox.information(dlg, "Info", "Host darf nicht leer sein.")
+            return
+        if port_val <= 0 or port_val > 65535:
+            QtWidgets.QMessageBox.information(dlg, "Info", "Port ist ungültig (1–65535).")
+            return
+
+        pw_val = pass_edit.text()
+
+        new_srv = {
+            "name": name_val,
+            "host": host_val,
+            "port": port_val,
+            "user": user_val,
+            "protocol": proto_val or "ftp",
+        }
+
+        # Passwort optional in Keyring speichern — Fehler fangen, Dialog trotzdem schließen
+        if user_val and pw_val:
+            try:
+                keyring.set_password("PRisM-FTP", user_val, pw_val)
+            except KeyringError as e:
+                debug_print(f"[ftp_server_manager] Keyring set_password() Fehler: {e}")
+                QtWidgets.QMessageBox.warning(
+                    dlg,
+                    "Passwort nicht gespeichert",
+                    "Das Passwort konnte nicht im Schlüsselbund gespeichert werden.\n"
+                    "Du kannst den Server trotzdem verwenden, musst das Passwort ggf. später eingeben."
+                )
+            except Exception as e:
+                debug_print(f"[ftp_server_manager] Keyring set_password() unerwartet: {e}")
+                QtWidgets.QMessageBox.warning(
+                    dlg,
+                    "Passwort nicht gespeichert",
+                    "Unerwarteter Fehler beim Speichern im Schlüsselbund.\n"
+                    "Der Servereintrag wurde erstellt; Passwort bitte später erneut hinterlegen."
+                )
+
+        dlg.new_srv = new_srv
+        dlg.accept()
+
+    # -------------------------
+    # Übernehmen (Speichern & Auswahl in Settings)
+    # -------------------------
     def accept_dialog(self):
-        """
-        Speichert self.servers in ftp_servers.json,
-        überträgt ggf. den aktuell ausgewählten Server in self.settings
-        (damit das Hauptwidget ihn sofort nutzen kann),
-        aber OHNE save_settings(self.settings) aufzurufen.
-        """
-        debug_print("accept_dialog: saving ftp_servers.json")
+        debug_print("[ftp_server_manager] accept_dialog: saving ftp_servers.json")
         try:
             save_ftp_servers(self.servers)
-            debug_print(f"Servers saved: {self.servers}")
+            debug_print(f"[ftp_server_manager] Servers saved: {self.servers}")
         except Exception as e:
-            debug_print(f"Error saving ftp servers: {e}")
+            debug_print(f"[ftp_server_manager] Error saving ftp servers: {e}")
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Speichern fehlgeschlagen",
+                f"Die Serverliste konnte nicht gespeichert werden.\n\n{e}"
+            )
+            # trotzdem nicht schließen – Benutzer kann reagieren
+            return
 
-        # Wähle den aktuell markierten Server aus => schreibe ihn in self.settings
+        # markierten Server in self.settings übernehmen (ohne settings.json zu schreiben)
         row = self.table.currentRow()
-        if row >= 0 and row < len(self.servers):
+        if 0 <= row < len(self.servers):
             srv = self.servers[row]
-            self.settings["ftp_host"] = srv["host"]
-            self.settings["ftp_port"] = srv["port"]
-            self.settings["ftp_user"] = srv["user"]
-            self.settings["ftp_protocol"] = srv["protocol"]
-            debug_print(f"Selected server => {srv}")
-        # Wir rufen NICHT save_settings(self.settings) auf, um es NICHT in settings.json zu speichern.
+            self.settings["ftp_host"] = srv.get("host", "")
+            self.settings["ftp_port"] = srv.get("port", 21)
+            self.settings["ftp_user"] = srv.get("user", "")
+            self.settings["ftp_protocol"] = srv.get("protocol", "ftp")
+            debug_print(f"[ftp_server_manager] Selected server => {srv}")
 
         self.accept()
