@@ -4,8 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben">
+    <list default="true" id="f4623fba-15e4-4df8-9005-5d4481c4216d" name="Changes" comment="Restart von v42 - manuelles ausführen und Transferqueue in Transferplan">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/transfer_plan_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_plan_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/transfer_queue_dialog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/transfer_plan_config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/transfer_plan_config_manager.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,7 +100,7 @@
       <recent name="$PROJECT_DIR$/ui" />
     </key>
   </component>
-  <component name="RunManager" selected="Shell Script.choose_arch_and_build.sh">
+  <component name="RunManager" selected="Python.main">
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PRisM-RAC" />
       <option name="ENV_FILES" value="" />
@@ -158,8 +161,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Shell Script.choose_arch_and_build.sh" />
         <item itemvalue="Python.main" />
+        <item itemvalue="Shell Script.choose_arch_and_build.sh" />
       </list>
     </recent_temporary>
   </component>
@@ -178,14 +181,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1740126336737</updated>
-    </task>
-    <task id="LOCAL-00062" summary="FTP mit Transferplänen">
-      <option name="closed" value="true" />
-      <created>1742073441424</created>
-      <option name="number" value="00062" />
-      <option name="presentableId" value="LOCAL-00062" />
-      <option name="project" value="LOCAL" />
-      <updated>1742073441424</updated>
     </task>
     <task id="LOCAL-00063" summary="FTP mit Transferplänen">
       <option name="closed" value="true" />
@@ -571,11 +566,18 @@
       <option name="project" value="LOCAL" />
       <updated>1759833318352</updated>
     </task>
-    <option name="localTasksCounter" value="111" />
+    <task id="LOCAL-00111" summary="Restart von v42 - manuelles ausführen und Transferqueue in Transferplan">
+      <option name="closed" value="true" />
+      <created>1760088162379</created>
+      <option name="number" value="00111" />
+      <option name="presentableId" value="LOCAL-00111" />
+      <option name="project" value="LOCAL" />
+      <updated>1760088162379</updated>
+    </task>
+    <option name="localTasksCounter" value="112" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Umbau Log-Ansicht mit Transfer" />
     <MESSAGE value="Contentcheck Fehler behoben." />
     <MESSAGE value="Bedienelemete werden mit kopiert" />
     <MESSAGE value="weiterentwicklung von -v22 (da wurde das Logfile auf einen fixen Pfad erzeugt.) das funktioniert schon mal" />
@@ -600,6 +602,7 @@
     <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP" />
     <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder" />
     <MESSAGE value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben" />
-    <option name="LAST_COMMIT_MESSAGE" value="mit Selbsttest für SMPT, HTTP, FTP mit neuem Builder, Contentcheck Fehler behoben" />
+    <MESSAGE value="Restart von v42 - manuelles ausführen und Transferqueue in Transferplan" />
+    <option name="LAST_COMMIT_MESSAGE" value="Restart von v42 - manuelles ausführen und Transferqueue in Transferplan" />
   </component>
 </project>
