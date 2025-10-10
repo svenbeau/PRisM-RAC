@@ -18,6 +18,19 @@ from utils.config_manager import debug_print, get_ftp_transfer_log_path, load_ft
 from utils.ftp_manager import FTPManager
 from utils.transfer_reporter import send_transfer_report  # nutzt SMTP-Settings
 
+# --- Robuster Import für Plan-Funktionen (last_run-Update etc.)
+try:
+    from utils.transfer_plan_manager import load_plans, save_plans  # type: ignore
+except Exception:
+    try:
+        from utils.config_manager import load_plans, save_plans  # type: ignore
+    except Exception:
+        def load_plans():
+            debug_print("WARN: load_plans() Fallback-Stub benutzt (keine Planliste geladen).")
+            return []
+        def save_plans(_plans):
+            debug_print("WARN: save_plans() Fallback-Stub benutzt (Änderungen nicht persistent).")
+
 
 class TransferQueueDialog(QtWidgets.QDialog):
     """
@@ -35,6 +48,15 @@ class TransferQueueDialog(QtWidgets.QDialog):
         self.file_list = []
         self.init_ui()
 
+        # WICHTIG: nur starten, wenn es auch Jobs gibt
+        if self.file_list:
+            self.start_transfer()
+        else:
+            # Kein Thread starten → UI informieren
+            info = QtWidgets.QLabel("Keine Dateien in der Queue. Nichts zu tun.")
+            info.setStyleSheet("color: #888;")
+            self.layout().addWidget(info)
+
     def init_ui(self):
         main_layout = QtWidgets.QVBoxLayout(self)
 
@@ -49,45 +71,14 @@ class TransferQueueDialog(QtWidgets.QDialog):
         main_layout.addWidget(self.table)
 
         btn_layout = QtWidgets.QHBoxLayout()
-        self.cancel_btn = QtWidgets.QPushButton("Abbrechen")
+        self.cancel_btn = QtWidgets.QPushButton("Schließen")
         self.cancel_btn.clicked.connect(self.on_cancel)
         btn_layout.addWidget(self.cancel_btn)
         btn_layout.addStretch()
         main_layout.addLayout(btn_layout)
 
         self.file_list = self.collect_files()
-
-        # Wenn leer: früh und sichtbar informieren, keine Thread-Starts.
-        if not self.file_list:
-            src = self.plan_data.get("source_path", "") or "(leer)"
-            preview = self._preview_dir(src)
-            msg = (
-                "Im Quellordner ist aktuell nichts zu übertragen.\n\n"
-                f"Quelle: {src}\n"
-                f"Top-Level-Inhalte: {preview if preview else '(leer)'}"
-            )
-            debug_print(f"[TransferQueueDialog] Keine Dateien gefunden. {msg}")
-            QtWidgets.QMessageBox.information(self, "Keine Dateien gefunden", msg)
-            # Tabelle mit einem freundlichen Hinweis befüllen
-            self.table.setRowCount(1)
-            self.table.setItem(0, 0, QtWidgets.QTableWidgetItem(src))
-            self.table.setItem(0, 1, QtWidgets.QTableWidgetItem(self.plan_data.get("target_path", "")))
-            self.table.setItem(0, 2, QtWidgets.QTableWidgetItem("Keine Dateien"))
-            bar = QtWidgets.QProgressBar()
-            bar.setValue(0)
-            self.table.setCellWidget(0, 3, bar)
-            return
-
         self.populate_table()
-
-    def _preview_dir(self, path: str) -> str:
-        try:
-            if os.path.isdir(path):
-                items = os.listdir(path)
-                return ", ".join(items[:10]) + (" ..." if len(items) > 10 else "")
-        except Exception as e:
-            return f"<listdir fehlgeschlagen: {e}>"
-        return ""
 
     # -------------------------- Sammlung der Quelldateien --------------------------
     def collect_files(self):
@@ -99,59 +90,36 @@ class TransferQueueDialog(QtWidgets.QDialog):
 
     def _collect_files_from_local_source(self):
         source_path = self.plan_data.get("source_path", "")
+        debug_print(f"[collect_local] source_path={source_path}")
         if not source_path:
             debug_print("Quelle nicht gesetzt.")
             return []
-
-        # Diagnostik
-        debug_print(f"[collect_local] source_path={source_path}")
         if not os.path.exists(source_path):
-            debug_print(f"[collect_local] Quelle existiert NICHT: {source_path}")
+            debug_print(f"Quelle existiert nicht: {source_path}")
             return []
-        if not os.path.isdir(source_path):
-            debug_print(f"[collect_local] Quelle ist KEIN Verzeichnis: {source_path}")
-            return []
-
-        try:
-            entries = os.listdir(source_path)
-            debug_print(f"[collect_local] Top-Level Einträge: {len(entries)}")
-            if entries:
-                preview = ", ".join(entries[:20])
-                debug_print(f"[collect_local] Vorschau: {preview}{' ...' if len(entries) > 20 else ''}")
-        except Exception as e:
-            debug_print(f"[collect_local] listdir() fehlgeschlagen: {e}")
-
         file_list = []
         move_after = self.plan_data.get("move_after", "")
         abs_move_after = os.path.abspath(move_after) if move_after else None
 
+        # Top-Level Vorschau fürs Logging
+        try:
+            top_entries = os.listdir(source_path)
+            debug_print(f"[collect_local] Top-Level Einträge: {len(top_entries)}")
+            if top_entries:
+                debug_print(f"[collect_local] Vorschau: {top_entries[0]}")
+        except Exception:
+            pass
+
         for root, dirs, files in os.walk(source_path):
-            # versteckte Ordner raus
-            before_dirs = list(dirs)
+            # versteckte Ordner/Dateien raus
             dirs[:] = [d for d in dirs if not d.startswith('.')]
-
-            # ggf. move_after innerhalb der Quelle ausschließen
             if abs_move_after:
-                filtered = []
-                for d in list(dirs):
-                    candidate = os.path.abspath(os.path.join(root, d))
-                    if candidate == abs_move_after or candidate.startswith(abs_move_after + os.sep):
-                        filtered.append(candidate)
-                        dirs.remove(d)
-                for f in filtered:
-                    debug_print(f"[collect_local] schließe move_after-Unterordner aus: {f}")
-
-            if before_dirs != dirs:
-                debug_print(f"[collect_local] dirs gefiltert: {before_dirs} -> {dirs}")
-
+                dirs[:] = [d for d in dirs if os.path.abspath(os.path.join(root, d)) != abs_move_after]
             for f in files:
                 if f.startswith('.'):
                     continue
                 full_path = os.path.join(root, f)
-                try:
-                    rel = os.path.relpath(full_path, source_path)
-                except Exception:
-                    rel = f
+                rel = os.path.relpath(full_path, source_path)
                 dest_hint = self._build_target_hint(rel)
                 file_list.append({
                     "mode": "local_src",
@@ -159,10 +127,7 @@ class TransferQueueDialog(QtWidgets.QDialog):
                     "rel": rel,
                     "dest_hint": dest_hint
                 })
-
         debug_print(f"Zu übertragende lokale Dateien: {len(file_list)}")
-        if not file_list:
-            debug_print("[collect_local] Ergebnis leer – entweder keine Dateien vorhanden oder alle im move_after-Bereich.")
         return file_list
 
     # ---- FTP-Quelle: Lookup + connect() ----
@@ -186,6 +151,7 @@ class TransferQueueDialog(QtWidgets.QDialog):
         try:
             rel_files = ftp.list_files_recursive(remote_root)  # z.B. ["subA/file1.tif", "file2.psd"]
             for rel in rel_files:
+                # Remotepfade immer POSIX
                 rel_posix = rel.replace("\\", "/")
                 remote_path = f"{remote_root}/{rel_posix}".replace("//", "/")
                 dest_hint = self._build_target_hint(rel_posix)
@@ -205,13 +171,19 @@ class TransferQueueDialog(QtWidgets.QDialog):
         return file_list
 
     def _build_target_hint(self, rel):
+        """
+        Nur zur Anzeige in der Tabelle; Zielverzeichnisse werden später beim Transfer
+        sauber gebaut (lokal: os.path, remote: posixpath).
+        """
         target = self.plan_data.get("target_path", "") or ""
         if self.plan_data.get("use_ftp", False):
+            # Remote-Hinweis (POSIX)
             base = "/" + target.lstrip("/")
             sub = rel.rsplit("/", 1)[0] if "/" in rel else ""
             hint = (base.rstrip("/") + ("/" + sub if sub else "")).replace("//", "/")
             return hint
         else:
+            # Lokal
             sub = os.path.dirname(rel)
             return os.path.join(target, sub)
 
@@ -229,17 +201,17 @@ class TransferQueueDialog(QtWidgets.QDialog):
 
     # -------------------------- Ablauf --------------------------
     def start_transfer(self):
-        # Sicher: Wenn nichts zu tun, keinen Thread starten
-        if not self.file_list:
-            debug_print("[TransferQueueDialog] start_transfer() übersprungen – keine Dateien.")
-            return
-
-        self.worker_thread = QtCore.QThread()
+        self.worker_thread = QtCore.QThread(self)  # parent setzen
+        self.worker_thread.setObjectName("TransferQueueWorkerThread")
         self.worker = TransferQueueWorker(self.plan_data, self.file_list)
         self.worker.moveToThread(self.worker_thread)
+
+        # Signals
         self.worker.progress.connect(self.on_progress)
         self.worker.finished.connect(self.on_worker_finished)
         self.worker_thread.started.connect(self.worker.run)
+        self.worker_thread.finished.connect(self.worker_thread.deleteLater)
+
         self.worker_thread.start()
 
     def on_progress(self, key, status, percent):
@@ -253,16 +225,50 @@ class TransferQueueDialog(QtWidgets.QDialog):
 
     def on_worker_finished(self):
         debug_print("TransferQueueDialog: Worker finished.")
-        self.worker_thread.quit()
-        self.worker_thread.wait()
+        if self.worker_thread and self.worker_thread.isRunning():
+            self.worker_thread.quit()
+            self.worker_thread.wait()
         self.worker_thread = None
         self.worker = None
+        # Optional: nach Abschluss automatisch schließen
+        # self.accept()
 
     def on_cancel(self):
-        if self.worker:
+        if self.worker and self.worker_thread and self.worker_thread.isRunning():
             self.worker.request_abort()
-        else:
-            self.close()
+            self.worker_thread.quit()
+            self.worker_thread.wait()
+            self.worker = None
+            self.worker_thread = None
+        self.close()
+
+    # SICHERHEIT: falls Dialog geschlossen wird, Thread sauber beenden
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        try:
+            if self.worker and self.worker_thread and self.worker_thread.isRunning():
+                self.worker.request_abort()
+                self.worker_thread.quit()
+                self.worker_thread.wait()
+        finally:
+            self.worker = None
+            self.worker_thread = None
+            super().closeEvent(event)
+
+    # -------------------------- Helper für FTP-Quelle --------------------------
+    def _apply_server_by_name(self, ftp: FTPManager, server_name: str) -> bool:
+        servers = load_ftp_servers() or []
+        srv = next((s for s in servers if s.get("name") == server_name), None)
+        if not srv:
+            return False
+        proto = (srv.get("protocol") or "ftp").lower()
+        ftp.ftp_protocol = proto
+        ftp.host = srv.get("host", "")
+        ftp.user = srv.get("user", "")
+        ftp.port = int(srv.get("port", 21 if proto == "ftp" else 22))
+        # optionale Flags aus Plan übernehmen
+        ftp.keep_timestamp = self.plan_data.get("keep_timestamp", False)
+        ftp.versioning_mode = self.plan_data.get("versioning_mode", "mirror")
+        return True
 
 
 class TransferQueueWorker(QtCore.QObject):
@@ -272,6 +278,7 @@ class TransferQueueWorker(QtCore.QObject):
       - Reconnect, Retry
       - Verify (size/md5) mit sauberem Remote-Handling
       - Persistente Logs + Report
+      - last_run Update nach manuellem Run
     """
     progress = QtCore.Signal(str, str, int)  # key (Quellen-String), status, percent
     finished = QtCore.Signal()
@@ -293,7 +300,6 @@ class TransferQueueWorker(QtCore.QObject):
 
     # -------------------------- Helper: Server-Lookup --------------------------
     def _apply_server_by_name(self, ftp: FTPManager, server_name: str) -> bool:
-        """Konfiguriert ftp anhand eines gespeicherten Servernamens. Rückgabe: True wenn gefunden."""
         servers = load_ftp_servers() or []
         srv = next((s for s in servers if s.get("name") == server_name), None)
         if not srv:
@@ -303,7 +309,6 @@ class TransferQueueWorker(QtCore.QObject):
         ftp.host = srv.get("host", "")
         ftp.user = srv.get("user", "")
         ftp.port = int(srv.get("port", 21 if proto == "ftp" else 22))
-        # optionale Flags aus Plan übernehmen, falls vorhanden
         ftp.keep_timestamp = self.plan_data.get("keep_timestamp", False)
         ftp.versioning_mode = self.plan_data.get("versioning_mode", "mirror")
         return True
@@ -324,73 +329,78 @@ class TransferQueueWorker(QtCore.QObject):
             raise ValueError(f"{label} is invalid (got {type(p).__name__})")
         if not p:
             raise ValueError(f"{label} is empty")
-        # nur für Logging/Sanity
         return p
 
     # -------------------------- core run --------------------------
     def run(self):
         debug_print("TransferQueueWorker: run() gestartet.")
-        retry_count = int(self.plan_data.get("retry_count", 5) or 5)
+        try:
+            retry_count = int(self.plan_data.get("retry_count", 5) or 5)
 
-        # Ziel-FTP vorbereiten (falls nötig)
-        if self.plan_data.get("use_ftp", False):
-            if not self._ensure_dst_ftp_connected():
-                for entry in self.file_list:
-                    self._emit_progress(entry, "FTP-Connect-Error", 0)
-                    self._add_result(entry, "FAILED", "Ziel-FTP nicht erreichbar")
-                self._finalize()
-                return
+            # Ziel-FTP vorbereiten (falls nötig)
+            if self.plan_data.get("use_ftp", False):
+                if not self._ensure_dst_ftp_connected():
+                    for entry in self.file_list:
+                        self._emit_progress(entry, "FTP-Connect-Error", 0)
+                        self._add_result(entry, "FAILED", "Ziel-FTP nicht erreichbar")
+                    return  # finalize im finally
 
-        for entry in self.file_list:
-            if self._abort:
-                self._emit_progress(entry, "Abgebrochen", 0)
-                self._add_result(entry, "ABORTED", "Vom Benutzer abgebrochen")
-                continue
+            for entry in self.file_list:
+                if self._abort:
+                    self._emit_progress(entry, "Abgebrochen", 0)
+                    self._add_result(entry, "ABORTED", "Vom Benutzer abgebrochen")
+                    continue
 
-            attempts = 0
-            success = False
-            last_err = ""
-            while attempts < retry_count and not success and not self._abort:
-                attempts += 1
+                attempts = 0
+                success = False
+                last_err = ""
+                while attempts < retry_count and not success and not self._abort:
+                    attempts += 1
+                    try:
+                        self._transfer_one_with_verify(entry)
+                        self._emit_progress(entry, "SUCCESS", 100)
+                        self._add_result(entry, "SUCCESS", "")
+                        success = True
+                    except Exception as e:
+                        last_err = str(e)
+                        debug_print(f"Transfer Fehlversuch ({attempts}/{retry_count}): {self._key(entry)} -> {last_err}")
+                        time.sleep(min(2.0, 0.5 * attempts))
+                        if self.plan_data.get("use_ftp", False):
+                            self._ensure_dst_ftp_connected()
+                        if attempts >= retry_count:
+                            self._emit_progress(entry, "FAILED", 0)
+                            self._add_result(entry, "FAILED", last_err)
+        finally:
+            # Ziel-FTP trennen
+            if self.dst_ftp:
                 try:
-                    self._transfer_one_with_verify(entry)
-                    self._emit_progress(entry, "SUCCESS", 100)
-                    self._add_result(entry, "SUCCESS", "")
-                    success = True
-                except Exception as e:
-                    last_err = str(e)
-                    debug_print(f"Transfer Fehlversuch ({attempts}/{retry_count}): {self._key(entry)} -> {last_err}")
-                    time.sleep(min(2.0, 0.5 * attempts))
-                    if self.plan_data.get("use_ftp", False):
-                        self._ensure_dst_ftp_connected()
-                    if attempts >= retry_count:
-                        self._emit_progress(entry, "FAILED", 0)
-                        self._add_result(entry, "FAILED", last_err)
+                    self.dst_ftp.disconnect()
+                except Exception:
+                    pass
 
-        # Ziel-FTP trennen
-        if self.dst_ftp:
+            # Cleanup / Logs / Mail (alles best effort)
             try:
-                self.dst_ftp.disconnect()
-            except Exception:
-                pass
+                self._cleanup_local_move_after()
+            except Exception as e:
+                debug_print(f"Auto-Delete Fehler: {e}")
 
-        # Cleanup / Logs / Mail
-        try:
-            self._cleanup_local_move_after()
-        except Exception as e:
-            debug_print(f"Auto-Delete Fehler: {e}")
+            try:
+                self._persist_logs()
+            except Exception as e:
+                debug_print(f"Persistentes Logging fehlgeschlagen: {e}")
 
-        try:
-            self._persist_logs()
-        except Exception as e:
-            debug_print(f"Persistentes Logging fehlgeschlagen: {e}")
+            try:
+                self._send_report_mail()
+            except Exception as e:
+                debug_print(f"Report-Mail fehlgeschlagen: {e}")
 
-        try:
-            self._send_report_mail()
-        except Exception as e:
-            debug_print(f"Report-Mail fehlgeschlagen: {e}")
+            # last_run-Update
+            try:
+                self._update_last_run()
+            except Exception as e:
+                debug_print(f"last_run-Update fehlgeschlagen: {e}")
 
-        self._finalize()
+            self._finalize()
 
     # -------------------------- single transfer (with verify) --------------------------
     def _transfer_one_with_verify(self, entry):
@@ -399,7 +409,7 @@ class TransferQueueWorker(QtCore.QObject):
         if entry["mode"] == "local_src":
             src_path = self._ensure_local_path(entry["src_path"], "local_path")
             if self.plan_data.get("use_ftp", False):
-                # lokal -> FTP (Remote-Pfade per POSIX!)
+                # lokal -> FTP
                 base_remote = "/" + (self.plan_data.get("target_path", "") or "").lstrip("/")
                 sub_remote = rel.rsplit("/", 1)[0] if "/" in rel else ""
                 remote_dir = (base_remote.rstrip("/") + ("/" + sub_remote if sub_remote else "")) or "/"
@@ -407,13 +417,10 @@ class TransferQueueWorker(QtCore.QObject):
                 final_name = os.path.basename(src_path)
                 remote_path = posixpath.join(remote_dir, final_name)
 
-                # Debug: zeigen, was wir hochladen/prüfen
                 debug_print(f"Upload -> remote_dir={remote_dir}, remote_path={remote_path}")
 
                 self._copy_local_to_ftp_with_retries(src_path, remote_dir, entry)
-                # Verify
                 self._verify_local_vs_remote(src_path, remote_path, entry)
-                # Nach Erfolg: lokale Quelle verschieben
                 self._move_source_after_success_local(src_path)
             else:
                 # lokal -> lokal
@@ -464,17 +471,17 @@ class TransferQueueWorker(QtCore.QObject):
         if self.dst_ftp is None:
             self.dst_ftp = FTPManager()
         try:
-            if self.dst_ftp.is_connected():
-                return True
+            if hasattr(self.dst_ftp, "is_connected") and callable(getattr(self.dst_ftp, "is_connected")):
+                if self.dst_ftp.is_connected():  # type: ignore[attr-defined]
+                    return True
         except Exception:
             pass
-        # Reconnect: per Servernamen aus Plan konfigurieren
         try:
             server_name = self.plan_data.get("ftp_server", "")
             if not self._apply_server_by_name(self.dst_ftp, server_name):
                 debug_print(f"Reconnect: FTP-Server '{server_name}' nicht gefunden.")
                 return False
-            self.dst_ftp.connect()   # <— ohne Argumente
+            self.dst_ftp.connect()
             return True
         except Exception as e:
             debug_print(f"Reconnect Ziel-FTP fehlgeschlagen: {e}")
@@ -482,7 +489,6 @@ class TransferQueueWorker(QtCore.QObject):
 
     def _copy_local_to_ftp_with_retries(self, local_file, remote_dir, entry):
         local_file = self._ensure_local_path(local_file, "local_file_upload")
-        # remote_dir ist POSIX-Pfad; basic sanity
         self._ensure_remote_path(remote_dir, "remote_dir_upload")
 
         attempts = 0
@@ -513,7 +519,6 @@ class TransferQueueWorker(QtCore.QObject):
                     raise RuntimeError(f"FTP-Server '{server_name}' nicht gefunden.")
                 ftp.connect()
                 local_path = ftp.download_file(remote_path, local_dir)
-                # mini-progress
                 self.progress.emit(self._key(entry), "Download", 50)
                 last_local = local_path
                 return local_path
@@ -532,7 +537,7 @@ class TransferQueueWorker(QtCore.QObject):
         src = self._ensure_local_path(src, "copy_src")
         total_size = max(1, os.path.getsize(src))
         copied = 0
-        bufsize = 1024 * 256  # 256KB
+        bufsize = 1024 * 256
         with open(src, "rb") as fsrc, open(dest, "wb") as fdst:
             while True:
                 if self._abort:
@@ -591,21 +596,23 @@ class TransferQueueWorker(QtCore.QObject):
             if isinstance(st, dict) and st.get("size") is not None:
                 return int(st["size"])
         except Exception as e:
-            # wichtig fürs Debugging
             debug_print(f"_remote_size_or_redownload: primary failed for '{remote_path}': {e}")
+            try:
+                alt = remote_path.lstrip("/")
+                debug_print(f"_remote_size_or_redownload: retry with alt path '{alt}'")
+                s2 = self.dst_ftp.get_size(alt)
+                if s2 is not None:
+                    return int(s2)
+                st2 = self.dst_ftp.stat(alt)
+                if isinstance(st2, dict) and st2.get("size") is not None:
+                    return int(st2["size"])
+            except Exception as e2:
+                debug_print(f"_remote_size_or_redownload: alt failed: {e2}")
 
-        # Fallback: redownload temp und size bestimmen
         tmp_dir = tempfile.mkdtemp(prefix="verify_tmp_")
         tmp_local = None
         try:
             tmp_local = self.dst_ftp.download_file(remote_path, tmp_dir)
-            # Fallback ohne führenden Slash probieren, falls nötig
-            if not tmp_local or not os.path.exists(tmp_local):
-                alt = remote_path.lstrip("/")
-                if alt != remote_path:
-                    debug_print(f"_remote_size_or_redownload: retry with alt path '{alt}'")
-                    tmp_local = self.dst_ftp.download_file(alt, tmp_dir)
-
             tmp_local = self._ensure_local_path(tmp_local, "verify_tmp_local")
             return os.path.getsize(tmp_local)
         finally:
@@ -631,13 +638,6 @@ class TransferQueueWorker(QtCore.QObject):
         tmp_local = None
         try:
             tmp_local = self.dst_ftp.download_file(remote_path, tmp_dir)
-            # Fallback ohne führenden Slash probieren, falls nötig
-            if not tmp_local or not os.path.exists(tmp_local):
-                alt = remote_path.lstrip("/")
-                if alt != remote_path:
-                    debug_print(f"_remote_md5_or_redownload: retry with alt path '{alt}'")
-                    tmp_local = self.dst_ftp.download_file(alt, tmp_dir)
-
             tmp_local = self._ensure_local_path(tmp_local, "verify_tmp_local")
             return self._md5_local(tmp_local)
         finally:
@@ -661,9 +661,6 @@ class TransferQueueWorker(QtCore.QObject):
 
     # -------------------------- move after --------------------------
     def _move_source_after_success_local(self, local_file):
-        """
-        Verschiebt die verarbeitete Quelldatei in den konfigurierten 'move_after'-Ordner.
-        """
         move_after = self.plan_data.get("move_after", "")
         if not move_after:
             return
@@ -677,8 +674,6 @@ class TransferQueueWorker(QtCore.QObject):
             target_file = f"{base}_{datetime.now().strftime('%Y%m%d-%H%M%S')}{ext}"
         shutil.move(local_file, target_file)
         debug_print(f"Moved source to: {target_file}")
-
-        # Registrierung für Log-basiertes Aging
         self._register_move_after(target_file)
 
     def _register_move_after(self, dest_path: str):
@@ -721,7 +716,6 @@ class TransferQueueWorker(QtCore.QObject):
 
         cutoff_ts = time.time() - (hours * 3600)
 
-        # 1) Log laden und Map path->processed_at bauen (letzter Eintrag gewinnt)
         log_json = get_ftp_transfer_log_path()
         path_to_processed_ts = {}
         try:
@@ -751,7 +745,6 @@ class TransferQueueWorker(QtCore.QObject):
         except Exception as e:
             debug_print(f"Log-basiertes Aging: Konnte Log nicht auswerten: {e}")
 
-        # 2) Durchlaufe move_after und entscheide anhand processed_at oder mtime
         deleted = 0
         checked = 0
         for root, dirs, files in os.walk(move_after):
@@ -773,7 +766,6 @@ class TransferQueueWorker(QtCore.QObject):
         log_json = get_ftp_transfer_log_path()
         log_csv = os.path.splitext(log_json)[0] + ".csv"
 
-        # Bestehendes JSON laden
         try:
             if os.path.exists(log_json):
                 with open(log_json, "r", encoding="utf-8") as f:
@@ -803,7 +795,6 @@ class TransferQueueWorker(QtCore.QObject):
         with open(log_json, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        # CSV (nur Ergebnisse)
         header = ["time", "plan", "src", "dst", "status", "message"]
         new_rows = []
         for r in self.results:
@@ -820,7 +811,6 @@ class TransferQueueWorker(QtCore.QObject):
 
     def _send_report_mail(self):
         total = len(self.results)
-        # <<< Korrektur: schließende Klammern repariert >>>
         ok = sum(1 for r in self.results if r["status"] == "SUCCESS")
         failed = sum(1 for r in self.results if r["status"] == "FAILED")
         aborted = sum(1 for r in self.results if r["status"] == "ABORTED")
@@ -844,6 +834,22 @@ class TransferQueueWorker(QtCore.QObject):
         report_text = "\n".join(lines)
 
         send_transfer_report(self.plan_data, report_text, summary={"ok": ok, "failed": failed, "aborted": aborted})
+
+    def _update_last_run(self):
+        plan_id = self.plan_data.get("id")
+        if not plan_id:
+            return
+        plans = load_plans()
+        changed = False
+        now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for p in plans:
+            if p.get("id") == plan_id:
+                p["last_run"] = now_iso
+                changed = True
+                break
+        if changed:
+            save_plans(plans)
+            debug_print(f"last_run für Plan {plan_id} -> {now_iso} aktualisiert.")
 
     def _finalize(self):
         self.finished.emit()

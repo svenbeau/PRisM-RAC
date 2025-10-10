@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#ftp_manager.py
+# ftp_manager.py
 # -*- coding: utf-8 -*-
 
 import os
@@ -142,6 +142,17 @@ class FTPManager:
             raise TransferError("Unbekanntes Protokoll: " + self.ftp_protocol)
 
         debug_print(f"Verbindung zu {self.host} via {self.ftp_protocol} aufgebaut.")
+
+    # ---- Verbindung prüfen (für Worker) ----
+    def is_connected(self) -> bool:
+        """
+        Liefert True, wenn eine Verbindung-Instanz vorhanden ist. (Leichtgewichtig,
+        bewusst ohne NOOP-Command, um Hänger zu vermeiden.)
+        """
+        try:
+            return self.conn is not None
+        except Exception:
+            return False
 
     def disconnect(self):
         if self.conn:
@@ -608,7 +619,14 @@ class FTPManager:
             self._retry_op(f"move_remote_fallback_ftp:{src_remote}->{dst_remote}", _impl_copy)
         else:
             def _impl_copy():
-                self.conn.putfo(self.conn.file(src_remote, "rb"), dst_remote)
+                f_in = self.conn.open(src_remote, "rb")
+                try:
+                    self.conn.putfo(f_in, dst_remote)
+                finally:
+                    try:
+                        f_in.close()
+                    except Exception:
+                        pass
                 try:
                     self.conn.remove(src_remote)
                 except Exception:
@@ -688,7 +706,7 @@ class FTPManager:
                             continue
                         child_abs = dir_path.rstrip("/") + "/" + name
                         child_rel = (rel_prefix + "/" + name) if rel_prefix else name
-                        mode = getattr(attr, "st_mode", 0)
+                        # Verzeichnis?
                         is_dir = False
                         try:
                             # robust: Verzeichnis?
@@ -794,11 +812,11 @@ class FTPManager:
             except Exception as e:
                 debug_print(f"Fehler beim Senden der E-Mail: {e}")
 
-    if __name__ == "__main__":
-        mgr = FTPManager()
-        try:
-            mgr.connect()
-        except Exception as e:
-            mgr.send_failure_notification(str(e))
-        finally:
-            mgr.disconnect()
+if __name__ == "__main__":
+    mgr = FTPManager()
+    try:
+        mgr.connect()
+    except Exception as e:
+        mgr.send_failure_notification(str(e))
+    finally:
+        mgr.disconnect()
