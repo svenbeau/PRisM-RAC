@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-# ftp_plan_widget.py
 # -*- coding: utf-8 -*-
+# ui/ftp_plan_widget.py  (aka TransferPlanWidget)
 
 import os
 import sys
-from datetime import datetime
-from typing import Optional, Dict, List
-from PySide6 import QtWidgets, QtCore, QtGui
+from typing import List, Dict
 
+from PySide6 import QtWidgets, QtCore, QtGui
 from utils.config_manager import debug_print
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from ui.transfer_plan_dialog import TransferPlanDialog
-from ui.transfer_queue_dialog import TransferQueueDialog
 
 
 def resource_path(relative_path):
@@ -24,39 +22,24 @@ def resource_path(relative_path):
 
 
 class TransferPlanWidget(QtWidgets.QFrame):
-    """
-    Collapsible Anzeige eines Transferplans (Design aus stable-v42).
-
-    Änderungen:
-      - KEINE eingebauten Status/Queue-Elemente mehr.
-      - "Jetzt ausführen" startet sofort den Transfer und
-        leitet Ereignisse via Signale an den übergeordneten List-Container weiter.
-    """
-
-    # ---------- Signale nach oben (List-Widget) ----------
+    # ---- Signale für die globale Status/Queue unten in der Liste ----
     sig_log = QtCore.Signal(str)
-    # Liste von Items (je Datei): {"key", "direction", "file", "destination"}
-    sig_transfer_init = QtCore.Signal(list)
-    sig_transfer_progress = QtCore.Signal(str, str, int)   # key, status, percent
+    sig_transfer_init = QtCore.Signal(list)               # List[{"key","direction","file","destination"}]
+    sig_transfer_progress = QtCore.Signal(str, str, int)  # key, status, percent
     sig_transfer_finished = QtCore.Signal()
-
-    ROLE_KEY = QtCore.Qt.UserRole + 100  # (interne Rolle, falls gebraucht)
 
     def __init__(self, plan_data: dict, parent=None):
         super().__init__(parent)
-        self.plan_data = dict(plan_data or {})
-        self.body_visible = self.plan_data.get("body_visible", False)
+        self.plan_data = plan_data
+        self.body_visible = plan_data.get("body_visible", False)
 
         self.icon_expand = QtGui.QIcon(resource_path("assets/dropdown_list.png"))
         self.icon_collapse = QtGui.QIcon(resource_path("assets/close_list.png"))
-
-        # Laufzeitobjekt für manuellen Run
-        self._queue_dialog: Optional[TransferQueueDialog] = None
-
         self.setup_ui()
-        self.update_labels()
 
-    # ---------------- UI ----------------
+    # ---------------------------------------------------------------
+    # UI Aufbau
+    # ---------------------------------------------------------------
     def setup_ui(self):
         self.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -84,7 +67,7 @@ class TransferPlanWidget(QtWidgets.QFrame):
         title_layout.addWidget(self.toggle_btn, 0, QtCore.Qt.AlignRight)
         main_layout.addWidget(self.title_bar)
 
-        # Subheader (dunkler Balken darunter)
+        # Subheader (hellgrauer Balken)
         self.subheader_frame = QtWidgets.QFrame()
         self.subheader_frame.setFixedHeight(30)
         self.subheader_frame.setStyleSheet("background-color: #b0b0b0;")
@@ -97,30 +80,40 @@ class TransferPlanWidget(QtWidgets.QFrame):
         subheader_layout.addWidget(self.subheader_label, 1, QtCore.Qt.AlignLeft)
         main_layout.addWidget(self.subheader_frame)
 
-        # Body
+        # Body (sichtbar/unsichtbar)
         self.body_widget = QtWidgets.QWidget()
         body_layout = QtWidgets.QVBoxLayout(self.body_widget)
         body_layout.setContentsMargins(10, 10, 10, 10)
         body_layout.setSpacing(10)
 
-        # Details-Group
+        # GroupBox für Details
         self.config_group = QtWidgets.QGroupBox("Details")
         self.config_group.setStyleSheet("""
             QGroupBox { background-color: #e5e5e5; color: #000000; }
             QGroupBox::title { background-color: #b0b0b0; color: #000000; }
         """)
         cfg_layout = QtWidgets.QVBoxLayout(self.config_group)
+
         row = 0
-        self.lbl_src  = self._create_row_label("", row); row += 1; cfg_layout.addWidget(self.lbl_src)
-        self.lbl_tgt  = self._create_row_label("", row); row += 1; cfg_layout.addWidget(self.lbl_tgt)
-        self.lbl_ftp  = self._create_row_label("", row); row += 1; cfg_layout.addWidget(self.lbl_ftp)
-        self.lbl_ver  = self._create_row_label("", row); row += 1; cfg_layout.addWidget(self.lbl_ver)
-        self.lbl_sched= self._create_row_label("", row); row += 1; cfg_layout.addWidget(self.lbl_sched)
-        self.lbl_move = self._create_row_label("", row); row += 1; cfg_layout.addWidget(self.lbl_move)
+        self.lbl_src = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_src)
+        self.lbl_tgt = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_tgt)
+        self.lbl_ftp = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_ftp)
+        self.lbl_ver = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_ver)
+        self.lbl_sched = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_sched)
+        self.lbl_move = self.create_label("", row); row += 1
+        cfg_layout.addWidget(self.lbl_move)
+
         self.config_group.setLayout(cfg_layout)
         body_layout.addWidget(self.config_group)
+        self.body_widget.setLayout(body_layout)
+        main_layout.addWidget(self.body_widget)
 
-        # Button-Leiste
+        # Button-Leiste (Bearbeiten / Jetzt ausführen)
         self.button_bar = QtWidgets.QWidget()
         button_layout = QtWidgets.QHBoxLayout(self.button_bar)
         button_layout.setContentsMargins(10, 5, 10, 5)
@@ -135,17 +128,15 @@ class TransferPlanWidget(QtWidgets.QFrame):
         self.run_btn.clicked.connect(self.on_run_now)
         button_layout.addWidget(self.run_btn)
 
-        body_layout.addWidget(self.button_bar)
+        main_layout.addWidget(self.button_bar)
 
-        self.body_widget.setLayout(body_layout)
-        main_layout.addWidget(self.body_widget)
-
-        # Startzustand
         self.body_widget.setVisible(self.body_visible)
-        self._log("Bereit.")
+        self.update_labels()
 
-    # ---------------- kleine Helfer ----------------
-    def _create_row_label(self, text, row_index):
+    # ---------------------------------------------------------------
+    # Hilfsfunktionen
+    # ---------------------------------------------------------------
+    def create_label(self, text, row_index):
         lbl = QtWidgets.QLabel(text)
         lbl.setMinimumHeight(24)
         lbl.setStyleSheet(f"""
@@ -155,13 +146,21 @@ class TransferPlanWidget(QtWidgets.QFrame):
         """)
         return lbl
 
-    def _log(self, msg: str):
-        ts = datetime.now().strftime("%H:%M:%S")
-        line = f"[{ts}] {msg}"
-        debug_print(line)
-        self.sig_log.emit(line)
+    def _entry_key(self, entry: Dict) -> str:
+        """Gleiche Key-Logik wie Worker: lokal = src_path, sonst server:remote."""
+        if entry.get("mode") == "local_src":
+            return str(entry.get("src_path", ""))
+        return f"{entry.get('src_server','')}:{entry.get('src_remote','')}"
 
-    # ---------------- Verhalten ----------------
+    def _direction_for(self, entry: Dict, plan: Dict) -> str:
+        if entry.get("mode") == "local_src":
+            return "UPLOAD" if plan.get("use_ftp") else "COPY"
+        else:
+            return "RELAY" if plan.get("use_ftp") else "DOWNLOAD"
+
+    # ---------------------------------------------------------------
+    # Events
+    # ---------------------------------------------------------------
     def on_toggle_body(self):
         self.body_visible = not self.body_visible
         self.body_widget.setVisible(self.body_visible)
@@ -171,19 +170,22 @@ class TransferPlanWidget(QtWidgets.QFrame):
         mgr.update_plan(self.plan_data["id"], self.plan_data)
 
     def on_edit(self):
+        """Öffnet den Bearbeitungsdialog, robust gegen alte Signaturen."""
         try:
             dlg = TransferPlanDialog(self.plan_data, parent=self)
         except TypeError as e:
-            debug_print(f"[TransferPlanWidget] Dialog-Init ohne manager fehlgeschlagen: {e} -> Fallback mit manager=None")
+            debug_print(f"[TransferPlanWidget] Dialog-Init ohne manager fehlgeschlagen: {e} -> Fallback")
             try:
                 dlg = TransferPlanDialog(self.plan_data, None, self)
             except TypeError as e2:
-                debug_print(f"[TransferPlanWidget] Dialog-Init mit manager=None fehlgeschlagen: {e2}")
                 QtWidgets.QMessageBox.critical(self, "Fehler", f"Dialog konnte nicht geöffnet werden:\n{e2}")
                 return
 
         exec_method = getattr(dlg, "exec_", None)
-        result = exec_method() if callable(exec_method) else dlg.exec()
+        if callable(exec_method):
+            result = dlg.exec_()
+        else:
+            result = dlg.exec()
 
         if result == QtWidgets.QDialog.Accepted:
             debug_print("TransferPlan geändert, update and reload.")
@@ -195,67 +197,61 @@ class TransferPlanWidget(QtWidgets.QFrame):
                 parent_widget = parent_widget.parent()
             if parent_widget and hasattr(parent_widget, "load_plans"):
                 parent_widget.load_plans()
+        else:
+            debug_print("TransferPlan-Dialog abgebrochen.")
 
+    # ---------------------------------------------------------------
+    # Plan frisch laden und Transfer starten + globale Queue informieren
+    # ---------------------------------------------------------------
     def on_run_now(self):
-        """
-        Manuelle Ausführung dieses Plans:
-          - Öffnet TransferQueueDialog (non-modal).
-          - Leitet Worker-Ereignisse per Signal an das List-Widget weiter.
-        """
-        plan_name = self.plan_data.get("name", "Unbenannt")
-        self._log(f"Manueller Start für Plan '{plan_name}' …")
+        """Startet den Transfer mit der aktuellen gespeicherten Planversion und signalisiert global."""
+        plan_id = self.plan_data.get("id")
+        debug_print(f"TransferPlanWidget: on_run_now() => Starte Transfer für Plan-ID {plan_id}")
 
-        dlg = TransferQueueDialog(self.plan_data, parent=self)
-        self._queue_dialog = dlg
+        cm = TransferPlanConfigManager()
+        fresh_plan = cm.get_plan(plan_id) if hasattr(cm, "get_plan") else None
+        if not fresh_plan:
+            debug_print("[TransferPlanWidget] Kein aktueller Plan gefunden – verwende lokalen Snapshot.")
+            fresh_plan = dict(self.plan_data)
 
-        # Initiale Queue-Items an ListWidget senden
-        init_items: List[Dict[str, str]] = []
-        for entry in dlg.file_list:
-            if entry["mode"] == "local_src":
-                key = entry["src_path"]
-                direction = "UPLOAD" if self.plan_data.get("use_ftp", False) else "COPY"
-                file_disp = entry["src_path"]
-            else:
-                key = f"{entry['src_server']}:{entry['src_remote']}"
-                direction = "DOWNLOAD" if not self.plan_data.get("use_ftp", False) else "RELAY"
-                file_disp = entry["src_remote"]
-            dest = entry.get("dest_hint", "")
-            init_items.append({
-                "key": key,
-                "direction": direction,
-                "file": file_disp,
-                "destination": dest
-            })
-        self.sig_transfer_init.emit(init_items)
-
-        # Worker-Signale nach oben durchreichen
-        def after_started():
-            try:
-                if dlg.worker:
-                    dlg.worker.progress.connect(self._forward_progress, QtCore.Qt.QueuedConnection)
-                    dlg.finished.connect(self._forward_finished, QtCore.Qt.QueuedConnection)
-                else:
-                    self._log("Hinweis: Kein Worker verfügbar (keine Dateien?).")
-            except Exception as e:
-                self._log(f"Progress-Hook fehlgeschlagen: {e}")
-
-        dlg.setWindowModality(QtCore.Qt.NonModal)
+        # Dialog anzeigen (erstellt file_list bereits in init_ui)
+        from ui.transfer_queue_dialog import TransferQueueDialog
+        dlg = TransferQueueDialog(fresh_plan, parent=self)
         dlg.show()
+
+        # --- globale Queue initialisieren ---
+        init_items: List[Dict] = []
+        try:
+            for entry in (dlg.file_list or []):
+                key = self._entry_key(entry)
+                direction = self._direction_for(entry, fresh_plan)
+                file_disp = entry["src_path"] if entry.get("mode") == "local_src" else f"{entry.get('src_server','')}:{entry.get('src_remote','')}"
+                dest = entry.get("dest_hint", "")
+                init_items.append({
+                    "key": key,
+                    "direction": direction,
+                    "file": file_disp,
+                    "destination": dest
+                })
+        except Exception as e:
+            debug_print(f"[TransferPlanWidget] Init-Liste konnte nicht erstellt werden: {e}")
+
+        if init_items:
+            self.sig_transfer_init.emit(init_items)
+
+        # Transfer starten und Worker-Signale an globale Queue durchreichen
         dlg.start_transfer()
-        QtCore.QTimer.singleShot(0, after_started)
 
-    @QtCore.Slot(str, str, int)
-    def _forward_progress(self, key: str, status: str, percent: int):
-        self.sig_transfer_progress.emit(key, status, percent)
-        # zusätzlich Logzeile
-        self._log(f"{status}: {key} ({percent}%)")
+        try:
+            if dlg.worker is not None:
+                dlg.worker.progress.connect(self.sig_transfer_progress.emit)
+                dlg.worker.finished.connect(self.sig_transfer_finished.emit)
+        except Exception as e:
+            debug_print(f"[TransferPlanWidget] Worker-Signale konnten nicht verbunden werden: {e}")
 
-    @QtCore.Slot()
-    def _forward_finished(self):
-        self._log("Transfer abgeschlossen.")
-        self.sig_transfer_finished.emit()
-
-    # ---------------- label updates ----------------
+    # ---------------------------------------------------------------
+    # Label Update
+    # ---------------------------------------------------------------
     def update_labels(self):
         debug_print("TransferPlanWidget.update_labels()")
         self.title_label.setText(self.plan_data.get("name", "Unbenannt"))
@@ -265,14 +261,14 @@ class TransferPlanWidget(QtWidgets.QFrame):
 
         def get_last_n_components(path, n):
             norm = os.path.normpath(path)
-            components = norm.split(os.sep)
-            if len(components) < n:
+            parts = norm.split(os.sep)
+            if len(parts) < n:
                 return norm
-            return os.sep.join(components[-n:])
+            return os.sep.join(parts[-n:])
 
-        subheader_depth = 2
-        src_sub = get_last_n_components(src, subheader_depth) if src else "(none)"
-        tgt_sub = get_last_n_components(tgt, subheader_depth) if tgt else "(none)"
+        sub_depth = 2
+        src_sub = get_last_n_components(src, sub_depth) if src else "(none)"
+        tgt_sub = get_last_n_components(tgt, sub_depth) if tgt else "(none)"
         self.subheader_label.setText(f"{src_sub} -> {tgt_sub}")
 
         self.lbl_src.setText(f"Quellordner: {src or '(none)'}")
@@ -287,14 +283,11 @@ class TransferPlanWidget(QtWidgets.QFrame):
 
         version_mode = self.plan_data.get("versioning_mode", "mirror")
         suffix_fmt = self.plan_data.get("suffix_format", "_v{n}")
-        version_str = f"Versionierung: {version_mode} (Suffix={suffix_fmt})"
-        self.lbl_ver.setText(version_str)
+        self.lbl_ver.setText(f"Versionierung: {version_mode} (Suffix={suffix_fmt})")
 
         schedule_type = self.plan_data.get("schedule_type", "once")
         schedule_time = self.plan_data.get("schedule_time", "(none)")
-        sched_str = f"Zeitplan: {schedule_type} @ {schedule_time}"
-        self.lbl_sched.setText(sched_str)
+        self.lbl_sched.setText(f"Zeitplan: {schedule_type} @ {schedule_time}")
 
         move_after = self.plan_data.get("move_after", "(none)")
-        move_str = f"Nach Transfer verschieben: {move_after}"
-        self.lbl_move.setText(move_str)
+        self.lbl_move.setText(f"Nach Transfer verschieben: {move_after}")

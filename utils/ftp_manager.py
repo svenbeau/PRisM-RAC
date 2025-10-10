@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#ftp_manager.py
 # -*- coding: utf-8 -*-
 
 import os
@@ -8,8 +9,11 @@ import keyring
 import smtplib
 import platform
 import json
+import ftplib
+import posixpath
+import tempfile
 from datetime import datetime
-from typing import List, Callable, Any
+from typing import List, Callable, Any, Optional, Dict
 
 try:
     import pync  # Für macOS-Notification
@@ -20,8 +24,6 @@ try:
     import paramiko  # Für SFTP
 except ImportError:
     paramiko = None
-
-import ftplib  # Für (S)FTP (Plain FTP)
 
 from utils.config_manager import (
     load_settings,
@@ -63,6 +65,9 @@ class FTPManager:
       - Remote-Verzeichnis erstellen
       - Remote Dateimanagement
       - list_directory() liefert Tupel (name, is_dir, size, mod_time_str[, owner])
+      - get_size/stat für Verifikation
+      - move_remote Convenience
+      - list_files_recursive für Quell-FTP-Scans
     """
 
     def __init__(self):
@@ -88,6 +93,18 @@ class FTPManager:
         # Retry-Parameter (per settings überschreibbar)
         self.max_retries = int(self.settings.get("ftp_max_retries", 3))
         self.retry_sleep_sec = float(self.settings.get("ftp_retry_sleep_sec", 2.0))
+
+    # ---------- Hilfen ----------
+    @staticmethod
+    def _normalize_posix(p: str) -> str:
+        if not isinstance(p, str):
+            p = str(p)
+        p = p.replace("\\", "/")
+        # Doppelslashes (außer am Anfang) vermeiden
+        if len(p) > 1:
+            while "//" in p[1:]:
+                p = p[0] + p[1:].replace("//", "/")
+        return p
 
     # --- Passwortauflösung ---
     def _resolve_password(self):
@@ -169,6 +186,7 @@ class FTPManager:
                 time.sleep(self.retry_sleep_sec)
 
     def ensure_remote_directory(self, remote_dir):
+        remote_dir = self._normalize_posix(remote_dir)
         def _impl():
             if self.ftp_protocol == "ftp":
                 try:
@@ -179,6 +197,8 @@ class FTPManager:
                 dirs = remote_dir.strip("/").split("/")
                 cwd = ""
                 for d in dirs:
+                    if not d:
+                        continue
                     cwd += "/" + d
                     try:
                         self.conn.cwd(cwd)
@@ -193,6 +213,8 @@ class FTPManager:
                 dirs = remote_dir.strip("/").split("/")
                 cwd = ""
                 for d in dirs:
+                    if not d:
+                        continue
                     cwd += "/" + d
                     try:
                         self.conn.chdir(cwd)
@@ -204,6 +226,7 @@ class FTPManager:
         file_size = os.path.getsize(local_path)
         uploaded = 0
         chunk_size = 8192
+        remote_path = self._normalize_posix(remote_path)
 
         def _impl():
             nonlocal uploaded
@@ -218,6 +241,7 @@ class FTPManager:
             if self.keep_timestamp:
                 modtime = time.strftime("%Y%m%d%H%M%S", time.localtime(os.path.getmtime(local_path)))
                 try:
+                    # nicht jeder Server unterstützt MFMT
                     self.conn.sendcmd(f"MFMT {modtime} {remote_path}")
                 except Exception:
                     pass
@@ -225,6 +249,7 @@ class FTPManager:
         self._retry_op(f"upload_file_ftp:{remote_path}", _impl)
 
     def _upload_file_sftp(self, local_path, remote_path):
+        remote_path = self._normalize_posix(remote_path)
         def _impl():
             sftp = self.conn
             sftp.put(local_path, remote_path)
@@ -236,6 +261,7 @@ class FTPManager:
 
     def upload_file(self, local_path, remote_dir, progress_callback=None):
         base_name = os.path.basename(local_path)
+        remote_dir = self._normalize_posix(remote_dir)
         remote_path = remote_dir.rstrip("/") + "/" + base_name
 
         # Versionierung prüfen (suffix)
@@ -268,43 +294,66 @@ class FTPManager:
             else:
                 self._upload_file_sftp(local_path, remote_path)
             self.log_transfer(local_path, remote_path, "UPLOAD", status="SUCCESS")
+            return remote_path
         except Exception as e:
             debug_print(f"Upload fehlgeschlagen: {e}")
             self.log_transfer(local_path, remote_path, "UPLOAD", status="FAILED")
             raise
 
     def download_file(self, remote_path, local_dir):
+        remote_path = self._normalize_posix(remote_path)
         filename = os.path.basename(remote_path)
         local_path = os.path.join(local_dir, filename)
 
-        def _impl_ftp():
+        def _impl_ftp(path_to_get: str):
             if hasattr(self.conn, "sock") and self.conn.sock:
                 old_timeout = self.conn.sock.gettimeout()
                 self.conn.sock.settimeout(60)
-            with open(local_path, "wb") as f:
-                self.conn.retrbinary(f"RETR {remote_path}", f.write)
-            if hasattr(self.conn, "sock") and self.conn.sock:
-                self.conn.sock.settimeout(old_timeout)
+            try:
+                with open(local_path, "wb") as f:
+                    self.conn.retrbinary(f"RETR {path_to_get}", f.write)
+            finally:
+                if hasattr(self.conn, "sock") and self.conn.sock:
+                    self.conn.sock.settimeout(old_timeout)
 
-        def _impl_sftp():
+        def _impl_sftp(path_to_get: str):
             sftp = self.conn
-            sftp.get(remote_path, local_path)
+            sftp.get(path_to_get, local_path)
             if self.keep_timestamp:
-                attr = sftp.stat(remote_path)
+                attr = sftp.stat(path_to_get)
                 os.utime(local_path, (attr.st_atime, attr.st_mtime))
 
         try:
             if self.ftp_protocol == "ftp":
-                self._retry_op(f"download_file_ftp:{remote_path}", _impl_ftp)
+                try:
+                    self._retry_op(f"download_file_ftp:{remote_path}", lambda: _impl_ftp(remote_path))
+                except Exception:
+                    # Alternative: ohne führenden Slash versuchen
+                    alt = remote_path.lstrip("/")
+                    if alt != remote_path:
+                        self._retry_op(f"download_file_ftp:{alt}", lambda: _impl_ftp(alt))
+                    else:
+                        raise
             else:
-                self._retry_op(f"download_file_sftp:{remote_path}", _impl_sftp)
+                try:
+                    self._retry_op(f"download_file_sftp:{remote_path}", lambda: _impl_sftp(remote_path))
+                except Exception:
+                    alt = remote_path.lstrip("/")
+                    if alt != remote_path:
+                        self._retry_op(f"download_file_sftp:{alt}", lambda: _impl_sftp(alt))
+                    else:
+                        raise
+
             self.log_transfer(remote_path, local_path, "DOWNLOAD", status="SUCCESS")
         except Exception as e:
             debug_print(f"Download fehlgeschlagen: {e}")
             self.log_transfer(remote_path, local_path, "DOWNLOAD", status="FAILED")
             raise
 
+        return local_path
+
     def list_directory(self, remote_path):
+        remote_path = self._normalize_posix(remote_path)
         if self.ftp_protocol == "ftp":
             return self._listdir_ftp(remote_path)
         else:
@@ -318,9 +367,9 @@ class FTPManager:
         """
         items = []
 
-        def _impl_list():
+        def _impl_list(path_to_list: str):
             try:
-                self.conn.cwd(remote_path)
+                self.conn.cwd(path_to_list)
             except Exception:
                 pass
 
@@ -341,9 +390,18 @@ class FTPManager:
                 mod_time_str = f"{parts[5]} {parts[6]} {parts[7]}"
                 name = " ".join(parts[8:])
                 items.append((name, is_dir, size, mod_time_str, owner))
-            self.conn.retrlines(f"LIST {remote_path}", parse_line)
 
-        self._retry_op(f"listdir_ftp:{remote_path}", _impl_list)
+            self.conn.retrlines(f"LIST {path_to_list}", parse_line)
+
+        try:
+            self._retry_op(f"listdir_ftp:{remote_path}", lambda: _impl_list(remote_path))
+        except Exception:
+            # Alternative ohne führenden Slash
+            alt = remote_path.lstrip("/")
+            if alt != remote_path:
+                self._retry_op(f"listdir_ftp:{alt}", lambda: _impl_list(alt))
+            else:
+                raise
         return items
 
     def _listdir_sftp(self, remote_path):
@@ -352,14 +410,14 @@ class FTPManager:
         """
         filelist = []
 
-        def _impl():
+        def _impl(path_to_list: str):
             sftp = self.conn
-            for f in sftp.listdir_attr(remote_path):
+            for f in sftp.listdir_attr(path_to_list):
                 name = f.filename
                 # Ordnererkennung robust:
                 is_dir = False
                 try:
-                    sftp.listdir(remote_path.rstrip("/") + "/" + name)
+                    sftp.listdir(path_to_list.rstrip("/") + "/" + name)
                     is_dir = True
                 except IOError:
                     is_dir = False
@@ -368,9 +426,290 @@ class FTPManager:
                 owner = str(getattr(f, "st_uid", ""))  # UID als Fallback
                 filelist.append((name, is_dir, size, mod_time, owner))
 
-        self._retry_op(f"listdir_sftp:{remote_path}", _impl)
+        try:
+            self._retry_op(f"listdir_sftp:{remote_path}", lambda: _impl(remote_path))
+        except Exception:
+            alt = remote_path.lstrip("/")
+            if alt != remote_path:
+                self._retry_op(f"listdir_sftp:{alt}", lambda: _impl(alt))
+            else:
+                raise
         return filelist
 
+    # ---------------- get_size / stat / md5 ----------------
+    def get_size(self, remote_path: str) -> Optional[int]:
+        """
+        Liefert Dateigröße in Bytes oder None. Testet ggf. alternative Pfadvariante ohne führenden Slash.
+        """
+        remote_path = self._normalize_posix(remote_path)
+
+        def _ftp_try(path_to_check: str) -> Optional[int]:
+            try:
+                size = self._retry_op(f"ftp_size:{path_to_check}", lambda: self.conn.size(path_to_check))
+                if size is not None:
+                    return int(size)
+            except Exception:
+                # Fallback: stat() probieren
+                info = self.stat(path_to_check)
+                if info and info.get("size") is not None:
+                    return int(info["size"])
+            return None
+
+        def _sftp_try(path_to_check: str) -> Optional[int]:
+            try:
+                st = self._retry_op(f"sftp_stat:{path_to_check}", lambda: self.conn.stat(path_to_check))
+                return int(st.st_size)
+            except Exception:
+                return None
+
+        if self.ftp_protocol == "ftp":
+            s = _ftp_try(remote_path)
+            if s is not None:
+                return s
+            alt = remote_path.lstrip("/")
+            if alt != remote_path:
+                return _ftp_try(alt)
+            return None
+        else:
+            s = _sftp_try(remote_path)
+            if s is not None:
+                return s
+            alt = remote_path.lstrip("/")
+            if alt != remote_path:
+                return _sftp_try(alt)
+            return None
+
+    def stat(self, remote_path: str) -> Optional[Dict]:
+        """
+        Liefert ein Dict mit Feldern (sofern verfügbar):
+          {"size": int, "mtime": int|None, "mode": int|None}
+        oder None.
+        """
+        remote_path = self._normalize_posix(remote_path)
+
+        def _ftp_mlst(path_to_check: str) -> Optional[Dict]:
+            try:
+                # MLST liefert eine Zeile mit Facts; via sendcmd abrufen
+                # Beispiel: '250-Listing ...\n type=file;size=123;modify=20250109101530;perm=adfr; /path/file\n250 End.'
+                resp = self._retry_op(f"ftp_mlst:{path_to_check}", lambda: self.conn.sendcmd(f"MLST {path_to_check}"))
+                facts_line = ""
+                for line in resp.splitlines():
+                    line = line.strip()
+                    if ";" in line and "type=" in line:
+                        facts_line = line
+                        break
+                facts = {}
+                if facts_line:
+                    # bis zum ersten Leerzeichen sind Facts
+                    facts_part = facts_line.split(" ", 1)[0]
+                    for kv in facts_part.split(";"):
+                        if "=" in kv:
+                            k, v = kv.split("=", 1)
+                            facts[k.strip().lower()] = v.strip()
+                out = {}
+                if "size" in facts and facts["size"].isdigit():
+                    out["size"] = int(facts["size"])
+                else:
+                    # ohne MLST size -> None
+                    pass
+                # mtime aus "modify" (YYYYMMDDhhmmss) -> nicht trivial ohne TZ; wir liefern None
+                out["mtime"] = None
+                out["mode"] = None
+                return out if out else None
+            except Exception:
+                return None
+
+        def _sftp_stat(path_to_check: str) -> Optional[Dict]:
+            try:
+                st = self._retry_op(f"sftp_stat:{path_to_check}", lambda: self.conn.stat(path_to_check))
+                return {
+                    "size": int(getattr(st, "st_size", 0)),
+                    "mtime": int(getattr(st, "st_mtime", 0)) if hasattr(st, "st_mtime") else None,
+                    "mode": int(getattr(st, "st_mode", 0)) if hasattr(st, "st_mode") else None,
+                }
+            except Exception:
+                return None
+
+        if self.ftp_protocol == "ftp":
+            info = _ftp_mlst(remote_path)
+            if info:
+                return info
+            alt = remote_path.lstrip("/")
+            if alt != remote_path:
+                return _ftp_mlst(alt)
+            return None
+        else:
+            info = _sftp_stat(remote_path)
+            if info:
+                return info
+            alt = remote_path.lstrip("/")
+            if alt != remote_path:
+                return _sftp_stat(alt)
+            return None
+
+    def md5(self, remote_path: str) -> str:
+        """
+        Optional: MD5 vom Server anfragen. Viele FTP/SFTP-Server unterstützen das nicht.
+        Wir werfen bewusst NotImplementedError, damit der Aufrufer fallbacked.
+        """
+        raise NotImplementedError("Remote-MD5 wird vom Server/Protokoll nicht unterstützt.")
+
+    # --- Remote File Management (unverändert, plus move_remote) ---
+    def mkdir_remote(self, remote_path):
+        remote_path = self._normalize_posix(remote_path)
+        def _impl():
+            if self.ftp_protocol == "ftp":
+                self.conn.mkd(remote_path)
+            elif self.ftp_protocol == "sftp":
+                self.conn.mkdir(remote_path)
+            else:
+                raise TransferError("Unbekanntes Protokoll")
+        self._retry_op(f"mkdir_remote:{remote_path}", _impl)
+
+    def rename_remote(self, old_path, new_path):
+        old_path = self._normalize_posix(old_path)
+        new_path = self._normalize_posix(new_path)
+        def _impl():
+            if self.ftp_protocol == "ftp":
+                self.conn.rename(old_path, new_path)
+            elif self.ftp_protocol == "sftp":
+                self.conn.rename(old_path, new_path)
+            else:
+                raise TransferError("Unbekanntes Protokoll")
+        self._retry_op(f"rename_remote:{old_path}->{new_path}", _impl)
+
+    def move_remote(self, src_remote: str, dst_remote: str):
+        """
+        Bequemer Move mit Fallback (copy+delete), inkl. Zielverzeichnis-Erstellung.
+        """
+        src_remote = self._normalize_posix(src_remote)
+        dst_remote = self._normalize_posix(dst_remote)
+        dst_dir = posixpath.dirname(dst_remote)
+        self.ensure_remote_directory(dst_dir)
+
+        try:
+            self.rename_remote(src_remote, dst_remote)
+            return
+        except Exception:
+            pass
+
+        # Fallback: RETR -> STOR -> DELETE
+        if self.ftp_protocol == "ftp":
+            def _impl_copy():
+                tmp = tempfile.TemporaryFile()
+                self.conn.retrbinary(f"RETR {src_remote}", tmp.write)
+                tmp.seek(0)
+                self.conn.storbinary(f"STOR {dst_remote}", tmp)
+                tmp.close()
+                try:
+                    self.conn.delete(src_remote)
+                except Exception:
+                    pass
+            self._retry_op(f"move_remote_fallback_ftp:{src_remote}->{dst_remote}", _impl_copy)
+        else:
+            def _impl_copy():
+                self.conn.putfo(self.conn.file(src_remote, "rb"), dst_remote)
+                try:
+                    self.conn.remove(src_remote)
+                except Exception:
+                    pass
+            self._retry_op(f"move_remote_fallback_sftp:{src_remote}->{dst_remote}", _impl_copy)
+
+    def delete_remote_file(self, remote_path):
+        remote_path = self._normalize_posix(remote_path)
+        def _impl():
+            if self.ftp_protocol == "ftp":
+                self.conn.delete(remote_path)
+            elif self.ftp_protocol == "sftp":
+                self.conn.remove(remote_path)
+            else:
+                raise TransferError("Unbekanntes Protokoll")
+        self._retry_op(f"delete_remote_file:{remote_path}", _impl)
+
+    def delete_remote_directory(self, remote_path):
+        remote_path = self._normalize_posix(remote_path)
+        def _impl():
+            if self.ftp_protocol == "ftp":
+                self.conn.rmd(remote_path)
+            elif self.ftp_protocol == "sftp":
+                self.conn.rmdir(remote_path)
+            else:
+                raise TransferError("Unbekanntes Protokoll")
+        self._retry_op(f"delete_remote_dir:{remote_path}", _impl)
+
+    def upload_folder(self, local_folder, remote_folder):
+        remote_folder = self._normalize_posix(remote_folder)
+        for root, dirs, files in os.walk(local_folder):
+            relative_sub = os.path.relpath(root, local_folder)
+            if relative_sub == ".":
+                remote_sub = remote_folder
+            else:
+                remote_sub = remote_folder.rstrip("/") + "/" + self._normalize_posix(relative_sub)
+            for file in files:
+                local_path = os.path.join(root, file)
+                try:
+                    self.upload_file(local_path, remote_sub)
+                except Exception as e:
+                    self.send_failure_notification(str(e))
+                    raise
+
+    # ---------------- Rekursives Listing für FTP-Quelle ----------------
+    def list_files_recursive(self, remote_root: str) -> List[str]:
+        """
+        Liefert alle Dateien unter remote_root als relative POSIX-Pfade.
+        """
+        remote_root = self._normalize_posix(remote_root).rstrip("/")
+        files: List[str] = []
+
+        if self.ftp_protocol == "ftp":
+            def _walk(dir_path: str, rel_prefix: str):
+                entries = self._listdir_ftp(dir_path)
+                for name, is_dir, size, _, _ in entries:
+                    if name in (".", ".."):
+                        continue
+                    child_abs = dir_path.rstrip("/") + "/" + name
+                    child_rel = (rel_prefix + "/" + name) if rel_prefix else name
+                    if is_dir:
+                        _walk(child_abs, child_rel)
+                    else:
+                        files.append(child_rel)
+
+            try:
+                _walk(remote_root, "")
+            except Exception as e:
+                debug_print(f"[list_files_recursive FTP] Fehler: {e}")
+                raise
+        else:
+            def _walk_sftp(dir_path: str, rel_prefix: str):
+                try:
+                    for attr in self.conn.listdir_attr(dir_path):
+                        name = attr.filename
+                        if name in (".", ".."):
+                            continue
+                        child_abs = dir_path.rstrip("/") + "/" + name
+                        child_rel = (rel_prefix + "/" + name) if rel_prefix else name
+                        mode = getattr(attr, "st_mode", 0)
+                        is_dir = False
+                        try:
+                            # robust: Verzeichnis?
+                            self.conn.listdir(child_abs)
+                            is_dir = True
+                        except IOError:
+                            is_dir = False
+                        if is_dir:
+                            _walk_sftp(child_abs, child_rel)
+                        else:
+                            files.append(child_rel)
+                except Exception as e:
+                    debug_print(f"[list_files_recursive SFTP] Fehler: {e}")
+                    raise
+
+            _walk_sftp(remote_root, "")
+
+        debug_print(f"[list_files_recursive] {len(files)} Dateien unter {remote_root}")
+        return files
+
+    # ---------------- Logging/Benachrichtigung ----------------
     def log_transfer(self, source, target, direction, status="SUCCESS"):
         logfile_path = get_ftp_transfer_log_path()
         entries = []
@@ -455,68 +794,11 @@ class FTPManager:
             except Exception as e:
                 debug_print(f"Fehler beim Senden der E-Mail: {e}")
 
-    # --- Remote File Management (unverändert, aber mit Retry) ---
-    def mkdir_remote(self, remote_path):
-        def _impl():
-            if self.ftp_protocol == "ftp":
-                self.conn.mkd(remote_path)
-            elif self.ftp_protocol == "sftp":
-                self.conn.mkdir(remote_path)
-            else:
-                raise TransferError("Unbekanntes Protokoll")
-        self._retry_op(f"mkdir_remote:{remote_path}", _impl)
-
-    def rename_remote(self, old_path, new_path):
-        def _impl():
-            if self.ftp_protocol == "ftp":
-                self.conn.rename(old_path, new_path)
-            elif self.ftp_protocol == "sftp":
-                self.conn.rename(old_path, new_path)
-            else:
-                raise TransferError("Unbekanntes Protokoll")
-        self._retry_op(f"rename_remote:{old_path}->{new_path}", _impl)
-
-    def delete_remote_file(self, remote_path):
-        def _impl():
-            if self.ftp_protocol == "ftp":
-                self.conn.delete(remote_path)
-            elif self.ftp_protocol == "sftp":
-                self.conn.remove(remote_path)
-            else:
-                raise TransferError("Unbekanntes Protokoll")
-        self._retry_op(f"delete_remote_file:{remote_path}", _impl)
-
-    def delete_remote_directory(self, remote_path):
-        def _impl():
-            if self.ftp_protocol == "ftp":
-                self.conn.rmd(remote_path)
-            elif self.ftp_protocol == "sftp":
-                self.conn.rmdir(remote_path)
-            else:
-                raise TransferError("Unbekanntes Protokoll")
-        self._retry_op(f"delete_remote_dir:{remote_path}", _impl)
-
-    def upload_folder(self, local_folder, remote_folder):
-        for root, dirs, files in os.walk(local_folder):
-            relative_sub = os.path.relpath(root, local_folder)
-            if relative_sub == ".":
-                remote_sub = remote_folder
-            else:
-                remote_sub = remote_folder.rstrip("/") + "/" + relative_sub
-            for file in files:
-                local_path = os.path.join(root, file)
-                try:
-                    self.upload_file(local_path, remote_sub)
-                except Exception as e:
-                    self.send_failure_notification(str(e))
-                    raise
-
-
-if __name__ == "__main__":
-    mgr = FTPManager()
-    try:
-        mgr.connect()
-    except Exception as e:
-        mgr.send_failure_notification(str(e))
-    finally:
-        mgr.disconnect()
+    if __name__ == "__main__":
+        mgr = FTPManager()
+        try:
+            mgr.connect()
+        except Exception as e:
+            mgr.send_failure_notification(str(e))
+        finally:
+            mgr.disconnect()

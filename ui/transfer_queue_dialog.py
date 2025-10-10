@@ -56,7 +56,38 @@ class TransferQueueDialog(QtWidgets.QDialog):
         main_layout.addLayout(btn_layout)
 
         self.file_list = self.collect_files()
+
+        # Wenn leer: früh und sichtbar informieren, keine Thread-Starts.
+        if not self.file_list:
+            src = self.plan_data.get("source_path", "") or "(leer)"
+            preview = self._preview_dir(src)
+            msg = (
+                "Im Quellordner ist aktuell nichts zu übertragen.\n\n"
+                f"Quelle: {src}\n"
+                f"Top-Level-Inhalte: {preview if preview else '(leer)'}"
+            )
+            debug_print(f"[TransferQueueDialog] Keine Dateien gefunden. {msg}")
+            QtWidgets.QMessageBox.information(self, "Keine Dateien gefunden", msg)
+            # Tabelle mit einem freundlichen Hinweis befüllen
+            self.table.setRowCount(1)
+            self.table.setItem(0, 0, QtWidgets.QTableWidgetItem(src))
+            self.table.setItem(0, 1, QtWidgets.QTableWidgetItem(self.plan_data.get("target_path", "")))
+            self.table.setItem(0, 2, QtWidgets.QTableWidgetItem("Keine Dateien"))
+            bar = QtWidgets.QProgressBar()
+            bar.setValue(0)
+            self.table.setCellWidget(0, 3, bar)
+            return
+
         self.populate_table()
+
+    def _preview_dir(self, path: str) -> str:
+        try:
+            if os.path.isdir(path):
+                items = os.listdir(path)
+                return ", ".join(items[:10]) + (" ..." if len(items) > 10 else "")
+        except Exception as e:
+            return f"<listdir fehlgeschlagen: {e}>"
+        return ""
 
     # -------------------------- Sammlung der Quelldateien --------------------------
     def collect_files(self):
@@ -71,22 +102,56 @@ class TransferQueueDialog(QtWidgets.QDialog):
         if not source_path:
             debug_print("Quelle nicht gesetzt.")
             return []
+
+        # Diagnostik
+        debug_print(f"[collect_local] source_path={source_path}")
         if not os.path.exists(source_path):
-            debug_print(f"Quelle existiert nicht: {source_path}")
+            debug_print(f"[collect_local] Quelle existiert NICHT: {source_path}")
             return []
+        if not os.path.isdir(source_path):
+            debug_print(f"[collect_local] Quelle ist KEIN Verzeichnis: {source_path}")
+            return []
+
+        try:
+            entries = os.listdir(source_path)
+            debug_print(f"[collect_local] Top-Level Einträge: {len(entries)}")
+            if entries:
+                preview = ", ".join(entries[:20])
+                debug_print(f"[collect_local] Vorschau: {preview}{' ...' if len(entries) > 20 else ''}")
+        except Exception as e:
+            debug_print(f"[collect_local] listdir() fehlgeschlagen: {e}")
+
         file_list = []
         move_after = self.plan_data.get("move_after", "")
         abs_move_after = os.path.abspath(move_after) if move_after else None
+
         for root, dirs, files in os.walk(source_path):
-            # versteckte Ordner/Dateien raus
+            # versteckte Ordner raus
+            before_dirs = list(dirs)
             dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+            # ggf. move_after innerhalb der Quelle ausschließen
             if abs_move_after:
-                dirs[:] = [d for d in dirs if os.path.abspath(os.path.join(root, d)) != abs_move_after]
+                filtered = []
+                for d in list(dirs):
+                    candidate = os.path.abspath(os.path.join(root, d))
+                    if candidate == abs_move_after or candidate.startswith(abs_move_after + os.sep):
+                        filtered.append(candidate)
+                        dirs.remove(d)
+                for f in filtered:
+                    debug_print(f"[collect_local] schließe move_after-Unterordner aus: {f}")
+
+            if before_dirs != dirs:
+                debug_print(f"[collect_local] dirs gefiltert: {before_dirs} -> {dirs}")
+
             for f in files:
                 if f.startswith('.'):
                     continue
                 full_path = os.path.join(root, f)
-                rel = os.path.relpath(full_path, source_path)
+                try:
+                    rel = os.path.relpath(full_path, source_path)
+                except Exception:
+                    rel = f
                 dest_hint = self._build_target_hint(rel)
                 file_list.append({
                     "mode": "local_src",
@@ -94,7 +159,10 @@ class TransferQueueDialog(QtWidgets.QDialog):
                     "rel": rel,
                     "dest_hint": dest_hint
                 })
+
         debug_print(f"Zu übertragende lokale Dateien: {len(file_list)}")
+        if not file_list:
+            debug_print("[collect_local] Ergebnis leer – entweder keine Dateien vorhanden oder alle im move_after-Bereich.")
         return file_list
 
     # ---- FTP-Quelle: Lookup + connect() ----
@@ -118,7 +186,6 @@ class TransferQueueDialog(QtWidgets.QDialog):
         try:
             rel_files = ftp.list_files_recursive(remote_root)  # z.B. ["subA/file1.tif", "file2.psd"]
             for rel in rel_files:
-                # Remotepfade immer POSIX
                 rel_posix = rel.replace("\\", "/")
                 remote_path = f"{remote_root}/{rel_posix}".replace("//", "/")
                 dest_hint = self._build_target_hint(rel_posix)
@@ -138,19 +205,13 @@ class TransferQueueDialog(QtWidgets.QDialog):
         return file_list
 
     def _build_target_hint(self, rel):
-        """
-        Nur zur Anzeige in der Tabelle; Zielverzeichnisse werden später beim Transfer
-        sauber gebaut (lokal: os.path, remote: posixpath).
-        """
         target = self.plan_data.get("target_path", "") or ""
         if self.plan_data.get("use_ftp", False):
-            # Remote-Hinweis (POSIX)
             base = "/" + target.lstrip("/")
             sub = rel.rsplit("/", 1)[0] if "/" in rel else ""
             hint = (base.rstrip("/") + ("/" + sub if sub else "")).replace("//", "/")
             return hint
         else:
-            # Lokal
             sub = os.path.dirname(rel)
             return os.path.join(target, sub)
 
@@ -168,6 +229,11 @@ class TransferQueueDialog(QtWidgets.QDialog):
 
     # -------------------------- Ablauf --------------------------
     def start_transfer(self):
+        # Sicher: Wenn nichts zu tun, keinen Thread starten
+        if not self.file_list:
+            debug_print("[TransferQueueDialog] start_transfer() übersprungen – keine Dateien.")
+            return
+
         self.worker_thread = QtCore.QThread()
         self.worker = TransferQueueWorker(self.plan_data, self.file_list)
         self.worker.moveToThread(self.worker_thread)
@@ -533,6 +599,13 @@ class TransferQueueWorker(QtCore.QObject):
         tmp_local = None
         try:
             tmp_local = self.dst_ftp.download_file(remote_path, tmp_dir)
+            # Fallback ohne führenden Slash probieren, falls nötig
+            if not tmp_local or not os.path.exists(tmp_local):
+                alt = remote_path.lstrip("/")
+                if alt != remote_path:
+                    debug_print(f"_remote_size_or_redownload: retry with alt path '{alt}'")
+                    tmp_local = self.dst_ftp.download_file(alt, tmp_dir)
+
             tmp_local = self._ensure_local_path(tmp_local, "verify_tmp_local")
             return os.path.getsize(tmp_local)
         finally:
@@ -558,6 +631,13 @@ class TransferQueueWorker(QtCore.QObject):
         tmp_local = None
         try:
             tmp_local = self.dst_ftp.download_file(remote_path, tmp_dir)
+            # Fallback ohne führenden Slash probieren, falls nötig
+            if not tmp_local or not os.path.exists(tmp_local):
+                alt = remote_path.lstrip("/")
+                if alt != remote_path:
+                    debug_print(f"_remote_md5_or_redownload: retry with alt path '{alt}'")
+                    tmp_local = self.dst_ftp.download_file(alt, tmp_dir)
+
             tmp_local = self._ensure_local_path(tmp_local, "verify_tmp_local")
             return self._md5_local(tmp_local)
         finally:
@@ -740,6 +820,7 @@ class TransferQueueWorker(QtCore.QObject):
 
     def _send_report_mail(self):
         total = len(self.results)
+        # <<< Korrektur: schließende Klammern repariert >>>
         ok = sum(1 for r in self.results if r["status"] == "SUCCESS")
         failed = sum(1 for r in self.results if r["status"] == "FAILED")
         aborted = sum(1 for r in self.results if r["status"] == "ABORTED")
