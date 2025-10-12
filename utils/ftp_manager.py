@@ -395,7 +395,6 @@ class FTPManager:
                 parts = line.split()
                 if len(parts) < 9:
                     return
-                # FIX: 'oder' -> 'or'
                 is_dir = line.startswith("d") or parts[0].startswith("d")
                 owner = ""
                 try:
@@ -446,11 +445,11 @@ class FTPManager:
                 filelist.append((name, is_dir, size, mod_time, owner))
 
         try:
-            self._retry_op(f"listdir_sftp:{remote_path}", lambda: _impl(remote_path))
+            self._retry_op(f"listdir_sftp:{remote_path}", lambda: _impl(path_to_list=remote_path))
         except Exception:
             alt = remote_path.lstrip("/")
             if alt != remote_path:
-                self._retry_op(f"listdir_sftp:{alt}", lambda: _impl(alt))
+                self._retry_op(f"listdir_sftp:{alt}", lambda: _impl(path_to_list=alt))
             else:
                 raise
         return filelist
@@ -656,7 +655,7 @@ class FTPManager:
         remote_path = self._normalize_posix(remote_path)
         def _impl():
             if self.ftp_protocol == "ftp":
-                self.conn.rmd(remote_path)
+                self.conn.rmdir(remote_path)
             elif self.ftp_protocol == "sftp":
                 self.conn.rmdir(remote_path)
             else:
@@ -783,35 +782,93 @@ class FTPManager:
             json.dump(entries, lf, indent=2)
 
     def send_transfer_summary_email(self, results):
+        """
+        Schreibt immer eine Status-Datei mit Ergebnissen + Mail-Metadaten.
+        Sendet E-Mail nur, wenn SMTP aktiviert und notify_email vorhanden.
+        Nutzt automatisch SSL bei Port 465, sonst (sofern nicht Port 25) STARTTLS.
+        """
         from utils.config_manager import get_mail_transfer_info_path
         info_path = get_mail_transfer_info_path()
+
+        # Basisinformationen für Statusausgabe
+        mail_meta = {
+            "attempted_at_utc": self._now_utc_iso(),
+            "enabled": bool(self.smtp_enabled),
+            "host": self.smtp_host,
+            "port": self.smtp_port,
+            "user_present": bool(self.smtp_user),
+            "notify_email_present": bool(self.notify_email),
+            "mode": "unknown",
+            "result": "SKIPPED",
+            "error": ""
+        }
+
+        # Statusdatei vorab schreiben (mit Roh-Results)
         try:
             with open(info_path, "w", encoding="utf-8") as f:
-                json.dump(results, f, indent=2)
+                json.dump({"results": results, "mail": mail_meta}, f, indent=2)
             debug_print(f"Transfer summary written to {info_path}")
         except Exception as e:
             debug_print(f"Fehler beim Schreiben von {info_path}: {e}")
 
-        if self.smtp_enabled and self.notify_email:
-            summary = "Transfer Summary:\n\n"
-            for r in results:
-                summary += f"{r['direction']} | {r['file']} -> {r.get('destination', '')}\n"
-                if r["status"] == "FAILED":
-                    summary += f"   Fehler: {r.get('error', 'Unbekannter Fehler')}\n"
-            subject = "Transfer Summary Report"
-            msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\nSubject: {subject}\r\n\r\n{summary}"
-            smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
-            if smtp_pass is None:
-                debug_print("SMTP-Passwort nicht im Keyring, kann keine Transfer Summary Mail senden.")
-                return
-            try:
-                with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
-                    server.starttls()
-                    server.login(self.smtp_user, smtp_pass)
-                    server.sendmail(self.smtp_user, [self.notify_email], msg)
-                debug_print("Transfer summary email sent successfully.")
-            except Exception as e:
-                debug_print(f"Fehler beim Senden der Transfer summary Mail: {e}")
+        # Voraussetzungen prüfen
+        if not self.smtp_enabled:
+            mail_meta["result"] = "SKIPPED_DISABLED"
+        elif not self.notify_email:
+            mail_meta["result"] = "SKIPPED_NO_NOTIFY_EMAIL"
+        else:
+            smtp_pass = None
+            if self.smtp_user:
+                smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
+                if smtp_pass is None:
+                    debug_print("SMTP-Passwort nicht im Keyring, kann keine Transfer Summary Mail senden.")
+                    mail_meta["result"] = "ERROR_NO_PASSWORD"
+                    mail_meta["error"] = "Keychain: PRisM-SMTP Passwort fehlt"
+            # Sendeversuch nur, wenn kein Fehler bis hier
+            if mail_meta["result"] in ("SKIPPED_DISABLED", "SKIPPED_NO_NOTIFY_EMAIL"):
+                pass
+            else:
+                try:
+                    # Transportmodus bestimmen
+                    use_ssl = (int(self.smtp_port) == 465)
+                    mail_meta["mode"] = "SSL" if use_ssl else ("PLAIN" if int(self.smtp_port) == 25 else "STARTTLS")
+
+                    subject = "Transfer Summary Report"
+                    summary = "Transfer Summary:\n\n"
+                    for r in results:
+                        summary += f"{r['direction']} | {r['file']} -> {r.get('destination', '')}\n"
+                        if r["status"] == "FAILED":
+                            summary += f"   Fehler: {r.get('error', 'Unbekannter Fehler')}\n"
+                    msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\nSubject: {subject}\r\n\r\n{summary}"
+
+                    if use_ssl:
+                        with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=15) as server:
+                            if self.smtp_user:
+                                server.login(self.smtp_user, smtp_pass or "")
+                            server.sendmail(self.smtp_user or self.notify_email, [self.notify_email], msg)
+                    else:
+                        with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
+                            server.ehlo()
+                            if int(self.smtp_port) != 25:
+                                server.starttls()
+                                server.ehlo()
+                            if self.smtp_user:
+                                server.login(self.smtp_user, smtp_pass or "")
+                            server.sendmail(self.smtp_user or self.notify_email, [self.notify_email], msg)
+
+                    mail_meta["result"] = "SENT"
+                except Exception as e:
+                    err = f"{type(e).__name__}: {e}"
+                    debug_print(f"Fehler beim Senden der Transfer summary Mail: {err}")
+                    mail_meta["result"] = "ERROR_SMTP"
+                    mail_meta["error"] = err
+
+        # Statusdatei mit finalem Mailstatus aktualisieren
+        try:
+            with open(info_path, "w", encoding="utf-8") as f:
+                json.dump({"results": results, "mail": mail_meta}, f, indent=2)
+        except Exception as e:
+            debug_print(f"Fehler beim Aktualisieren von {info_path}: {e}")
 
     def send_failure_notification(self, error_message):
         if platform.system() == "Darwin" and pync is not None:
