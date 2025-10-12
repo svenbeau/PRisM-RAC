@@ -12,7 +12,7 @@ import json
 import ftplib
 import posixpath
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone  # timezone für UTC-ISO
 from typing import List, Callable, Any, Optional, Dict
 
 try:
@@ -24,6 +24,13 @@ try:
     import paramiko  # Für SFTP
 except ImportError:
     paramiko = None
+
+# Local TZ (Europe/Berlin) für menschenlesbare ISO-Stempel
+try:
+    from zoneinfo import ZoneInfo
+    _LOCAL_TZ = ZoneInfo("Europe/Berlin")
+except Exception:
+    _LOCAL_TZ = None
 
 from utils.config_manager import (
     load_settings,
@@ -388,6 +395,7 @@ class FTPManager:
                 parts = line.split()
                 if len(parts) < 9:
                     return
+                # FIX: 'oder' -> 'or'
                 is_dir = line.startswith("d") or parts[0].startswith("d")
                 owner = ""
                 try:
@@ -727,6 +735,15 @@ class FTPManager:
         debug_print(f"[list_files_recursive] {len(files)} Dateien unter {remote_root}")
         return files
 
+    # ------------- Zeit-Helfer -------------
+    def _now_utc_iso(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def _now_local_iso(self) -> Optional[str]:
+        if _LOCAL_TZ is None:
+            return None
+        return datetime.now(_LOCAL_TZ).isoformat()
+
     # ---------------- Logging/Benachrichtigung ----------------
     def log_transfer(self, source, target, direction, status="SUCCESS"):
         logfile_path = get_ftp_transfer_log_path()
@@ -737,7 +754,7 @@ class FTPManager:
                     entries = json.load(lf)
             except:
                 entries = []
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # legacy beibehalten
         last_index = 0
         for e in entries:
             if "index" in e:
@@ -749,9 +766,12 @@ class FTPManager:
                     pass
         new_index = last_index + 1
         idx_str = f"{new_index:07d}"
+
         new_entry = {
             "index": idx_str,
-            "timestamp": now_str,
+            "timestamp": now_str,                       # legacy
+            "event_time_utc": self._now_utc_iso(),     # neu
+            "event_time_local": self._now_local_iso(), # neu
             "direction": direction,
             "source": source,
             "target": target,
