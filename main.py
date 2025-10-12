@@ -22,6 +22,9 @@ from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from utils.plan_scheduler import PlanScheduler, SchedulerConfig
 from utils.plan_cleaner import PlanCleaner, CleanerConfig
 
+# >>> NEU: Mail-Status-Widget importieren
+from ui.mail_status_widget import MailStatusWidget
+
 # --- NEU: einmaliger Start-Guard (mit Fallback ohne Verhaltensänderung)
 try:
     from utils.scheduler_guard import start_once
@@ -78,8 +81,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1200, 900)
         self.settings = load_settings()
 
-        self.scheduler: Optional[PlanScheduler] = None          # <-- Optional statt |
-        self.cleaner: Optional[PlanCleaner] = None              # <-- Optional statt |
+        self.scheduler: Optional[PlanScheduler] = None
+        self.cleaner: Optional[PlanCleaner] = None
 
         self._retention_thread: Optional[QtCore.QThread] = None
         self._retention_worker: Optional[_RetentionWorker] = None
@@ -144,6 +147,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plan_btn = QtWidgets.QPushButton("Transfer-Pläne")
         self.logfile_btn = QtWidgets.QPushButton("Logfile")
         self.settings_btn = QtWidgets.QPushButton("Einstellungen")
+        # >>> NEU: Mail-Status Button
+        self.mail_status_btn = QtWidgets.QPushButton("Mail-Status")
 
         self.feed_list_btn = QtWidgets.QPushButton("Liste einspeisen…")
         self.feed_list_btn.clicked.connect(self._open_list_feeder_dialog)
@@ -153,6 +158,8 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout.addWidget(self.json_editor_btn)
         left_vlayout.addWidget(self.ftp_transfer_btn)
         left_vlayout.addWidget(self.plan_btn)
+        # >>> NEU: Mail-Status in der linken Leiste (vor Logfile)
+        left_vlayout.addWidget(self.mail_status_btn)
         left_vlayout.addWidget(self.logfile_btn)
         left_vlayout.addWidget(self.settings_btn)
         left_vlayout.addSpacing(12)
@@ -171,6 +178,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.transfer_plan_list_widget = TransferPlanListWidget(self.settings, parent=self.stack)
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
+        # >>> NEU: Mail-Status-Widget
+        self.mail_status_widget = MailStatusWidget(parent=self.stack)
 
         self.stack.addWidget(self.hotfolder_list_widget)       # 0
         self.stack.addWidget(self.script_recipe_list_widget)   # 1
@@ -179,6 +188,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stack.addWidget(self.transfer_plan_list_widget)   # 4
         self.stack.addWidget(self.logfile_widget)              # 5
         self.stack.addWidget(self.settings_widget)             # 6
+        self.stack.addWidget(self.mail_status_widget)          # 7  <<< NEU (am Ende angehängt)
         self.stack.setCurrentIndex(0)
 
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
@@ -188,6 +198,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plan_btn.clicked.connect(lambda: self.stack.setCurrentIndex(4))
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
+        # >>> NEU: Routing für Mail-Status
+        self.mail_status_btn.clicked.connect(lambda: self.stack.setCurrentIndex(7))
 
     def _build_menu(self):
         menubar = self.menuBar()
