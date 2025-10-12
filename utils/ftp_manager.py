@@ -12,7 +12,7 @@ import json
 import ftplib
 import posixpath
 import tempfile
-from datetime import datetime, timezone  # timezone für UTC-ISO
+from datetime import datetime
 from typing import List, Callable, Any, Optional, Dict
 
 try:
@@ -25,19 +25,13 @@ try:
 except ImportError:
     paramiko = None
 
-# Local TZ (Europe/Berlin) für menschenlesbare ISO-Stempel
-try:
-    from zoneinfo import ZoneInfo
-    _LOCAL_TZ = ZoneInfo("Europe/Berlin")
-except Exception:
-    _LOCAL_TZ = None
-
 from utils.config_manager import (
     load_settings,
     load_smtp_settings,
     get_ftp_transfer_log_path,
     debug_print
 )
+
 
 class TransferError(Exception):
     """Eigene Exception für FTP-/SFTP-Fehler."""
@@ -205,6 +199,7 @@ class FTPManager:
 
     def ensure_remote_directory(self, remote_dir):
         remote_dir = self._normalize_posix(remote_dir)
+
         def _impl():
             if self.ftp_protocol == "ftp":
                 try:
@@ -238,6 +233,7 @@ class FTPManager:
                         self.conn.chdir(cwd)
                     except IOError:
                         self.conn.mkdir(cwd)
+
         return self._retry_op("ensure_remote_directory", _impl)
 
     def _upload_file_ftp(self, local_path, remote_path, progress_callback=None):
@@ -255,6 +251,7 @@ class FTPManager:
                     if progress_callback:
                         percent = int((uploaded / file_size) * 100) if file_size > 0 else 100
                         progress_callback(percent)
+
                 self.conn.storbinary(f"STOR {remote_path}", f, blocksize=chunk_size, callback=callback)
             if self.keep_timestamp:
                 modtime = time.strftime("%Y%m%d%H%M%S", time.localtime(os.path.getmtime(local_path)))
@@ -268,6 +265,7 @@ class FTPManager:
 
     def _upload_file_sftp(self, local_path, remote_path):
         remote_path = self._normalize_posix(remote_path)
+
         def _impl():
             sftp = self.conn
             sftp.put(local_path, remote_path)
@@ -275,6 +273,7 @@ class FTPManager:
                 atime = os.path.getatime(local_path)
                 mtime = os.path.getmtime(local_path)
                 sftp.utime(remote_path, (atime, mtime))
+
         self._retry_op(f"upload_file_sftp:{remote_path}", _impl)
 
     def upload_file(self, local_path, remote_dir, progress_callback=None):
@@ -445,11 +444,11 @@ class FTPManager:
                 filelist.append((name, is_dir, size, mod_time, owner))
 
         try:
-            self._retry_op(f"listdir_sftp:{remote_path}", lambda: _impl(path_to_list=remote_path))
+            self._retry_op(f"listdir_sftp:{remote_path}", lambda: _impl(remote_path))
         except Exception:
             alt = remote_path.lstrip("/")
             if alt != remote_path:
-                self._retry_op(f"listdir_sftp:{alt}", lambda: _impl(path_to_list=alt))
+                self._retry_op(f"listdir_sftp:{alt}", lambda: _impl(alt))
             else:
                 raise
         return filelist
@@ -527,9 +526,6 @@ class FTPManager:
                 out = {}
                 if "size" in facts and facts["size"].isdigit():
                     out["size"] = int(facts["size"])
-                else:
-                    # ohne MLST size -> None
-                    pass
                 # mtime aus "modify" (YYYYMMDDhhmmss) -> nicht trivial ohne TZ; wir liefern None
                 out["mtime"] = None
                 out["mode"] = None
@@ -575,6 +571,7 @@ class FTPManager:
     # --- Remote File Management (unverändert, plus move_remote) ---
     def mkdir_remote(self, remote_path):
         remote_path = self._normalize_posix(remote_path)
+
         def _impl():
             if self.ftp_protocol == "ftp":
                 self.conn.mkd(remote_path)
@@ -582,11 +579,13 @@ class FTPManager:
                 self.conn.mkdir(remote_path)
             else:
                 raise TransferError("Unbekanntes Protokoll")
+
         self._retry_op(f"mkdir_remote:{remote_path}", _impl)
 
     def rename_remote(self, old_path, new_path):
         old_path = self._normalize_posix(old_path)
         new_path = self._normalize_posix(new_path)
+
         def _impl():
             if self.ftp_protocol == "ftp":
                 self.conn.rename(old_path, new_path)
@@ -594,6 +593,7 @@ class FTPManager:
                 self.conn.rename(old_path, new_path)
             else:
                 raise TransferError("Unbekanntes Protokoll")
+
         self._retry_op(f"rename_remote:{old_path}->{new_path}", _impl)
 
     def move_remote(self, src_remote: str, dst_remote: str):
@@ -623,6 +623,7 @@ class FTPManager:
                     self.conn.delete(src_remote)
                 except Exception:
                     pass
+
             self._retry_op(f"move_remote_fallback_ftp:{src_remote}->{dst_remote}", _impl_copy)
         else:
             def _impl_copy():
@@ -638,10 +639,12 @@ class FTPManager:
                     self.conn.remove(src_remote)
                 except Exception:
                     pass
+
             self._retry_op(f"move_remote_fallback_sftp:{src_remote}->{dst_remote}", _impl_copy)
 
     def delete_remote_file(self, remote_path):
         remote_path = self._normalize_posix(remote_path)
+
         def _impl():
             if self.ftp_protocol == "ftp":
                 self.conn.delete(remote_path)
@@ -649,17 +652,20 @@ class FTPManager:
                 self.conn.remove(remote_path)
             else:
                 raise TransferError("Unbekanntes Protokoll")
+
         self._retry_op(f"delete_remote_file:{remote_path}", _impl)
 
     def delete_remote_directory(self, remote_path):
         remote_path = self._normalize_posix(remote_path)
+
         def _impl():
             if self.ftp_protocol == "ftp":
-                self.conn.rmdir(remote_path)
+                self.conn.rmd(remote_path)
             elif self.ftp_protocol == "sftp":
                 self.conn.rmdir(remote_path)
             else:
                 raise TransferError("Unbekanntes Protokoll")
+
         self._retry_op(f"delete_remote_dir:{remote_path}", _impl)
 
     def upload_folder(self, local_folder, remote_folder):
@@ -734,15 +740,6 @@ class FTPManager:
         debug_print(f"[list_files_recursive] {len(files)} Dateien unter {remote_root}")
         return files
 
-    # ------------- Zeit-Helfer -------------
-    def _now_utc_iso(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
-
-    def _now_local_iso(self) -> Optional[str]:
-        if _LOCAL_TZ is None:
-            return None
-        return datetime.now(_LOCAL_TZ).isoformat()
-
     # ---------------- Logging/Benachrichtigung ----------------
     def log_transfer(self, source, target, direction, status="SUCCESS"):
         logfile_path = get_ftp_transfer_log_path()
@@ -751,9 +748,9 @@ class FTPManager:
             try:
                 with open(logfile_path, "r", encoding="utf-8") as lf:
                     entries = json.load(lf)
-            except:
+            except Exception:
                 entries = []
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # legacy beibehalten
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         last_index = 0
         for e in entries:
             if "index" in e:
@@ -761,16 +758,13 @@ class FTPManager:
                     idx_val = int(e["index"])
                     if idx_val > last_index:
                         last_index = idx_val
-                except:
+                except Exception:
                     pass
         new_index = last_index + 1
         idx_str = f"{new_index:07d}"
-
         new_entry = {
             "index": idx_str,
-            "timestamp": now_str,                       # legacy
-            "event_time_utc": self._now_utc_iso(),     # neu
-            "event_time_local": self._now_local_iso(), # neu
+            "timestamp": now_str,
             "direction": direction,
             "source": source,
             "target": target,
@@ -783,111 +777,146 @@ class FTPManager:
 
     def send_transfer_summary_email(self, results):
         """
-        Schreibt immer eine Status-Datei mit Ergebnissen + Mail-Metadaten.
-        Sendet E-Mail nur, wenn SMTP aktiviert und notify_email vorhanden.
-        Nutzt automatisch SSL bei Port 465, sonst (sofern nicht Port 25) STARTTLS.
+        Schreibt eine strukturierte Info-Datei und versendet optional eine E-Mail-Zusammenfassung.
+        Neu: SMTP-Settings werden JETZT frisch geladen und getrimmt (gegen 'stale state').
         """
         from utils.config_manager import get_mail_transfer_info_path
+
+        # Strukturdatei vorbereiten
         info_path = get_mail_transfer_info_path()
-
-        # Basisinformationen für Statusausgabe
-        mail_meta = {
-            "attempted_at_utc": self._now_utc_iso(),
-            "enabled": bool(self.smtp_enabled),
-            "host": self.smtp_host,
-            "port": self.smtp_port,
-            "user_present": bool(self.smtp_user),
-            "notify_email_present": bool(self.notify_email),
-            "mode": "unknown",
-            "result": "SKIPPED",
-            "error": ""
+        payload = {
+            "time": datetime.now().isoformat(timespec="seconds"),
+            "count": len(results) if isinstance(results, list) else 0,
+            "items": results if isinstance(results, list) else [],
+            "mail": {"result": "SKIPPED_NO_SEND", "error": ""}
         }
-
-        # Statusdatei vorab schreiben (mit Roh-Results)
         try:
             with open(info_path, "w", encoding="utf-8") as f:
-                json.dump({"results": results, "mail": mail_meta}, f, indent=2)
+                json.dump(payload, f, indent=2)
             debug_print(f"Transfer summary written to {info_path}")
         except Exception as e:
             debug_print(f"Fehler beim Schreiben von {info_path}: {e}")
 
-        # Voraussetzungen prüfen
+        # --- SMTP-Settings jetzt frisch laden & trimmen (wichtig!) ---
+        smtp_conf = load_smtp_settings()
+        self.smtp_enabled = bool(smtp_conf.get("enabled", False))
+        self.smtp_host = (smtp_conf.get("host", "") or "").strip()
+        self.smtp_port = int(smtp_conf.get("port", 587))
+        self.smtp_user = (smtp_conf.get("user", "") or "").strip()
+        self.notify_email = (smtp_conf.get("notify_email", "") or "").strip()
+
+        debug_print(
+            f"[Mail] enabled={self.smtp_enabled}, host='{self.smtp_host}', "
+            f"port={self.smtp_port}, user='{self.smtp_user}', notify='{self.notify_email}'"
+        )
+
+        # Sende-Bedingungen prüfen
         if not self.smtp_enabled:
-            mail_meta["result"] = "SKIPPED_DISABLED"
-        elif not self.notify_email:
-            mail_meta["result"] = "SKIPPED_NO_NOTIFY_EMAIL"
-        else:
-            smtp_pass = None
-            if self.smtp_user:
-                smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
-                if smtp_pass is None:
-                    debug_print("SMTP-Passwort nicht im Keyring, kann keine Transfer Summary Mail senden.")
-                    mail_meta["result"] = "ERROR_NO_PASSWORD"
-                    mail_meta["error"] = "Keychain: PRisM-SMTP Passwort fehlt"
-            # Sendeversuch nur, wenn kein Fehler bis hier
-            if mail_meta["result"] in ("SKIPPED_DISABLED", "SKIPPED_NO_NOTIFY_EMAIL"):
+            payload["mail"] = {"result": "SKIPPED_DISABLED", "error": ""}
+            try:
+                with open(info_path, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, indent=2)
+            except Exception:
                 pass
-            else:
+            return
+
+        if not self.notify_email:
+            payload["mail"] = {"result": "SKIPPED_NO_NOTIFY", "error": "notify_email leer"}
+            try:
+                with open(info_path, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, indent=2)
+            except Exception:
+                pass
+            return
+
+        smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
+        if smtp_pass is None:
+            debug_print("SMTP-Passwort nicht im Keyring, kann keine Transfer Summary Mail senden.")
+            payload["mail"] = {"result": "SKIPPED_NO_PASSWORD", "error": "kein Passwort im Keyring"}
+            try:
+                with open(info_path, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, indent=2)
+            except Exception:
+                pass
+            return
+
+        # Inhalt bauen
+        summary = "Transfer Summary:\n\n"
+        if isinstance(results, list):
+            for r in results:
                 try:
-                    # Transportmodus bestimmen
-                    use_ssl = (int(self.smtp_port) == 465)
-                    mail_meta["mode"] = "SSL" if use_ssl else ("PLAIN" if int(self.smtp_port) == 25 else "STARTTLS")
+                    summary += f"{r.get('direction','?')} | {r.get('file','?')} -> {r.get('destination','')}\n"
+                    if r.get("status") == "FAILED":
+                        summary += f"   Fehler: {r.get('error', 'Unbekannter Fehler')}\n"
+                except Exception:
+                    pass
 
-                    subject = "Transfer Summary Report"
-                    summary = "Transfer Summary:\n\n"
-                    for r in results:
-                        summary += f"{r['direction']} | {r['file']} -> {r.get('destination', '')}\n"
-                        if r["status"] == "FAILED":
-                            summary += f"   Fehler: {r.get('error', 'Unbekannter Fehler')}\n"
-                    msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\nSubject: {subject}\r\n\r\n{summary}"
+        subject = "Transfer Summary Report"
+        msg = (
+            f"From: {self.smtp_user}\r\n"
+            f"To: {self.notify_email}\r\n"
+            f"Subject: {subject}\r\n\r\n{summary}"
+        )
 
-                    if use_ssl:
-                        with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=15) as server:
-                            if self.smtp_user:
-                                server.login(self.smtp_user, smtp_pass or "")
-                            server.sendmail(self.smtp_user or self.notify_email, [self.notify_email], msg)
-                    else:
-                        with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
-                            server.ehlo()
-                            if int(self.smtp_port) != 25:
-                                server.starttls()
-                                server.ehlo()
-                            if self.smtp_user:
-                                server.login(self.smtp_user, smtp_pass or "")
-                            server.sendmail(self.smtp_user or self.notify_email, [self.notify_email], msg)
+        # Versand
+        try:
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
+                server.starttls()
+                server.login(self.smtp_user, smtp_pass)
+                server.sendmail(self.smtp_user, [self.notify_email], msg)
+            debug_print("Transfer summary email sent successfully.")
+            payload["mail"] = {"result": "SENT", "error": ""}
+        except Exception as e:
+            debug_print(f"Fehler beim Senden der Transfer summary Mail: {e}")
+            payload["mail"] = {"result": "ERROR_SEND", "error": str(e)}
 
-                    mail_meta["result"] = "SENT"
-                except Exception as e:
-                    err = f"{type(e).__name__}: {e}"
-                    debug_print(f"Fehler beim Senden der Transfer summary Mail: {err}")
-                    mail_meta["result"] = "ERROR_SMTP"
-                    mail_meta["error"] = err
-
-        # Statusdatei mit finalem Mailstatus aktualisieren
+        # Ergebnis zurückschreiben (inkl. mail.result)
         try:
             with open(info_path, "w", encoding="utf-8") as f:
-                json.dump({"results": results, "mail": mail_meta}, f, indent=2)
-        except Exception as e:
-            debug_print(f"Fehler beim Aktualisieren von {info_path}: {e}")
+                json.dump(payload, f, indent=2)
+        except Exception:
+            pass
 
     def send_failure_notification(self, error_message):
+        # Optional: macOS-Notification
         if platform.system() == "Darwin" and pync is not None:
-            pync.notify(f"FTP-Transfer fehlgeschlagen: {error_message}", title="PRisM-RAC")
-        if self.smtp_enabled and self.notify_email:
-            smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
-            if smtp_pass is None:
-                debug_print("SMTP-Passwort nicht im Keyring, kann keine E-Mail senden.")
-                return
-            subject = "FTP-Transfer fehlgeschlagen"
-            body = f"Folgender Fehler ist aufgetreten:\n\n{error_message}"
-            msg = f"From: {self.smtp_user}\r\nTo: {self.notify_email}\r\nSubject: {subject}\r\n\r\n{body}"
             try:
-                with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
-                    server.starttls()
-                    server.login(self.smtp_user, smtp_pass)
-                    server.sendmail(self.smtp_user, [self.notify_email], msg)
-            except Exception as e:
-                debug_print(f"Fehler beim Senden der E-Mail: {e}")
+                pync.notify(f"FTP-Transfer fehlgeschlagen: {error_message}", title="PRisM-RAC")
+            except Exception:
+                pass
+
+        # --- SMTP-Settings frisch laden & trimmen, analog zum Summary-Mail-Versand ---
+        smtp_conf = load_smtp_settings()
+        self.smtp_enabled = bool(smtp_conf.get("enabled", False))
+        self.smtp_host = (smtp_conf.get("host", "") or "").strip()
+        self.smtp_port = int(smtp_conf.get("port", 587))
+        self.smtp_user = (smtp_conf.get("user", "") or "").strip()
+        self.notify_email = (smtp_conf.get("notify_email", "") or "").strip()
+
+        if not self.smtp_enabled or not self.notify_email:
+            return
+
+        smtp_pass = keyring.get_password("PRisM-SMTP", self.smtp_user)
+        if smtp_pass is None:
+            debug_print("SMTP-Passwort nicht im Keyring, kann keine E-Mail senden.")
+            return
+
+        subject = "FTP-Transfer fehlgeschlagen"
+        body = f"Folgender Fehler ist aufgetreten:\n\n{error_message}"
+        msg = (
+            f"From: {self.smtp_user}\r\n"
+            f"To: {self.notify_email}\r\n"
+            f"Subject: {subject}\r\n\r\n{body}"
+        )
+
+        try:
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
+                server.starttls()
+                server.login(self.smtp_user, smtp_pass)
+                server.sendmail(self.smtp_user, [self.notify_email], msg)
+        except Exception as e:
+            debug_print(f"Fehler beim Senden der E-Mail: {e}")
+
 
 if __name__ == "__main__":
     mgr = FTPManager()

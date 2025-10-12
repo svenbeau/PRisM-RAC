@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# transfer_executor.py
+#transfer_executor.py
 # -*- coding: utf-8 -*-
 
 import os
@@ -8,27 +8,12 @@ import tempfile
 import subprocess
 import shutil
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from PySide6.QtCore import QObject, QThread, Signal, QEventLoop
 from PySide6.QtWidgets import QApplication
 
 from utils.config_manager import debug_print, get_ftp_transfer_log_path
 from utils.ftp_manager import FTPManager
-
-# Optional: Local TZ für menschenlesbare Stempel
-try:
-    from zoneinfo import ZoneInfo
-    _LOCAL_TZ = ZoneInfo("Europe/Berlin")
-except Exception:
-    _LOCAL_TZ = None
-
-def _now_utc_iso():
-    return datetime.now(timezone.utc).isoformat()
-
-def _now_local_iso():
-    if _LOCAL_TZ is None:
-        return None
-    return datetime.now(_LOCAL_TZ).isoformat()
 
 # ------------------------------------------------------------
 # CopyWorker: Optimiert für macOS mit verschiedenen Strategien, ohne Kopierton
@@ -138,7 +123,7 @@ class CopyWorker(QObject):
                     else:
                         debug_print(f"Fehler beim Kopieren: {path}\n{result.stderr.strip()} (Versuch {retries + 1})")
                         retries += 1
-                        time.sleep(0.5)
+                        time.sleep(retry_delay)
             else:
                 try:
                     debug_print(f"Kopiere mit stillem AppleScript: {path} -> {dest_path}")
@@ -251,9 +236,6 @@ def execute_transfer_plan(plan_data):
     version_mode = plan_data.get("versioning_mode", "mirror")
     retry_count = plan_data.get("retry_count", 5)
 
-    # Neu: optionaler Trigger (z. B. "scheduler" oder "manual"), Standard "manual"
-    trigger = plan_data.get("trigger", "manual")
-
     results = []
 
     if not os.path.exists(source_path):
@@ -263,10 +245,7 @@ def execute_transfer_plan(plan_data):
             "file": source_path,
             "direction": "NONE",
             "status": "FAILED",
-            "error": msg,
-            "event_time_utc": _now_utc_iso(),
-            "event_time_local": _now_local_iso(),
-            "trigger": trigger
+            "error": msg
         })
         return results
 
@@ -299,17 +278,12 @@ def execute_transfer_plan(plan_data):
             ftp_mgr.connect()
         except Exception as e:
             debug_print(f"FTP-Verbindung fehlgeschlagen: {e}")
-            now_utc = _now_utc_iso()
-            now_local = _now_local_iso()
             for fpath in file_list:
                 results.append({
                     "file": fpath,
                     "direction": "UPLOAD",
                     "status": "FAILED",
-                    "error": "FTP Connect Error: " + str(e),
-                    "event_time_utc": now_utc,
-                    "event_time_local": now_local,
-                    "trigger": trigger
+                    "error": "FTP Connect Error: " + str(e)
                 })
             return results
 
@@ -321,14 +295,13 @@ def execute_transfer_plan(plan_data):
                 try:
                     rel_path = os.path.relpath(local_file, source_path)
                     remote_sub = target_path.rstrip("/") + "/" + os.path.dirname(rel_path).replace("\\", "/")
-                    ftp_mgr.upload_file(local_file, remote_sub)
+                    # NEU: remote_path vom Manager zurückgeben lassen und in results speichern
+                    remote_path = ftp_mgr.upload_file(local_file, remote_sub)
                     results.append({
                         "file": local_file,
                         "direction": "UPLOAD",
                         "status": "SUCCESS",
-                        "event_time_utc": _now_utc_iso(),
-                        "event_time_local": _now_local_iso(),
-                        "trigger": trigger
+                        "destination": remote_path
                     })
                     success = True
                 except Exception as e:
@@ -338,10 +311,7 @@ def execute_transfer_plan(plan_data):
                             "file": local_file,
                             "direction": "UPLOAD",
                             "status": "FAILED",
-                            "error": str(e),
-                            "event_time_utc": _now_utc_iso(),
-                            "event_time_local": _now_local_iso(),
-                            "trigger": trigger
+                            "error": str(e)
                         })
                     else:
                         time.sleep(1.0)
@@ -374,9 +344,7 @@ def execute_transfer_plan(plan_data):
                         "file": local_file,
                         "direction": "LOCAL_COPY",
                         "status": "SUCCESS",
-                        "event_time_utc": _now_utc_iso(),
-                        "event_time_local": _now_local_iso(),
-                        "trigger": trigger
+                        "destination": dest_file
                     })
                 else:
                     debug_print(f"CopyWorker hat {local_file} nicht erfolgreich kopiert (Versuch {attempts}/{retry_count}).")
@@ -385,10 +353,7 @@ def execute_transfer_plan(plan_data):
                             "file": local_file,
                             "direction": "LOCAL_COPY",
                             "status": "FAILED",
-                            "error": "CopyWorker failed",
-                            "event_time_utc": _now_utc_iso(),
-                            "event_time_local": _now_local_iso(),
-                            "trigger": trigger
+                            "error": "CopyWorker failed"
                         })
                     else:
                         time.sleep(1.0)
@@ -403,10 +368,10 @@ def execute_transfer_plan(plan_data):
                 if os.path.exists(local_file):
                     rel_path = os.path.relpath(local_file, source_path)
                     new_path = os.path.join(move_after, rel_path)
-                    os.makedirs(os.path.dirname(new_path), exist_ok=True
-                    )
+                    os.makedirs(os.path.dirname(new_path), exist_ok=True)
                     try:
                         shutil.move(local_file, new_path)
+                        debug_print(f"Moved source to: {new_path}")
                     except Exception as e:
                         debug_print(f"Fehler beim Verschieben {local_file} -> {new_path}: {e}")
     if fault_after:
@@ -416,9 +381,11 @@ def execute_transfer_plan(plan_data):
                 if os.path.exists(local_file):
                     rel_path = os.path.relpath(local_file, source_path)
                     fault_path = os.path.join(fault_after, rel_path)
-                    os.makedirs(os.path.dirname(fault_path), exist_ok=True)
+                    os.makedirs(os.path.dirname(fault_path), exist_ok=True
+                                )
                     try:
                         shutil.move(local_file, fault_path)
+                        debug_print(f"Moved to fault: {fault_path}")
                     except Exception as e:
                         debug_print(f"Fehler beim Verschieben in fault_after: {local_file} -> {fault_path}: {e}")
 
@@ -429,38 +396,17 @@ def execute_transfer_plan(plan_data):
     ftp_temp.send_transfer_summary_email(results)
 
     # ------------------------------------------------------------
-    # 5) Logging in ftptransfer_log.json (nicht destruktiv, aber präziser)
-    #    - wir behalten dein bestehendes Format bei
-    #    - verwenden jetzt pro Result dessen Ereigniszeit (falls vorhanden)
+    # 5) Logging in ftptransfer_log.json
     # ------------------------------------------------------------
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entries = []
     for r in results:
-        # Fallbacks: falls event_time_* wider Erwarten leer sind
-        evt_utc = r.get("event_time_utc") or _now_utc_iso()
-        evt_local = r.get("event_time_local") or _now_local_iso()
-
-        # Bewahre dein bisheriges "timestamp" Muster (nur lokale Legacy-Ansicht)
-        # Wir formatieren 'timestamp' aus event_time_local, sofern vorhanden
-        legacy_ts = None
-        if evt_local:
-            try:
-                # evt_local ist ISO, wir zeigen gleich ISO weiter
-                legacy_ts = evt_local.replace("T", " ")[:19]  # YYYY-MM-DD HH:MM:SS
-            except Exception:
-                legacy_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            legacy_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
         entry = {
-            "timestamp": legacy_ts,                     # beibehaltener Legacy-Feldname
-            "event_time_utc": evt_utc,                  # neu, maschinenlesbar
-            "event_time_local": evt_local,              # neu, menschenlesbar
+            "timestamp": now_str,
             "direction": r["direction"],
-            "source": r["file"],
-            "target": "FTP" if r["direction"] == "UPLOAD" else "LOCAL",
-            "status": r["status"],
-            "trigger": r.get("trigger", "manual")       # neu: Herkunft
+            "source": r["file"]
         }
+        entry["target"] = "FTP" if r["direction"] == "UPLOAD" else "LOCAL"
         if r["status"] == "FAILED":
             entry["error_message"] = r.get("error", "")
         log_entries.append(entry)
