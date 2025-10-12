@@ -36,23 +36,25 @@ class TransferQueueDialog(QtWidgets.QDialog):
     """
     Zeigt eine Liste aller zu übertragenden Dateien mit Fortschrittsanzeige.
     Der Transfer wird asynchron in einem Worker-Thread ausgeführt.
+    WICHTIG: Der Thread wird NICHT im __init__ gestartet, sondern erst nach dem Anzeigen
+    (showEvent) via QTimer.singleShot(0, self.start_transfer), um Event-Loop-Races zu vermeiden.
     """
     def __init__(self, plan_data, parent=None):
         super().__init__(parent)
-        self.plan_data = plan_data
+        self.plan_data = dict(plan_data or {})
         self.setWindowTitle("Transfer Queue")
         self.resize(900, 600)
 
-        self.worker_thread = None
-        self.worker = None
+        self.worker_thread: QtCore.QThread | None = None
+        self.worker: 'TransferQueueWorker' | None = None
         self.file_list = []
+        self._started = False       # Guard gegen Doppelstart
+        self._closing = False       # Wird beim closeEvent gesetzt
+
         self.init_ui()
 
-        # WICHTIG: nur starten, wenn es auch Jobs gibt
-        if self.file_list:
-            self.start_transfer()
-        else:
-            # Kein Thread starten → UI informieren
+        # Kein Auto-Start mehr im Konstruktor → Start erst nach dem Anzeigen
+        if not self.file_list:
             info = QtWidgets.QLabel("Keine Dateien in der Queue. Nichts zu tun.")
             info.setStyleSheet("color: #888;")
             self.layout().addWidget(info)
@@ -79,6 +81,12 @@ class TransferQueueDialog(QtWidgets.QDialog):
 
         self.file_list = self.collect_files()
         self.populate_table()
+
+    # --- Start bewusst nach dem Anzeigen verzögern (verhindert macOS-Races/Segfaults)
+    def showEvent(self, event: QtGui.QShowEvent) -> None:
+        super().showEvent(event)
+        if not self._started and self.file_list:
+            QtCore.QTimer.singleShot(0, self.start_transfer)
 
     # -------------------------- Sammlung der Quelldateien --------------------------
     def collect_files(self):
@@ -171,19 +179,13 @@ class TransferQueueDialog(QtWidgets.QDialog):
         return file_list
 
     def _build_target_hint(self, rel):
-        """
-        Nur zur Anzeige in der Tabelle; Zielverzeichnisse werden später beim Transfer
-        sauber gebaut (lokal: os.path, remote: posixpath).
-        """
         target = self.plan_data.get("target_path", "") or ""
         if self.plan_data.get("use_ftp", False):
-            # Remote-Hinweis (POSIX)
             base = "/" + target.lstrip("/")
             sub = rel.rsplit("/", 1)[0] if "/" in rel else ""
             hint = (base.rstrip("/") + ("/" + sub if sub else "")).replace("//", "/")
             return hint
         else:
-            # Lokal
             sub = os.path.dirname(rel)
             return os.path.join(target, sub)
 
@@ -200,7 +202,12 @@ class TransferQueueDialog(QtWidgets.QDialog):
             self.table.setCellWidget(row, 3, bar)
 
     # -------------------------- Ablauf --------------------------
+    @QtCore.Slot()
     def start_transfer(self):
+        if self._started or not self.file_list or self._closing:
+            return
+        self._started = True
+
         self.worker_thread = QtCore.QThread(self)  # parent setzen
         self.worker_thread.setObjectName("TransferQueueWorkerThread")
         self.worker = TransferQueueWorker(self.plan_data, self.file_list)
@@ -212,7 +219,12 @@ class TransferQueueDialog(QtWidgets.QDialog):
         self.worker_thread.started.connect(self.worker.run)
         self.worker_thread.finished.connect(self.worker_thread.deleteLater)
 
-        self.worker_thread.start()
+        try:
+            self.worker_thread.start()
+        except Exception as e:
+            debug_print(f"[TransferQueueDialog] QThread.start() schlug fehl: {e}")
+            QtWidgets.QMessageBox.critical(self, "Fehler", f"Transfer-Thread konnte nicht gestartet werden:\n{e}")
+            self._started = False  # erneuter Versuch später möglich
 
     def on_progress(self, key, status, percent):
         for row in range(self.table.rowCount()):
@@ -234,16 +246,20 @@ class TransferQueueDialog(QtWidgets.QDialog):
         # self.accept()
 
     def on_cancel(self):
-        if self.worker and self.worker_thread and self.worker_thread.isRunning():
-            self.worker.request_abort()
-            self.worker_thread.quit()
-            self.worker_thread.wait()
+        self._closing = True
+        try:
+            if self.worker and self.worker_thread and self.worker_thread.isRunning():
+                self.worker.request_abort()
+                self.worker_thread.quit()
+                self.worker_thread.wait()
+        finally:
             self.worker = None
             self.worker_thread = None
-        self.close()
+            self.close()
 
     # SICHERHEIT: falls Dialog geschlossen wird, Thread sauber beenden
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self._closing = True
         try:
             if self.worker and self.worker_thread and self.worker_thread.isRunning():
                 self.worker.request_abort()
@@ -265,7 +281,6 @@ class TransferQueueDialog(QtWidgets.QDialog):
         ftp.host = srv.get("host", "")
         ftp.user = srv.get("user", "")
         ftp.port = int(srv.get("port", 21 if proto == "ftp" else 22))
-        # optionale Flags aus Plan übernehmen
         ftp.keep_timestamp = self.plan_data.get("keep_timestamp", False)
         ftp.versioning_mode = self.plan_data.get("versioning_mode", "mirror")
         return True
@@ -371,6 +386,17 @@ class TransferQueueWorker(QtCore.QObject):
                             self._emit_progress(entry, "FAILED", 0)
                             self._add_result(entry, "FAILED", last_err)
         finally:
+            # WICHTIG: Erst Logs persistieren, DANN Auto-Delete (fix für Race)
+            try:
+                self._persist_logs()
+            except Exception as e:
+                debug_print(f"Persistentes Logging fehlgeschlagen: {e}")
+
+            try:
+                self._cleanup_local_move_after()
+            except Exception as e:
+                debug_print(f"Auto-Delete Fehler: {e}")
+
             # Ziel-FTP trennen
             if self.dst_ftp:
                 try:
@@ -378,23 +404,12 @@ class TransferQueueWorker(QtCore.QObject):
                 except Exception:
                     pass
 
-            # Cleanup / Logs / Mail (alles best effort)
-            try:
-                self._cleanup_local_move_after()
-            except Exception as e:
-                debug_print(f"Auto-Delete Fehler: {e}")
-
-            try:
-                self._persist_logs()
-            except Exception as e:
-                debug_print(f"Persistentes Logging fehlgeschlagen: {e}")
-
+            # Report & last_run
             try:
                 self._send_report_mail()
             except Exception as e:
                 debug_print(f"Report-Mail fehlgeschlagen: {e}")
 
-            # last_run-Update
             try:
                 self._update_last_run()
             except Exception as e:
@@ -478,6 +493,9 @@ class TransferQueueWorker(QtCore.QObject):
             pass
         try:
             server_name = self.plan_data.get("ftp_server", "")
+            if not server_name:
+                debug_print("Reconnect: FTP-Server '' nicht gesetzt.")
+                return False
             if not self._apply_server_by_name(self.dst_ftp, server_name):
                 debug_print(f"Reconnect: FTP-Server '{server_name}' nicht gefunden.")
                 return False
@@ -673,6 +691,12 @@ class TransferQueueWorker(QtCore.QObject):
             base, ext = os.path.splitext(target_file)
             target_file = f"{base}_{datetime.now().strftime('%Y%m%d-%H%M%S')}{ext}"
         shutil.move(local_file, target_file)
+        # NEU: mtime anpassen → verhindert sofortiges Löschen bei Fallback
+        try:
+            now_ts = time.time()
+            os.utime(target_file, (now_ts, now_ts))
+        except Exception:
+            pass
         debug_print(f"Moved source to: {target_file}")
         self._register_move_after(target_file)
 
@@ -715,6 +739,9 @@ class TransferQueueWorker(QtCore.QObject):
             return
 
         cutoff_ts = time.time() - (hours * 3600)
+        # NEU: Mindestalter (Sicherheits-Puffer), 5 Minuten
+        MIN_AGE_SECONDS = 5 * 60
+        now_ts = time.time()
 
         log_json = get_ftp_transfer_log_path()
         path_to_processed_ts = {}
@@ -755,6 +782,9 @@ class TransferQueueWorker(QtCore.QObject):
                     ts = path_to_processed_ts.get(os.path.abspath(fpath))
                     if ts is None:
                         ts = os.path.getmtime(fpath)
+                    # NEU: Sicherheits-Puffer gegen „Frisch bewegt“
+                    if (now_ts - ts) < MIN_AGE_SECONDS:
+                        continue
                     if ts < cutoff_ts:
                         os.remove(fpath)
                         deleted += 1

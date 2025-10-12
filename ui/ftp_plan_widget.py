@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#ftp_plan_widget.py
 # -*- coding: utf-8 -*-
 # ui/ftp_plan_widget.py  (aka TransferPlanWidget)
 

@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+# ftp_plan_widget.py
 # -*- coding: utf-8 -*-
+# ui/ftp_plan_widget.py  (aka TransferPlanWidget)
 
 import os
 import sys
+from typing import List, Dict
+
 from PySide6 import QtWidgets, QtCore, QtGui
 from utils.config_manager import debug_print
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
@@ -19,13 +23,23 @@ def resource_path(relative_path):
 
 
 class TransferPlanWidget(QtWidgets.QFrame):
+    # ---- Signale für die globale Status/Queue unten in der Liste ----
+    sig_log = QtCore.Signal(str)
+    sig_transfer_init = QtCore.Signal(list)               # List[{"key","direction","file","destination"}]
+    sig_transfer_progress = QtCore.Signal(str, str, int)  # key, status, percent
+    sig_transfer_finished = QtCore.Signal()
+
     def __init__(self, plan_data: dict, parent=None):
         super().__init__(parent)
-        self.plan_data = plan_data
-        self.body_visible = plan_data.get("body_visible", False)
+        self.plan_data = dict(plan_data or {})
+        self.body_visible = self.plan_data.get("body_visible", False)
 
         self.icon_expand = QtGui.QIcon(resource_path("assets/dropdown_list.png"))
         self.icon_collapse = QtGui.QIcon(resource_path("assets/close_list.png"))
+
+        # Debounce-Flag: verhindert parallele Runs / Mehrfachklicks
+        self._run_in_progress = False
+
         self.setup_ui()
 
     # ---------------------------------------------------------------
@@ -137,6 +151,18 @@ class TransferPlanWidget(QtWidgets.QFrame):
         """)
         return lbl
 
+    def _entry_key(self, entry: Dict) -> str:
+        """Gleiche Key-Logik wie Worker: lokal = src_path, sonst server:remote."""
+        if entry.get("mode") == "local_src":
+            return str(entry.get("src_path", ""))
+        return f"{entry.get('src_server','')}:{entry.get('src_remote','')}"
+
+    def _direction_for(self, entry: Dict, plan: Dict) -> str:
+        if entry.get("mode") == "local_src":
+            return "UPLOAD" if plan.get("use_ftp") else "COPY"
+        else:
+            return "RELAY" if plan.get("use_ftp") else "DOWNLOAD"
+
     # ---------------------------------------------------------------
     # Events
     # ---------------------------------------------------------------
@@ -161,10 +187,7 @@ class TransferPlanWidget(QtWidgets.QFrame):
                 return
 
         exec_method = getattr(dlg, "exec_", None)
-        if callable(exec_method):
-            result = dlg.exec_()
-        else:
-            result = dlg.exec()
+        result = exec_method() if callable(exec_method) else dlg.exec()
 
         if result == QtWidgets.QDialog.Accepted:
             debug_print("TransferPlan geändert, update and reload.")
@@ -180,24 +203,92 @@ class TransferPlanWidget(QtWidgets.QFrame):
             debug_print("TransferPlan-Dialog abgebrochen.")
 
     # ---------------------------------------------------------------
-    # Neuer Codeblock: Plan frisch laden vor manuellem Start
+    # Debounce + modal ausgeführter Transfer mit Signal-Weiterleitung
     # ---------------------------------------------------------------
     def on_run_now(self):
-        """Startet den Transfer mit der aktuellen gespeicherten Planversion."""
-        plan_id = self.plan_data.get("id")
-        debug_print(f"TransferPlanWidget: on_run_now() => Starte Transfer für Plan-ID {plan_id}")
+        """
+        Startet den Transfer mit der aktuellen gespeicherten Planversion.
+        - Debounce: verhindert Doppel-Run
+        - Button disable/enable
+        - TransferQueueDialog modal via exec() (verhindert UI-Races)
+        - sig_transfer_init: vor dem Start mit geplanter file_list
+        - sig_transfer_progress/finished: vom Worker weitergeleitet
+        """
+        if self._run_in_progress:
+            debug_print("on_run_now(): bereits aktiv – ignoriert.")
+            return
 
-        cm = TransferPlanConfigManager()
-        fresh_plan = cm.get_plan(plan_id) if hasattr(cm, "get_plan") else None
-        if not fresh_plan:
-            debug_print("[TransferPlanWidget] Kein aktueller Plan gefunden – verwende lokalen Snapshot.")
-            fresh_plan = self.plan_data
+        self._run_in_progress = True
+        self.run_btn.setEnabled(False)
 
-        # Dialog anzeigen und Transfer starten
-        from ui.transfer_queue_dialog import TransferQueueDialog
-        dlg = TransferQueueDialog(fresh_plan, parent=self)
-        dlg.show()
-        dlg.start_transfer()
+        try:
+            plan_id = self.plan_data.get("id")
+            debug_print(f"TransferPlanWidget: on_run_now() => Starte Transfer für Plan-ID {plan_id}")
+
+            # Frische Planversion holen (falls vorhanden)
+            cm = TransferPlanConfigManager()
+            fresh_plan = cm.get_plan(plan_id) if hasattr(cm, "get_plan") else None
+            if not fresh_plan:
+                debug_print("[TransferPlanWidget] Kein aktueller Plan gefunden – verwende lokalen Snapshot.")
+                fresh_plan = dict(self.plan_data)
+
+            # Dialog erzeugen (TransferQueueDialog lädt file_list in __init__/init_ui)
+            from ui.transfer_queue_dialog import TransferQueueDialog
+            dlg = TransferQueueDialog(fresh_plan, parent=self)
+
+            # --- globale Queue initialisieren ---
+            init_items: List[Dict] = []
+            try:
+                for entry in (getattr(dlg, "file_list", None) or []):
+                    key = self._entry_key(entry)
+                    direction = self._direction_for(entry, fresh_plan)
+                    file_disp = entry["src_path"] if entry.get("mode") == "local_src" else f"{entry.get('src_server','')}:{entry.get('src_remote','')}"
+                    dest = entry.get("dest_hint", "")
+                    init_items.append({
+                        "key": key,
+                        "direction": direction,
+                        "file": file_disp,
+                        "destination": dest
+                    })
+            except Exception as e:
+                debug_print(f"[TransferPlanWidget] Init-Liste konnte nicht erstellt werden: {e}")
+
+            if init_items:
+                self.sig_transfer_init.emit(init_items)
+
+            # --- Worker-Signale an globale Queue weiterreichen ---
+            # Der aktuelle TransferQueueDialog startet den Worker i. d. R. automatisch im __init__.
+            # Falls nicht, versuchen wir start_transfer() aufzurufen (Rückwärtskompatibilität).
+            worker = getattr(dlg, "worker", None)
+            if worker is None and hasattr(dlg, "start_transfer"):
+                try:
+                    dlg.start_transfer()
+                    worker = getattr(dlg, "worker", None)
+                except Exception as e:
+                    debug_print(f"[TransferPlanWidget] start_transfer() fehlgeschlagen: {e}")
+
+            if worker is not None:
+                try:
+                    worker.progress.connect(self.sig_transfer_progress.emit)
+                    worker.finished.connect(self.sig_transfer_finished.emit)
+                except Exception as e:
+                    debug_print(f"[TransferPlanWidget] Worker-Signale konnten nicht verbunden werden: {e}")
+            else:
+                debug_print("[TransferPlanWidget] Kein Worker verfügbar – Progress/Finished können nicht weitergeleitet werden.")
+
+            # --- Modal ausführen (blockiert Plan-Edits/Reloads während Transfer) ---
+            exec_method = getattr(dlg, "exec_", None)
+            if callable(exec_method):
+                exec_method()
+            else:
+                dlg.exec()
+
+        except Exception as e:
+            debug_print(f"on_run_now() Fehler: {e}")
+            QtWidgets.QMessageBox.critical(self, "Fehler", f"Transfer konnte nicht gestartet werden:\n{e}")
+        finally:
+            self._run_in_progress = False
+            self.run_btn.setEnabled(True)
 
     # ---------------------------------------------------------------
     # Label Update

@@ -22,6 +22,15 @@ from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from utils.plan_scheduler import PlanScheduler, SchedulerConfig
 from utils.plan_cleaner import PlanCleaner, CleanerConfig
 
+# --- NEU: einmaliger Start-Guard (mit Fallback ohne Verhaltensänderung)
+try:
+    from utils.scheduler_guard import start_once
+except Exception:
+    def start_once(_key: str, start_callable):
+        # Fallback: verhalte dich wie zuvor (immer starten)
+        start_callable()
+        return True
+
 # Dialog (Feed/Direkt)
 try:
     from ui.list_feeder_dialog import ListFeederDialog
@@ -426,7 +435,13 @@ def run():
     scheduler.sig_plan_finished.connect(
         lambda pid, ok, msg: debug_print(f"[Scheduler] Ende ({'OK' if ok else 'FAIL'}): {pid} – {msg}")
     )
-    scheduler.start()
+
+    # --- NEU: einmaliger Start, verhindert Doppelstarts
+    if start_once("main_scheduler", lambda: scheduler.start()):
+        debug_print("[Scheduler] gestartet.")
+    else:
+        debug_print("[Scheduler] läuft bereits – Start übersprungen.")
+
     main_window.scheduler = scheduler
 
     cleaner = PlanCleaner(
@@ -443,7 +458,13 @@ def run():
     cleaner.sig_log.connect(lambda msg: debug_print(msg))
     cleaner.sig_error.connect(lambda msg: debug_print(msg))
     cleaner.sig_deleted.connect(lambda path: debug_print(f"[Cleaner] Gelöscht: {path}"))
-    cleaner.start()
+
+    # Optional ebenfalls guard’en (falls run() jemals mehrfach aufgerufen würde)
+    if start_once("plan_cleaner", lambda: cleaner.start()):
+        debug_print("[Cleaner] gestartet.")
+    else:
+        debug_print("[Cleaner] läuft bereits – Start übersprungen.")
+
     main_window.cleaner = cleaner
 
     def _graceful_shutdown():
