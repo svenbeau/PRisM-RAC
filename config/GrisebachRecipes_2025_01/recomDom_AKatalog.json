@@ -3,16 +3,6 @@
     "target": "AKatalog",
     "outputs": [
         {
-            "name": "Master",
-            "photoshopAction": "12 Master DOM (MA)",
-            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/01_Master/",
-            "suffix": "MA",
-            "filetype": "jpg",
-            "backside": true,
-            "backsideAction": null,
-            "backsideSuffix": "MF"
-        },
-        {
             "name": "Web_Komplett",
             "photoshopAction": "23 DOM Color 2 Web Komplett (WK)",
             "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/02_Web/",
@@ -36,6 +26,22 @@
             "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/03_Druck/",
             "suffix": "P3s",
             "filetype": "tif",
+            "backside": false
+        },
+        {
+            "name": "Druck-AiO",
+            "photoshopAction": "48 DOM Color 2 PSOv3 (P3xs)",
+            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/07_AiO/",
+            "suffix": "P3xs",
+            "filetype": "tif",
+            "backside": false
+        },
+        {
+            "name": "OPI",
+            "photoshopAction": "80 Color 2 OPI",
+            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/06_OPI_Lay/",
+            "suffix": "P3s",
+            "filetype": "png",
             "backside": false
         }
     ]

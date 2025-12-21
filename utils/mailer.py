@@ -1,154 +1,214 @@
+#!/usr/bin/env python3
 # utils/mailer.py
 # -*- coding: utf-8 -*-
+
+"""
+Vereinheitlichter Mailer für PRisM-RAC.
+
+Enthält:
+- Funktions-API: send_transfer_summary_email(...)
+- Kompatibilitäts-Klasse: Mailer (für Alt-Code, z.B. contentcheck_email_notifier)
+  - Mailer.send(to, subject, body, results=None, plan=None) -> bool
+  - Mailer.send_simple(to, subject, body) -> bool
+  - Mailer.send_summary(to, subject, body, results=None, plan=None) -> bool
+"""
+
 import smtplib
 import ssl
 from email.message import EmailMessage
-from typing import Iterable, Optional, Union
+from typing import Any, Dict, List, Optional
+
 import keyring
 
-from utils.config_manager import load_smtp_settings, debug_print
+from utils.config_manager import load_settings, debug_print
 
+
+# --------- interne Helfer ---------
+
+def _smtp_from_settings(settings: Dict[str, Any]):
+    """
+    Erwartete Struktur:
+      settings["smtp"] = {
+        "enabled": True|False,
+        "mode": "SSL" | "STARTTLS" | "PLAIN",
+        "host": "smtp.example.com",
+        "port": 465/587/25,
+        "user": "mailer@example.com",
+      }
+      settings["notify_email"] = "empfaenger@example.com"  # optional
+    """
+    smtp = (settings or {}).get("smtp", {}) or {}
+    mode = str(smtp.get("mode") or "SSL").upper()
+    host = str(smtp.get("host") or "").strip()
+    port = int(smtp.get("port") or (465 if mode == "SSL" else 587 if mode == "STARTTLS" else 25))
+    user = str(smtp.get("user") or "").strip()
+    enabled = bool(smtp.get("enabled")) if "enabled" in smtp else True
+    return enabled, mode, host, port, user
+
+
+def _get_password(user: str) -> str:
+    # Passwort wie beim Testmail-Dialog: Keyring "PRisM-SMTP"
+    if not user:
+        return ""
+    return keyring.get_password("PRisM-SMTP", user) or ""
+
+
+def _build_message(
+    sender: str,
+    recipient: str,
+    subject: str,
+    body: str,
+    results: Optional[List[Dict[str, Any]]] = None,
+    plan: Optional[Dict[str, Any]] = None,
+) -> EmailMessage:
+    msg = EmailMessage()
+    msg["From"] = sender or recipient
+    msg["To"] = recipient
+    msg["Subject"] = subject
+
+    # Einfache Text-Zusammenfassung
+    lines = [body.rstrip(), ""]
+    if plan:
+        lines.append(f"Plan-ID: {plan.get('id', '')}")
+        lines.append(f"Quelle:  {plan.get('source_path', '')}")
+        lines.append(f"Ziel:    {plan.get('target_path', '')}")
+        lines.append("")
+    if results:
+        ok = sum(1 for r in results if str(r.get("status", "")).upper() == "SUCCESS")
+        fail = sum(1 for r in results if str(r.get("status", "")).upper() == "FAILED")
+        lines.append(f"Ergebnisse: success={ok}, failed={fail}, total={len(results)}")
+        lines.append("")
+        lines.append("Richtung | Datei | Status | Fehler")
+        lines.append("-----------------------------------")
+        for r in results[:50]:  # begrenzen
+            lines.append(
+                f"{r.get('direction','')} | "
+                f"{r.get('file','')} | "
+                f"{r.get('status','')} | "
+                f"{(r.get('error') or '')}"
+            )
+        if len(results) > 50:
+            lines.append(f"... und {len(results)-50} weitere Zeilen.")
+    msg.set_content("\n".join(lines))
+    return msg
+
+
+def _send_via_smtp(mode: str, host: str, port: int, user: str, password: str, msg: EmailMessage) -> bool:
+    mode = (mode or "SSL").upper()
+    debug_print(f"[Mailer] Sende via {mode} {host}:{port} als {user or '(ohne Benutzer)'}")
+
+    if mode == "SSL":
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(host, port, context=context, timeout=20) as smtp:
+            if user:
+                smtp.login(user, password)
+            smtp.send_message(msg)
+            return True
+
+    if mode == "STARTTLS":
+        context = ssl.create_default_context()
+        with smtplib.SMTP(host, port, timeout=20) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=context)
+            smtp.ehlo()
+            if user:
+                smtp.login(user, password)
+            smtp.send_message(msg)
+            return True
+
+    if mode == "PLAIN":
+        with smtplib.SMTP(host, port, timeout=20) as smtp:
+            if user:
+                smtp.login(user, password)
+            smtp.send_message(msg)
+            return True
+
+    debug_print(f"[Mailer] Unbekannter Modus: {mode}")
+    return False
+
+
+# --------- öffentliche Funktions-API ---------
+
+def send_transfer_summary_email(
+    notify_email: str,
+    subject: str,
+    body: str,
+    results: Optional[List[Dict[str, Any]]] = None,
+    plan: Optional[Dict[str, Any]] = None,
+    settings: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """
+    Versendet eine Zusammenfassung; gibt True bei Erfolg zurück.
+    """
+    if not notify_email:
+        debug_print("[Mailer] Keine Notify-Adresse gesetzt.")
+        return False
+
+    if settings is None:
+        try:
+            settings = load_settings() or {}
+        except Exception:
+            settings = {}
+
+    enabled, mode, host, port, user = _smtp_from_settings(settings)
+    if not enabled:
+        debug_print("[Mailer] SMTP ist deaktiviert.")
+        return False
+    if not host:
+        debug_print("[Mailer] Kein SMTP-Host konfiguriert.")
+        return False
+
+    password = _get_password(user)
+    if user and not password and mode != "PLAIN":
+        debug_print("[Mailer] Warnung: Kein Passwort im Keyring gefunden.")
+
+    sender = user or notify_email
+    msg = _build_message(sender, notify_email, subject, body, results, plan)
+    return _send_via_smtp(mode, host, port, user, password, msg)
+
+
+# --------- Kompatibilitäts-Klasse für Alt-Code ---------
 
 class Mailer:
     """
-    Zentrale SMTP-Sendeinstanz.
-    Liest Settings bei jedem Sendevorgang frisch (damit UI-Änderungen sofort wirken).
-    Passwort liegt im Keyring (Service-Name: 'PRisM-SMTP').
-    Unterstützt:
-      - STARTTLS (Standard)
-      - SSL/SMTPS (Port 465), via Settings-Feld 'use_ssl' (Bool)
+    Kompatibilitätsschicht für bestehenden Code:
+       from utils.mailer import Mailer
+       mailer = Mailer(settings=...)  # settings optional
+       mailer.send(to, subject, body, results=None, plan=None)
     """
-    SERVICE_NAME = "PRisM-SMTP"
 
-    def __init__(self):
-        pass
-
-    # ---------------- Keychain Helpers ----------------
-    @staticmethod
-    def get_settings() -> dict:
-        """
-        Lädt SMTP-Settings und reichert sie — falls vorhanden — mit dem Keychain-Passwort an.
-        Erwartete Felder in smtp_settings.json:
-          - enabled: bool
-          - host: str
-          - port: int
-          - user: str
-          - notify_email: str
-          - use_ssl: bool (NEU) -> True => SMTP_SSL; False => SMTP(+optional STARTTLS)
-        """
-        settings = load_smtp_settings() or {}
-        user = settings.get("user", "").strip()
-        # Passwort NICHT in der Datei speichern; wenn vorhanden, aus Keyring holen
-        if user and not settings.get("password"):
+    def __init__(self, settings: Optional[Dict[str, Any]] = None):
+        if settings is None:
             try:
-                pw = keyring.get_password(Mailer.SERVICE_NAME, user) or ""
-                if pw:
-                    settings["password"] = pw
+                settings = load_settings() or {}
             except Exception:
-                pass
-        return settings
+                settings = {}
+        self.settings = settings
 
-    @staticmethod
-    def set_password(user: str, password: str):
-        """PW im Keyring ablegen (wird nicht in JSON gespeichert)."""
-        if user and password is not None:
-            keyring.set_password(Mailer.SERVICE_NAME, user.strip(), password)
+    def send(self,
+             to: str,
+             subject: str,
+             body: str,
+             results: Optional[List[Dict[str, Any]]] = None,
+             plan: Optional[Dict[str, Any]] = None) -> bool:
+        """Generischer Sender (Summary fähig)."""
+        return send_transfer_summary_email(
+            notify_email=to,
+            subject=subject,
+            body=body,
+            results=results,
+            plan=plan,
+            settings=self.settings,
+        )
 
-    @staticmethod
-    def delete_password(user: str):
-        """PW aus dem Keyring entfernen (falls vorhanden)."""
-        if not user:
-            return
-        try:
-            keyring.delete_password(Mailer.SERVICE_NAME, user.strip())
-        except keyring.errors.PasswordDeleteError:
-            # Kein Eintrag vorhanden – ist okay
-            pass
-        except Exception as e:
-            debug_print(f"[Mailer] Passwort löschen fehlgeschlagen: {e}")
+    # einige Alt-Aufrufer nutzen evtl. diese Alias-Namen:
+    def send_simple(self, to: str, subject: str, body: str) -> bool:
+        return self.send(to=to, subject=subject, body=body, results=None, plan=None)
 
-    # ---------------- Versand ----------------
-    def send_mail(
-        self,
-        subject: str,
-        body: str,
-        to: Union[str, Iterable[str], None] = None,
-        attachments: Optional[Iterable[str]] = None,
-        from_override: Optional[str] = None,
-    ) -> None:
-        """
-        Sendet eine E-Mail gemäß derzeitiger Settings.
-        - to: String (ein Empfänger) oder Iterable von Adressen; None → nimmt notify_email
-        - attachments: Pfade zu Dateien (optional)
-        - from_override: falls du einen expliziten From-Header setzen willst
-        Wirft Exceptions bei Verbindungs-/Sendeproblemen.
-        """
-        cfg = self.get_settings()
-        if not cfg.get("enabled", False):
-            debug_print("[Mailer] SMTP deaktiviert – E-Mail nicht gesendet.")
-            return
-
-        host = (cfg.get("host") or "").strip()
-        port = int(cfg.get("port", 587) or 587)
-        user = (cfg.get("user") or "").strip()
-        password = cfg.get("password", "")
-        default_to = (cfg.get("notify_email") or "").strip()
-        use_ssl = bool(cfg.get("use_ssl", False) or port == 465)  # Port 465 ⇒ SSL erzwingen
-
-        if not host or not user:
-            raise RuntimeError("SMTP nicht korrekt konfiguriert (host/user fehlen).")
-
-        # Empfänger auflösen
-        if to is None or (isinstance(to, str) and not to.strip()):
-            if not default_to:
-                raise RuntimeError("Kein Empfänger angegeben und kein notify_email konfiguriert.")
-            to_list = [default_to]
-        elif isinstance(to, str):
-            to_list = [to]
-        else:
-            to_list = list(to)
-
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = from_override or user
-        msg["To"] = ", ".join(to_list)
-        msg.set_content(body)
-
-        # Attachments (robust als octet-stream)
-        if attachments:
-            for path in attachments:
-                try:
-                    with open(path, "rb") as f:
-                        data = f.read()
-                    msg.add_attachment(
-                        data,
-                        maintype="application",
-                        subtype="octet-stream",
-                        filename=path.split("/")[-1],
-                    )
-                except Exception as e:
-                    debug_print(f"[Mailer] Attachment konnte nicht gelesen werden: {path} ({e})")
-
-        # Versand
-        context = ssl.create_default_context()
-        if use_ssl:
-            # SMTPS (Port 465)
-            with smtplib.SMTP_SSL(host, port, context=context, timeout=20) as server:
-                if user:
-                    server.login(user, password or "")
-                server.send_message(msg)
-                debug_print(f"[Mailer] (SSL) E-Mail gesendet an {to_list}")
-        else:
-            # SMTP, optional STARTTLS
-            with smtplib.SMTP(host, port, timeout=20) as server:
-                server.ehlo()
-                try:
-                    server.starttls(context=context)
-                    server.ehlo()
-                except Exception:
-                    # falls z. B. Port 25 ohne STARTTLS – weiter ohne TLS
-                    pass
-                if user:
-                    server.login(user, password or "")
-                server.send_message(msg)
-                debug_print(f"[Mailer] E-Mail gesendet an {to_list}")
+    def send_summary(self,
+                     to: str,
+                     subject: str,
+                     body: str,
+                     results: Optional[List[Dict[str, Any]]] = None,
+                     plan: Optional[Dict[str, Any]] = None) -> bool:
+        return self.send(to=to, subject=subject, body=body, results=results, plan=plan)

@@ -4,7 +4,9 @@
 import sys
 import os
 import socket
-from typing import Optional, Tuple  # <-- Neu: für Python < 3.10
+import json
+from typing import Optional, Tuple, List, Dict
+from datetime import datetime, timedelta
 from PySide6 import QtWidgets, QtGui, QtCore
 
 from utils.splash_screen import SplashScreen
@@ -18,29 +20,32 @@ from ui.ftp_transfer_widget import FtpTransferWidget
 from ui.script_recipe_list_widget import ScriptRecipeListWidget
 from ui.transfer_plan_list_widget import TransferPlanListWidget
 
+from ui.mail_status_widget import MailStatusWidget
+
 from utils.transfer_plan_config_manager import TransferPlanConfigManager
 from utils.plan_scheduler import PlanScheduler, SchedulerConfig
 from utils.plan_cleaner import PlanCleaner, CleanerConfig
 
-# >>> NEU: Mail-Status-Widget importieren
-from ui.mail_status_widget import MailStatusWidget
+# MailReporter für Versand & Statusfile
+try:
+    from utils.mail_reporter import MailReporter
+except Exception:
+    MailReporter = None
 
-# --- NEU: einmaliger Start-Guard (mit Fallback ohne Verhaltensänderung)
+# einmaliger Start-Guard (mit Fallback ohne Verhaltensänderung)
 try:
     from utils.scheduler_guard import start_once
 except Exception:
     def start_once(_key: str, start_callable):
-        # Fallback: verhalte dich wie zuvor (immer starten)
         start_callable()
         return True
 
-# Dialog (Feed/Direkt)
+# Dialoge optional
 try:
     from ui.list_feeder_dialog import ListFeederDialog
 except Exception:
     ListFeederDialog = None
 
-# Self-Test-Dialog
 try:
     from ui.self_test_dialog import SelfTestDialog
 except Exception:
@@ -51,11 +56,9 @@ DEBUG_OUTPUT = True
 
 class _RetentionWorker(QtCore.QObject):
     finished = QtCore.Signal(str)
-
     def __init__(self, cleaner: PlanCleaner):
         super().__init__()
         self.cleaner = cleaner
-
     @QtCore.Slot()
     def run(self):
         status = "Fertig."
@@ -87,6 +90,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._retention_thread: Optional[QtCore.QThread] = None
         self._retention_worker: Optional[_RetentionWorker] = None
         self._retention_dialog: Optional[QtWidgets.QProgressDialog] = None
+
+        # Mail-Hook: Startzeiten der Plan-Runs merken
+        self._plan_run_started_at: Dict[str, datetime] = {}
 
         self.init_ui()
         self._build_menu()
@@ -145,10 +151,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.json_editor_btn = QtWidgets.QPushButton("JSON-Editor")
         self.ftp_transfer_btn = QtWidgets.QPushButton("FTP-Transfer")
         self.plan_btn = QtWidgets.QPushButton("Transfer-Pläne")
+        self.mail_status_btn = QtWidgets.QPushButton("Mail-Status")
         self.logfile_btn = QtWidgets.QPushButton("Logfile")
         self.settings_btn = QtWidgets.QPushButton("Einstellungen")
-        # >>> NEU: Mail-Status Button
-        self.mail_status_btn = QtWidgets.QPushButton("Mail-Status")
 
         self.feed_list_btn = QtWidgets.QPushButton("Liste einspeisen…")
         self.feed_list_btn.clicked.connect(self._open_list_feeder_dialog)
@@ -158,7 +163,6 @@ class MainWindow(QtWidgets.QMainWindow):
         left_vlayout.addWidget(self.json_editor_btn)
         left_vlayout.addWidget(self.ftp_transfer_btn)
         left_vlayout.addWidget(self.plan_btn)
-        # >>> NEU: Mail-Status in der linken Leiste (vor Logfile)
         left_vlayout.addWidget(self.mail_status_btn)
         left_vlayout.addWidget(self.logfile_btn)
         left_vlayout.addWidget(self.settings_btn)
@@ -178,7 +182,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.transfer_plan_list_widget = TransferPlanListWidget(self.settings, parent=self.stack)
         self.logfile_widget = LogfileWidget(self.settings, parent=self.stack)
         self.settings_widget = SettingsWidget(self.settings, parent=self.stack)
-        # >>> NEU: Mail-Status-Widget
         self.mail_status_widget = MailStatusWidget(parent=self.stack)
 
         self.stack.addWidget(self.hotfolder_list_widget)       # 0
@@ -188,7 +191,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stack.addWidget(self.transfer_plan_list_widget)   # 4
         self.stack.addWidget(self.logfile_widget)              # 5
         self.stack.addWidget(self.settings_widget)             # 6
-        self.stack.addWidget(self.mail_status_widget)          # 7  <<< NEU (am Ende angehängt)
+        self.stack.addWidget(self.mail_status_widget)          # 7
         self.stack.setCurrentIndex(0)
 
         self.hotfolder_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
@@ -198,7 +201,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plan_btn.clicked.connect(lambda: self.stack.setCurrentIndex(4))
         self.logfile_btn.clicked.connect(lambda: self.stack.setCurrentIndex(5))
         self.settings_btn.clicked.connect(lambda: self.stack.setCurrentIndex(6))
-        # >>> NEU: Routing für Mail-Status
         self.mail_status_btn.clicked.connect(lambda: self.stack.setCurrentIndex(7))
 
     def _build_menu(self):
@@ -244,8 +246,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _open_list_feeder_dialog(self):
         if ListFeederDialog is None:
             QtWidgets.QMessageBox.warning(
-                self,
-                "Modul fehlt",
+                self, "Modul fehlt",
                 "Der Dialog 'ListFeederDialog' ist nicht verfügbar.\n\n"
                 "Bitte stelle sicher, dass die Datei\n"
                 "ui/list_feeder_dialog.py\n"
@@ -263,23 +264,16 @@ class MainWindow(QtWidgets.QMainWindow):
             except Exception:
                 pass
 
-        def _direct_proc(file_path: str,
-                         target_subdir: Optional[str],
-                         rename_to: Optional[str]) -> Tuple[bool, str]:
+        def _direct_proc(file_path: str, target_subdir: Optional[str], rename_to: Optional[str]) -> Tuple[bool, str]:
             if hasattr(self.hotfolder_list_widget, "process_single_direct"):
                 try:
                     ok, msg = self.hotfolder_list_widget.process_single_direct(
-                        file_path=file_path,
-                        target_subdir=target_subdir,
-                        rename_to=rename_to
+                        file_path=file_path, target_subdir=target_subdir, rename_to=rename_to
                     )
                     return bool(ok), str(msg)
                 except Exception as e:
                     return False, f"Exception in process_single_direct: {e}"
-            return False, (
-                "Direct-Modus nicht verfügbar: "
-                "HotfolderListWidget.process_single_direct(...) ist nicht implementiert."
-            )
+            return False, "Direct-Modus nicht verfügbar."
 
         try:
             dlg.direct_process_callback = _direct_proc
@@ -291,15 +285,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def _open_self_test_dialog(self):
         if SelfTestDialog is None:
             QtWidgets.QMessageBox.warning(
-                self,
-                "Modul fehlt",
+                self, "Modul fehlt",
                 "Der Dialog 'SelfTestDialog' ist nicht verfügbar.\n\n"
                 "Bitte stelle sicher, dass die Datei\n"
                 "ui/self_test_dialog.py\n"
                 "im Projekt vorhanden ist."
             )
             return
-        # >>> NEU: aktuelle App-Settings direkt übergeben
         dlg = SelfTestDialog(self, settings_override=self.settings)
         dlg.exec()
 
@@ -394,11 +386,75 @@ class MainWindow(QtWidgets.QMainWindow):
         save_settings(self.settings)
         super().closeEvent(event)
 
+    # --------- MAIL-HOOKS ----------
+    def _collect_transfers_since(self, t0: datetime) -> List[Dict]:
+        log_path = os.path.join(
+            os.path.expanduser("~"),
+            "Library", "Application Support", "PRisM-CC",
+            "ftptransfer_log.json"
+        )
+        items: List[Dict] = []
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for ev in (data if isinstance(data, list) else []):
+                ts_str = ev.get("ts") or ev.get("timestamp") or ""
+                ts = None
+                if ts_str:
+                    try:
+                        ts = datetime.fromisoformat(ts_str.replace("Z", ""))
+                    except Exception:
+                        ts = None
+                if ts is None:
+                    # Fallback: ohne Zeitstempel nimm "jetzt-15min"
+                    ts = datetime.now() - timedelta(minutes=15)
+                if ts >= t0:
+                    items.append(ev)
+        except Exception as e:
+            debug_print(f"[MailHook] Konnte ftptransfer_log.json nicht lesen: {e}")
+        return items
+
+    def _on_plan_started(self, plan_id: str, plan_name: str):
+        self._plan_run_started_at[plan_id] = datetime.now()
+        debug_print(f"[MailHook] Startzeit gemerkt für Plan {plan_name} ({plan_id})")
+
+    def _on_plan_finished(self, plan_id: str, ok: bool, message: str):
+        t0 = self._plan_run_started_at.get(plan_id) or (datetime.now() - timedelta(minutes=15))
+        transferred = self._collect_transfers_since(t0)
+
+        # Planname ermitteln
+        plan_name = plan_id
+        try:
+            cm = TransferPlanConfigManager()
+            for p in cm.load_plans() or []:
+                if p.get("id") == plan_id:
+                    plan_name = p.get("name") or plan_id
+                    break
+        except Exception:
+            pass
+
+        if MailReporter is None:
+            debug_print("[MailHook] MailReporter nicht verfügbar – überspringe Versand.")
+            return
+
+        try:
+            reporter = MailReporter(settings_override=self.settings)
+            payload = reporter.send_transfer_summary_email(
+                plan_name=plan_name,
+                transferred=transferred,
+                started_at=t0,
+                ok=bool(ok),
+                extra_info=message or ""
+            )
+            debug_print(f"[MailHook] MailResult={payload.get('mail', {}).get('result')}")
+        except Exception as e:
+            debug_print(f"[MailHook] Fehler beim Mailversand: {e}")
 
 def run():
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("PRisM-CC")
 
+    from utils.splash_screen import SplashScreen
     splash = SplashScreen(app)
     splash.show()
     for i in range(0, 101, 20):
@@ -443,12 +499,15 @@ def run():
         ),
     )
     scheduler.sig_log.connect(lambda msg: debug_print(msg))
+    # Scheduler-Logs
     scheduler.sig_plan_started.connect(lambda pid, name: debug_print(f"[Scheduler] Start: {name} ({pid})"))
     scheduler.sig_plan_finished.connect(
         lambda pid, ok, msg: debug_print(f"[Scheduler] Ende ({'OK' if ok else 'FAIL'}): {pid} – {msg}")
     )
+    # Mail-Hooks verbinden
+    scheduler.sig_plan_started.connect(main_window._on_plan_started)
+    scheduler.sig_plan_finished.connect(main_window._on_plan_finished)
 
-    # --- NEU: einmaliger Start, verhindert Doppelstarts
     if start_once("main_scheduler", lambda: scheduler.start()):
         debug_print("[Scheduler] gestartet.")
     else:
@@ -471,7 +530,6 @@ def run():
     cleaner.sig_error.connect(lambda msg: debug_print(msg))
     cleaner.sig_deleted.connect(lambda path: debug_print(f"[Cleaner] Gelöscht: {path}"))
 
-    # Optional ebenfalls guard’en (falls run() jemals mehrfach aufgerufen würde)
     if start_once("plan_cleaner", lambda: cleaner.start()):
         debug_print("[Cleaner] gestartet.")
     else:

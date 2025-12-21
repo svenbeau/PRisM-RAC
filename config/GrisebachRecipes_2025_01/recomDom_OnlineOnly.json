@@ -1,7 +1,7 @@
 {
-    "source": "RecomART-Dom",
-    "target": "OnlineOnly",
-    "outputs": [
+    "source":"RecomART-Dom",
+    "target":"OnlineOnly",
+    "outputs":[ 
         {
             "name": "Web_Komplett",
             "photoshopAction": "23 DOM Color 2 Web Komplett (WK)",
@@ -20,5 +20,5 @@
             "filetype": "png",
             "backside": false
         }
-    ]
-}
+        ]
+    }

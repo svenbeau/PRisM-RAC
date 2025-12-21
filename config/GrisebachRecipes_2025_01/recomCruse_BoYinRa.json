@@ -5,7 +5,7 @@
         {
             "name": "Master",
             "photoshopAction": "01_Master",
-            "outputFolder": "/Volumes/2T_2/BoYinRa/2025_03_05_BoYinRa_DGW/01_Master/",
+            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/10_BoYinRa/01_Master/",
             "suffix": "S",
             "filetype": "tif",
             "backside": true,
@@ -15,7 +15,7 @@
         {
             "name": "Restauro",
             "photoshopAction": "02_Restauro",
-            "outputFolder": "/Volumes/2T_2/BoYinRa/2025_03_05_BoYinRa_DGW/02_Restauro/",
+            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/10_BoYinRa/02_Restauro/",
             "suffix": "R",
             "filetype": "jpg",
             "backside": true,
@@ -25,7 +25,7 @@
         {
             "name": "Web_Komplett",
             "photoshopAction": "04a_Web_3000_JPG_Komplett",
-            "outputFolder": "/Volumes/2T_2/BoYinRa/2025_03_05_BoYinRa_DGW/04_Web/",
+            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/10_BoYinRa/04_Web/",
             "suffix": "Wk",
             "filetype": "jpg",
             "backside": true,
@@ -35,7 +35,7 @@
         {
             "name": "Web_Ausschnitt",
             "photoshopAction": "04a_Web_3000_JPG_Ausschnitt",
-            "outputFolder": "/Volumes/2T_2/BoYinRa/2025_03_05_BoYinRa_DGW/04_Web/",
+            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/10_BoYinRa/04_Web/",
             "suffix": "Wz",
             "filetype": "jpg",
             "backside": false
@@ -43,7 +43,7 @@
         {
             "name": "Druck-Standard",
             "photoshopAction": "03_A4_CMYK von Org",
-            "outputFolder": "/Volumes/2T_2/BoYinRa/2025_03_05_BoYinRa_DGW/03_A4_Print/",
+            "outputFolder": "/Volumes/File_01/__Hotfolder/_Render/05_Process/10_BoYinRa/03_A4_Print",
             "suffix": "A4",
             "filetype": "tif",
             "backside": false

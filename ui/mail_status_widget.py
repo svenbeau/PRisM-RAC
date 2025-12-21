@@ -14,39 +14,30 @@ from PySide6.QtWidgets import (
     QAbstractItemView
 )
 
-from utils.config_manager import get_mail_transfer_info_path, debug_print
+# --- robuster Import mit Fallback auf Standardpfad ---
+try:
+    from utils.config_manager import get_mail_transfer_info_path, debug_print
+    _HAS_GET_PATH = True
+except Exception:
+    _HAS_GET_PATH = False
+    def debug_print(*_args, **_kwargs):  # weiches Fallback
+        pass
+# -----------------------------------------------------
 
 
 class MailStatusWidget(QWidget):
-    """
-    Zeigt den aktuellen Mail-Sendezustand an, gelesen aus:
-      ~/Library/Application Support/PRisM-CC/mail_transfer_info.json
-
-    Unterstützte Datei-Formate:
-      1) Neues Schema (geplant):
-         {
-           "mail": {
-             "enabled": bool,
-             "host": str, "port": int, "user_present": bool,
-             "notify_email_present": bool,
-             "mode": "SSL"|"STARTTLS"|"PLAIN"|"...",
-             "attempted_at_utc": "YYYY-MM-DD HH:MM:SS",
-             "result": "SENT"|"SKIPPED_*"|"ERROR_*"|"...",
-             "error": str|None
-           },
-           "results": [ {...}, {...} ]
-         }
-
-      2) Legacy (aktuell in send_transfer_summary_email / transfer_executor):
-         [ {...}, {...} ]   # reine Liste der Transfer-Resultate
-    """
-
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setObjectName("MailStatusWidget")
         self.setWindowTitle("Mail-Status (Scheduler)")
 
-        self.info_path = get_mail_transfer_info_path()
+        # Pfad ermitteln (Fallback, falls get_mail_transfer_info_path nicht vorhanden)
+        if _HAS_GET_PATH:
+            self.info_path = get_mail_transfer_info_path()
+        else:
+            base = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "PRisM-CC")
+            self.info_path = os.path.join(base, "mail_transfer_info.json")
+
         self.info_dir = os.path.dirname(self.info_path)
 
         # --- UI ---
@@ -114,7 +105,6 @@ class MailStatusWidget(QWidget):
         self.table.setAlternatingRowColors(True)
 
         summary_layout.addWidget(self.table, 0, 2, 3, 1)
-
         root.addWidget(summary_group, 1)
 
         # Footer
@@ -159,13 +149,13 @@ class MailStatusWidget(QWidget):
     def _set_result_color(self, result: str):
         ru = (result or "").upper()
         if ru == "SENT":
-            color = "#2e7d32"   # grün
+            color = "#2e7d32"
         elif ru.startswith("SKIPPED"):
-            color = "#e65100"   # orange
+            color = "#e65100"
         elif ru.startswith("ERROR"):
-            color = "#b71c1c"   # rot
+            color = "#b71c1c"
         else:
-            color = "#666666"   # grau
+            color = "#666666"
         self.lbl_result_val.setStyleSheet(f"font-weight: 600; color: {color};")
 
     # ---------- FS-Ereignisse ----------
@@ -189,7 +179,6 @@ class MailStatusWidget(QWidget):
             self._set_empty()
             return
 
-        # Metadaten
         self.v_enabled.setText(self._yesno(mail_meta.get("enabled")))
         self.v_host.setText(str(mail_meta.get("host") or ""))
         self.v_port.setText(str(mail_meta.get("port") or ""))
@@ -205,7 +194,6 @@ class MailStatusWidget(QWidget):
         err = str(mail_meta.get("error") or "")
         self.v_error.setText(err if err else "-")
 
-        # Zusammenfassung
         total = len(results)
         failed = sum(1 for r in results if (r.get("status") or "").upper() == "FAILED")
         success = sum(1 for r in results if (r.get("status") or "").upper() == "SUCCESS")
@@ -214,7 +202,6 @@ class MailStatusWidget(QWidget):
         self.v_count_success.setText(str(success))
         self.v_count_failed.setText(str(failed))
 
-        # Tabelle (max. 200 Zeilen für Übersicht)
         self.table.setRowCount(0)
         for r in results[:200]:
             row = self.table.rowCount()
@@ -229,7 +216,6 @@ class MailStatusWidget(QWidget):
             elif st.upper() == "SUCCESS":
                 it_status.setForeground(Qt.darkGreen)
             self.table.setItem(row, 2, it_status)
-
             self.table.setItem(row, 3, QTableWidgetItem(str(r.get("error", ""))))
 
     def open_file(self):
@@ -244,11 +230,6 @@ class MailStatusWidget(QWidget):
     # ---------- Datenzugriff ----------
 
     def _read_and_normalize(self) -> Tuple[bool, Dict[str, Any], List[Dict[str, Any]]]:
-        """
-        Liefert (ok, mail_meta, results) in vereinheitlichter Form.
-        - Bei Legacy-Listenformat wird mail_meta synthetisch aus SMTP-Settings abgeleitet (soweit sinnvoll)
-          und result auf 'SKIPPED_NO_SMTP_INFO' gesetzt, sofern keine genaueren Infos verfügbar sind.
-        """
         if not os.path.isfile(self.info_path):
             return False, {}, []
 
@@ -259,49 +240,39 @@ class MailStatusWidget(QWidget):
             debug_print(f"MailStatusWidget: JSON-Fehler: {e}")
             return False, {}, []
 
-        # Fall A: neues Schema (dict mit 'mail' & 'results')
         if isinstance(raw, dict):
             mail = raw.get("mail") or {}
-            results = raw.get("results") or []
+            results = raw.get("results") or raw.get("files") or []
             if not isinstance(results, list):
                 results = []
             if not isinstance(mail, dict):
                 mail = {}
             return True, mail, results
 
-        # Fall B: Legacy (Liste von Ergebnissen)
         if isinstance(raw, list):
             results = raw
-            # Meta grob synthetisieren – wir wissen nur, dass eine Mail evtl. versucht wurde oder nicht.
-            # Da transfer_executor aktuell keine Mail-Meta schreibt, markieren wir neutral:
             mail = {
-                "enabled": None,               # unbekannt
+                "enabled": None,
                 "host": "",
                 "port": "",
                 "user_present": None,
                 "notify_email_present": None,
                 "mode": "unknown",
                 "attempted_at_utc": "",
-                "result": "SKIPPED_NO_META",   # klarer Hinweis für Legacy-Format
+                "result": "SKIPPED_NO_META",
                 "error": ""
             }
             return True, mail, results
 
-        # Unbekanntes Format
         return False, {}, []
 
     def _set_empty(self):
-        self.v_enabled.setText("-")
-        self.v_host.setText("-")
-        self.v_port.setText("-")
-        self.v_user_present.setText("-")
-        self.v_notify_present.setText("-")
-        self.v_mode.setText("-")
-        self.v_attempted.setText("-")
+        for v in [self.v_enabled, self.v_host, self.v_port,
+                  self.v_user_present, self.v_notify_present,
+                  self.v_mode, self.v_attempted, self.v_error]:
+            v.setText("-")
         self.lbl_result_val.setText("-")
         self._set_result_color("-")
-        self.v_error.setText("-")
-
         self.v_count_total.setText("0")
         self.v_count_success.setText("0")
         self.v_count_failed.setText("0")
